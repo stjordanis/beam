@@ -126,7 +126,7 @@ void Reactor::run() {
         LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
-kill(0, SIGPIPE);
+
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
 }
