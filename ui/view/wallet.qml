@@ -315,7 +315,7 @@ Item {
                     height: 38
                     width: 162
                     palette.buttonText: Style.white
-                    icon.source: "qrc:///assets/icon-copy.svg"
+                    icon.source: "qrc:/assets/icon-copy.svg"
                     icon.width: 16
                     icon.height: 16
                     onClicked: {
@@ -610,7 +610,7 @@ Item {
                                                 SvgImage {
                                                     Layout.topMargin: 4
                                                     sourceSize: Qt.size(16, 24)
-                                                    source: "qrc:///assets/b-grey.svg"
+                                                    source: "qrc:/assets/b-grey.svg"
                                                 }
                                             }
                                         }
@@ -658,7 +658,7 @@ Item {
                                                 SvgImage {
                                                     Layout.topMargin: 4
                                                     sourceSize: Qt.size(16, 24)
-                                                    source: "qrc:///assets/b-grey.svg"
+                                                    source: "qrc:/assets/b-grey.svg"
                                                 }
                                             }
                                         }
@@ -686,7 +686,7 @@ Item {
                     width: 122
                     text: qsTr("cancel")
                     palette.buttonText: Style.white
-                    icon.source: "qrc:///assets/icon-cancel.svg"
+                    icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: root.state = "wallet"
                 }
 
@@ -695,7 +695,7 @@ Item {
                     text: qsTr("send")
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
-                    icon.source: "qrc:///assets/icon-send.svg"
+                    icon.source: "qrc:/assets/icon-send.svg"
                     enabled: {viewModel.isEnoughMoney && amount_input.acceptableInput && receiverAddrInput.acceptableInput }
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
@@ -737,7 +737,7 @@ Item {
                 palette.buttonText: Style.marine
                 height: 38
                 width: 122
-                icon.source: "qrc:///assets/icon-receive-blue.svg"
+                icon.source: "qrc:/assets/icon-receive-blue.svg"
                 icon.height: 16
                 icon.width: 16
                 text: qsTr("receive")
@@ -751,7 +751,7 @@ Item {
             CustomButton {
                 palette.button: Style.heliotrope
                 palette.buttonText: Style.marine
-                icon.source: "qrc:///assets/icon-send-blue.svg"
+                icon.source: "qrc:/assets/icon-send-blue.svg"
                 icon.height: 16
                 icon.width: 16
                 height: 38
@@ -895,11 +895,27 @@ Item {
             selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
 
+            sortIndicatorVisible: true
+            sortIndicatorColumn: 1
+            sortIndicatorOrder: Qt.DescendingOrder
+
+            Binding{
+                target: viewModel
+                property: "sortRole"
+                value: transactionsView.getColumn(transactionsView.sortIndicatorColumn).role
+            }
+
+            Binding{
+                target: viewModel
+                property: "sortOrder"
+                value: transactionsView.sortIndicatorOrder
+            }
+
             property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width
 
             TableViewColumn {
                 id: incomeColumn
-                role: "income"
+                role: viewModel.incomeRole
                 width: 40
                 elideMode: Text.ElideRight
                 movable: false
@@ -915,14 +931,14 @@ Item {
                         SvgImage {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.horizontalCenter: parent.horizontalCenter
-                            source: styleData.value ? "qrc:///assets/icon-received.svg" : "qrc:///assets/icon-sent.svg"
+                            source: styleData.value ? "qrc:/assets/icon-received.svg" : "qrc:/assets/icon-sent.svg"
                         }
                     }
                 }
             }
 
             TableViewColumn {
-                role: "date"
+                role: viewModel.dateRole
                 title: qsTr("Date | Time")
                 width: 160 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
@@ -931,7 +947,7 @@ Item {
             }
 
             TableViewColumn {
-                role: "displayName"
+                role: viewModel.displayNameRole
                 title: qsTr("Recipient / Sender ID")
                 width: 400 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle
@@ -975,7 +991,7 @@ Item {
                         SvgImage {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.horizontalCenter: parent.horizontalCenter
-                            source: "qrc:///assets/icon-comment.svg"
+                            source: "qrc:/assets/icon-comment.svg"
                             visible: styleData.value !== null && styleData.value !== ""
                             ToolTip {
                                 id: comment_tooltip
@@ -1007,7 +1023,7 @@ Item {
             }
 
             TableViewColumn {
-                role: "amount"
+                role: viewModel.amountRole
                 title: qsTr("Amount")
                 width: 200 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
@@ -1034,7 +1050,7 @@ Item {
             }
 
             TableViewColumn {
-                role: "status"
+                role: viewModel.statusRole
                 title: qsTr("Status")
                 width: 110 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
@@ -1093,7 +1109,7 @@ Item {
                             spacing: 10
                         /*    CustomToolButton {
                                 visible: styleData.row >= 0 && viewModel.transactions[styleData.row].canCancel
-                                icon.source: "qrc:///assets/icon-cancel.svg"
+                                icon.source: "qrc:/assets/icon-cancel.svg"
                                 ToolTip.text: qsTr("Cancel transaction")
                                 onClicked: {
                                     viewModel.cancelTx(styleData.row);
@@ -1101,7 +1117,7 @@ Item {
                             }
                             */
                             CustomToolButton {
-                                icon.source: "qrc:///assets/icon-actions.svg"
+                                icon.source: "qrc:/assets/icon-actions.svg"
                                 ToolTip.text: qsTr("Actions")
                                 onClicked: {
                                     txContextMenu.index = styleData.row;
@@ -1114,22 +1130,6 @@ Item {
                 }
             }
 
-            headerDelegate: Rectangle {
-                height: 46
-
-                color: Style.dark_slate_blue
-
-                SFText {
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: parent.left
-                    anchors.leftMargin: 20
-                    font.pixelSize: 14
-                    color: Style.bluey_grey
-
-                    text: styleData.value
-                }
-            }
-
             ContextMenu {
                 id: txContextMenu
                 modal: true
@@ -1138,7 +1138,7 @@ Item {
                 property int index;
                 Action {
                     text: qsTr("copy address")
-                    icon.source: "qrc:///assets/icon-copy.svg"
+                    icon.source: "qrc:/assets/icon-copy.svg"
                     onTriggered: {
                         if (!!txContextMenu.transaction)
                         {
@@ -1152,11 +1152,11 @@ Item {
                        viewModel.cancelTx(txContextMenu.index);
                     }
                     enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
-                    icon.source: "qrc:///assets/icon-cancel.svg"
+                    icon.source: "qrc:/assets/icon-cancel.svg"
                 }
                 Action {
                     text: qsTr("delete")
-                    icon.source: "qrc:///assets/icon-delete.svg"
+                    icon.source: "qrc:/assets/icon-delete.svg"
                     enabled: !!txContextMenu.transaction && txContextMenu.transaction.canDelete
                     onTriggered: {
                         deleteTransactionDialog.text = qsTr("The transaction will be deleted. This operation can not be undone");
@@ -1380,6 +1380,27 @@ Item {
                 }
             }
 
+/*            Transition {
+                id: addAnim
+                PropertyAction { target: rowItem; property: "height"; value: 0 }
+                NumberAnimation { target: rowItem; property: "height"; to: 80; duration: 250; easing.type: Easing.InOutQuad }
+            }
+
+            Transition {
+                id: removeAnim
+                PropertyAction { target: rowItem; property: "ListView.delayRemove"; value: true }
+                NumberAnimation { target: rowItem; property: "height"; to: 0; duration: 250; easing.type: Easing.InOutQuad }
+
+                // Make sure delayRemove is set back to false so that the item can be destroyed
+                PropertyAction { target: rowItem; property: "ListView.delayRemove"; value: false }
+            }
+
+            Component.onCompleted: {
+               // this.__listView.populate = addAnim
+                this.__listView.add = addAnim
+                this.__listView.remove = removeAnim
+            }
+            */
             itemDelegate: Item {
                 Item {
                     width: parent.width
