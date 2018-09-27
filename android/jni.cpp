@@ -673,9 +673,18 @@ int main(int argc, char* argv[]) {
 #define LOGI(...) \
   ((void)__android_log_print(ANDROID_LOG_INFO, "beamwallet::", __VA_ARGS__))
 
-extern "C" JNIEXPORT jstring JNICALL Java_com_senlainc_beamwallet_core_Api_stringFromJNI(JNIEnv *env, jobject thiz) 
-{
-    LOGI("calling C function with JNI");
+#define CONCAT1(prefix, class, function)    CONCAT2(prefix, class, function)
+#define CONCAT2(prefix, class, function)    JNICALL Java_ ## prefix ## _ ## class ## _ ## function
 
-    return env->NewStringUTF("Beam says Hello from JNI library!");
+#define BEAM_JAVA_PREFIX                    com_senlainc_beamwallet_core
+#define BEAM_JAVA_INTERFACE(function)       CONCAT1(BEAM_JAVA_PREFIX, Api, function)
+
+extern "C"
+{
+    JNIEXPORT jstring BEAM_JAVA_INTERFACE(createWallet)(JNIEnv *env, jobject thiz) 
+    {
+        LOGI("creating Beam wallet");
+
+        return env->NewStringUTF("creating Beam wallet!");
+    }    
 }
