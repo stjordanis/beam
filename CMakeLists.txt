@@ -179,8 +179,9 @@ add_subdirectory(wallet)
 add_subdirectory(sqlite)
 add_subdirectory(beam)
 
-# TODO: uncomment this later
-if(NOT ANDROID)
+if(ANDROID)
+	add_subdirectory(android)
+else()
 	add_subdirectory(ui)
 endif()
 

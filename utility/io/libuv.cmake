@@ -43,7 +43,8 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 else()
     set(UV_FLAGS -Wall -Wextra -Wno-unused-parameter -pedantic)
 
-    if(NOT ANDROID)
+    if(ANDROID AND ANDROID_ABI STREQUAL "armeabi-v7a")
+    else()
         list(APPEND UV_FLAGS -march=native)
     endif()
 
@@ -100,7 +101,8 @@ else()
 
     if(ANDROID)
         set(UV_SOURCES ${UV_SOURCES}
-            ${UV_SRC_DIR}/unix/pthread-fixes.c)
+            ${UV_SRC_DIR}/unix/pthread-fixes.c
+            ${UV_SRC_DIR}/unix/android-ifaddrs.c)
     endif()
 
 endif()
