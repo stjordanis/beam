@@ -667,3 +667,15 @@ int main(int argc, char* argv[]) {
 #endif
 }
 
+#include <jni.h>
+#include <android/log.h>
+
+#define LOGI(...) \
+  ((void)__android_log_print(ANDROID_LOG_INFO, "beamwallet::", __VA_ARGS__))
+
+extern "C" JNIEXPORT jstring JNICALL Java_com_senlainc_beamwallet_core_Api_stringFromJNI(JNIEnv *env, jobject thiz) 
+{
+    LOGI("calling C function with JNI");
+
+    return env->NewStringUTF("Beam says Hello from JNI library!");
+}
