@@ -12,660 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/wallet_network.h"
-#include "core/common.h"
-
-#include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
-#include "wallet/wallet_network.h"
-#include "wallet/keystore.h"
-#include "wallet/secstring.h"
-#include "core/ecc_native.h"
-#include "core/serialization_adapters.h"
-
-#define LOG_VERBOSE_ENABLED 0
-
-#include "utility/logger.h"
-#include "utility/options.h"
-#include "utility/helpers.h"
-#include <iomanip>
-
-#include <boost/program_options.hpp>
-#include <boost/filesystem.hpp>
-#include <iterator>
-#include <future>
-#include "version.h"
-
-using namespace std;
-using namespace beam;
-using namespace ECC;
-
-namespace beam
-{
-    std::ostream& operator<<(std::ostream& os, Coin::Status s)
-    {
-        stringstream ss;
-        ss << "[";
-        switch (s)
-        {
-        case Coin::Locked: ss << "Locked"; break;
-        case Coin::Spent: ss << "Spent"; break;
-        case Coin::Unconfirmed: ss << "Unconfirmed"; break;
-        case Coin::Unspent: ss << "Unspent"; break;
-        case Coin::Draft: ss << "Draft"; break;
-        default:
-            assert(false && "Unknown coin status");
-        }
-        ss << "]";
-        string str = ss.str();
-        os << str;
-        size_t c = 13 - str.length();
-        for (size_t i = 0; i < c; ++i) os << ' ';
-        return os;
-    }
-
-    std::ostream& operator<<(std::ostream& os, KeyType keyType)
-    {
-        os << "[";
-        switch (keyType)
-        {
-        case KeyType::Coinbase: os << "Coinbase"; break;
-        case KeyType::Comission: os << "Commission"; break;
-        case KeyType::Kernel: os << "Kernel"; break;
-        case KeyType::Regular: os << "Regular"; break;
-        default:
-            assert(false && "Unknown key type");
-        }
-        os << "]";
-        return os;
-    }
-
-    const char* getTxStatus(const TxDescription& tx)
-    {
-        static const char* Pending = "Pending";
-        static const char* Sending = "Sending";
-        static const char* Receiving = "Receiving";
-        static const char* Cancelled = "Cancelled";
-        static const char* Sent = "Sent";
-        static const char* Received = "Received";
-        static const char* Failed = "Failed";
-
-        switch (tx.m_status)
-        {
-        case TxDescription::Pending: return Pending;
-        case TxDescription::InProgress: return tx.m_sender ? Sending : Receiving;
-        case TxDescription::Cancelled: return Cancelled;
-        case TxDescription::Completed: return tx.m_sender ? Sent : Received;
-        case TxDescription::Failed: return Failed;
-        default:
-            assert(false && "Unknown key type");
-        }
-
-        return "";
-    }
-}
-namespace
-{
-    void printHelp(const po::options_description& options)
-    {
-        cout << options << std::endl;
-    }
-
-    bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
-    {
-        if (sPath.empty())
-            return false;
-
-        std::FStream f;
-        if (!f.Open(sPath.c_str(), true))
-            return false;
-
-        yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-        arc & vBlocks;
-
-        return true;
-    }
-}
-
-struct TreasuryBlockGenerator
-{
-    std::string m_sPath;
-    IKeyChain* m_pKeyChain;
-
-    std::vector<Block::Body> m_vBlocks;
-    ECC::Scalar::Native m_Offset;
-
-    std::vector<Coin> m_Coins;
-    std::vector<std::pair<Height, ECC::Scalar::Native> > m_vIncubationAndKeys;
-
-    std::mutex m_Mutex;
-    std::vector<std::thread> m_vThreads;
-
-    Block::Body& get_WriteBlock();
-    void FinishLastBlock();
-    int Generate(uint32_t nCount, Height dh, Amount);
-private:
-    void Proceed(uint32_t i);
-};
-
-int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
-{
-    if (m_sPath.empty())
-    {
-        LOG_ERROR() << "Treasury block path not specified";
-        return -1;
-    }
-
-    boost::filesystem::path path{ m_sPath };
-    boost::filesystem::path dir = path.parent_path();
-    if (!dir.empty() && !boost::filesystem::exists(dir) && !boost::filesystem::create_directory(dir))
-    {
-        LOG_ERROR() << "Failed to create directory: " << dir.c_str();
-        return -1;
-    }
-
-    if (ReadTreasury(m_vBlocks, m_sPath))
-        LOG_INFO() << "Treasury already contains " << m_vBlocks.size() << " blocks, appending.";
-
-    if (!m_vBlocks.empty())
-    {
-        m_Offset = m_vBlocks.back().m_Offset;
-        m_Offset = -m_Offset;
-    }
-
-    LOG_INFO() << "Generating coins...";
-
-    m_Coins.resize(nCount);
-    m_vIncubationAndKeys.resize(nCount);
-
-    Height h = 0;
-
-    for (uint32_t i = 0; i < nCount; i++, h += dh)
-    {
-        Coin& coin = m_Coins[i];
-        coin.m_key_type = KeyType::Regular;
-        coin.m_amount = v;
-        coin.m_status = Coin::Unconfirmed;
-        coin.m_createHeight = h + Rules::HeightGenesis;
-
-
-        m_vIncubationAndKeys[i].first = h;
-    }
-
-    m_pKeyChain->store(m_Coins); // we get coin id only after store
-
-    for (uint32_t i = 0; i < nCount; ++i)
-        m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(m_Coins[i]);
-
-    m_vThreads.resize(std::thread::hardware_concurrency());
-    assert(!m_vThreads.empty());
-
-    for (uint32_t i = 0; i < m_vThreads.size(); i++)
-        m_vThreads[i] = std::thread(&TreasuryBlockGenerator::Proceed, this, i);
-
-    for (uint32_t i = 0; i < m_vThreads.size(); i++)
-        m_vThreads[i].join();
-
-    // at least 1 kernel
-    {
-        Coin dummy; // not a coin actually
-        dummy.m_key_type = KeyType::Kernel;
-        dummy.m_status = Coin::Unconfirmed;
-
-        ECC::Scalar::Native k = m_pKeyChain->calcKey(dummy);
-
-        TxKernel::Ptr pKrn(new TxKernel);
-        pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
-
-        Merkle::Hash hv;
-        pKrn->get_Hash(hv);
-        pKrn->m_Signature.Sign(hv, k);
-
-        get_WriteBlock().m_vKernelsOutput.push_back(std::move(pKrn));
-        m_Offset += k;
-    }
-
-    FinishLastBlock();
-
-    for (auto i = 0u; i < m_vBlocks.size(); i++)
-    {
-        m_vBlocks[i].Sort();
-        m_vBlocks[i].DeleteIntermediateOutputs();
-    }
-
-    std::FStream f;
-    f.Open(m_sPath.c_str(), false, true);
-
-    yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-    arc & m_vBlocks;
-    f.Flush();
-
-/*
-    for (auto i = 0; i < m_vBlocks.size(); i++)
-        m_vBlocks[i].IsValid(i + 1, true);
-*/
-
-    LOG_INFO() << "Done";
-
-    return 0;
-}
-
-void TreasuryBlockGenerator::FinishLastBlock()
-{
-    m_Offset = -m_Offset;
-    m_vBlocks.back().m_Offset = m_Offset;
-}
-
-Block::Body& TreasuryBlockGenerator::get_WriteBlock()
-{
-    if (m_vBlocks.empty() || m_vBlocks.back().m_vOutputs.size() >= 1000)
-    {
-        if (!m_vBlocks.empty())
-            FinishLastBlock();
-
-        m_vBlocks.resize(m_vBlocks.size() + 1);
-        m_vBlocks.back().ZeroInit();
-        m_Offset = ECC::Zero;
-    }
-    return m_vBlocks.back();
-}
-
-void TreasuryBlockGenerator::Proceed(uint32_t i0)
-{
-    std::vector<Output::Ptr> vOut;
-
-    for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
-    {
-        const Coin& coin = m_Coins[i];
-
-        Output::Ptr pOutp(new Output);
-        pOutp->m_Incubation = m_vIncubationAndKeys[i].first;
-
-        const ECC::Scalar::Native& k = m_vIncubationAndKeys[i].second;
-        pOutp->Create(k, coin.m_amount);
-
-        vOut.push_back(std::move(pOutp));
-        //offset += k;
-        //subBlock.m_Subsidy += coin.m_amount;
-    }
-
-    std::unique_lock<std::mutex> scope(m_Mutex);
-
-    uint32_t iOutp = 0;
-    for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
-    {
-        Block::Body& block = get_WriteBlock();
-
-        block.m_vOutputs.push_back(std::move(vOut[iOutp]));
-        block.m_Subsidy += m_Coins[i].m_amount;
-        m_Offset += m_vIncubationAndKeys[i].second;
-    }
-}
-
-io::Reactor::Ptr reactor;
-
-static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
-
-int main_impl(int argc, char* argv[])
-{
-    try
-    {
-        auto options = createOptionsDescription(GENERAL_OPTIONS | WALLET_OPTIONS);
-
-        po::variables_map vm;
-        try
-        {
-            vm = getOptions(argc, argv, "beam-wallet.cfg", options);
-        }
-        catch (const po::error& e)
-        {
-            cout << e.what() << std::endl;
-            printHelp(options);
-
-            return 0;
-        }
-
-        if (vm.count(cli::HELP))
-        {
-            printHelp(options);
-
-            return 0;
-        }
-
-        if (vm.count(cli::VERSION))
-        {
-            cout << PROJECT_VERSION << endl;
-            return 0;
-        }
-
-        if (vm.count(cli::GIT_COMMIT_HASH))
-        {
-            cout << GIT_COMMIT_HASH << endl;
-            return 0;
-        }
-
-        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
-
-#if LOG_VERBOSE_ENABLED
-        logLevel = LOG_LEVEL_VERBOSE;
-#endif
-
-        const auto path = boost::filesystem::system_complete("./logs");
-        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "wallet_", path.string());
-
-        try
-        {
-            po::notify(vm);
-
-            Rules::get().UpdateChecksum();
-            LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
-
-            // TODO later auto port = vm[cli::PORT].as<uint16_t>();
-
-            {
-                reactor = io::Reactor::create();
-                io::Reactor::Scope scope(*reactor);
-
-                io::Reactor::GracefulIntHandler gih(*reactor);
-
-                NoLeak<uintBig> walletSeed;
-                walletSeed.V = Zero;
-
-                io::Timer::Ptr logRotateTimer = io::Timer::create(reactor);
-                logRotateTimer->start(
-                    LOG_ROTATION_PERIOD, true,
-                    []() {
-                        Logger::get()->rotate();
-                    }
-                );
-
-                {
-                    if (vm.count(cli::COMMAND))
-                    {
-                        auto command = vm[cli::COMMAND].as<string>();
-                        if (command != cli::INIT
-                            && command != cli::SEND
-                            && command != cli::RECEIVE
-                            && command != cli::LISTEN
-                            && command != cli::TREASURY
-                            && command != cli::INFO)
-                        {
-                            LOG_ERROR() << "unknown command: \'" << command << "\'";
-                            return -1;
-                        }
-
-                        assert(vm.count(cli::WALLET_STORAGE) > 0);
-                        auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
-
-                        assert(vm.count(cli::BBS_STORAGE) > 0);
-                        auto bbsKeysPath = vm[cli::BBS_STORAGE].as<string>();
-
-                        if (!Keychain::isInitialized(walletPath) && command != cli::INIT)
-                        {
-                            LOG_ERROR() << "Please initialize your wallet first... \nExample: beam-wallet --command=init";
-                            return -1;
-                        }
-
-                        LOG_INFO() << "starting a wallet...";
-
-                        SecString pass;
-                        if (!beam::read_wallet_pass(pass, vm))
-                        {
-                            LOG_ERROR() << "Please, provide password for the wallet.";
-                            return -1;
-                        }
-
-                        if (command == cli::INIT)
-                        {
-                            if (!beam::read_wallet_seed(walletSeed, vm))
-                            {
-                                LOG_ERROR() << "Please, provide seed phrase for the wallet.";
-                                return -1;
-                            }
-                            auto keychain = Keychain::init(walletPath, pass, walletSeed);
-                            if (keychain)
-                            {
-                                LOG_INFO() << "wallet successfully created...";
-
-                                IKeyStore::Options options;
-                                options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-                                options.fileName = bbsKeysPath;
-
-                                IKeyStore::Ptr ks = IKeyStore::create(options, pass.data(), pass.size());
-
-                                // generate default address
-                                WalletAddress defaultAddress = {};
-                                defaultAddress.m_own = true;
-                                defaultAddress.m_label = "default";
-                                defaultAddress.m_createTime = getTimestamp();
-                                defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-                                ks->gen_keypair(defaultAddress.m_walletID);
-                                ks->save_keypair(defaultAddress.m_walletID, true);
-                                keychain->saveAddress(defaultAddress);
-
-                                return 0;
-                            }
-                            else
-                            {
-                                LOG_ERROR() << "something went wrong, wallet not created...";
-                                return -1;
-                            }
-                        }
-
-                        auto keychain = Keychain::open(walletPath, pass);
-                        if (!keychain)
-                        {
-                            LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
-                            return -1;
-                        }
-
-                        LOG_INFO() << "wallet sucessfully opened...";
-
-                        if (command == cli::TREASURY)
-                        {
-                            TreasuryBlockGenerator tbg;
-                            tbg.m_sPath = vm[cli::TREASURY_BLOCK].as<string>();
-                            tbg.m_pKeyChain = keychain.get();
-
-                            Amount v = vm[cli::TR_BEAMS].as<uint32_t>();
-                            v *= Rules::Coin;
-                            Height dh = vm[cli::TR_DH].as<uint32_t>();
-                            uint32_t nCount = vm[cli::TR_COUNT].as<uint32_t>();
-
-                            return tbg.Generate(nCount, dh, v);
-                        }
-
-                        if (command == cli::INFO)
-                        {
-                            Block::SystemState::ID stateID = {};
-                            keychain->getSystemStateID(stateID);
-                            cout << "____Wallet summary____\n\n"
-                                << "Current height............" << stateID.m_Height << '\n'
-                                << "Current state ID.........." << stateID.m_Hash << "\n\n"
-                                << "Available................." << PrintableAmount(wallet::getAvailable(keychain)) << '\n'
-                                << "Unconfirmed..............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unconfirmed)) << '\n'
-                                << "Locked...................." << PrintableAmount(wallet::getTotal(keychain, Coin::Locked)) << '\n'
-                                << "Draft....................." << PrintableAmount(wallet::getTotal(keychain, Coin::Draft)) << '\n'
-                                << "Available coinbase ......." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                                << "Total coinbase............" << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                                << "Avaliable fee............." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
-                                << "Total fee................." << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
-                                << "Total unspent............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unspent)) << "\n\n";
-                            if (vm.count(cli::TX_HISTORY))
-                            {
-                                auto txHistory = keychain->getTxHistory();
-                                if (txHistory.empty())
-                                {
-                                    cout << "No transactions\n";
-                                    return 0;
-                                }
-
-                                cout << "TRANSACTIONS\n\n"
-                                    << "| datetime          | amount, BEAM    | status\t|\n";
-                                for (auto& tx : txHistory)
-                                {
-                                    cout << "  " << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
-                                        << setw(17) << PrintableAmount(tx.m_amount, true)
-                                        << "  " << getTxStatus(tx) << '\n';
-                                }
-                                return 0;
-                            }
-
-                            cout << "| id\t| amount(Beam)\t| amount(c)\t| height\t| maturity\t| status \t| key type\t|\n";
-                            keychain->visit([](const Coin& c)->bool
-                            {
-                                cout << setw(8) << c.m_id
-                                    << setw(16) << PrintableAmount(Rules::Coin * ((Amount)(c.m_amount / Rules::Coin)))
-                                    << setw(16) << PrintableAmount(c.m_amount % Rules::Coin)
-                                    << setw(16) << static_cast<int64_t>(c.m_createHeight)
-                                    << setw(16) << static_cast<int64_t>(c.m_maturity)
-                                    << "  " << c.m_status
-                                    << "  " << c.m_key_type << '\n';
-                                return true;
-                            });
-                            return 0;
-                        }
-
-                        if (vm.count(cli::NODE_ADDR) == 0)
-                        {
-                            LOG_ERROR() << "node address should be specified";
-                            return -1;
-                        }
-
-                        string nodeURI = vm[cli::NODE_ADDR].as<string>();
-                        io::Address node_addr;
-                        if (!node_addr.resolve(nodeURI.c_str()))
-                        {
-                            LOG_ERROR() << "unable to resolve node address: " << nodeURI;
-                            return -1;
-                        }
-
-                        io::Address receiverAddr;
-                        Amount amount = 0;
-                        Amount fee = 0;
-                        ECC::Hash::Value receiverWalletID;
-                        bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
-                        if (isTxInitiator)
-                        {
-                            if (vm.count(cli::RECEIVER_ADDR) == 0)
-                            {
-                                LOG_ERROR() << "receiver's address is missing";
-                                return -1;
-                            }
-                            if (vm.count(cli::AMOUNT) == 0)
-                            {
-                                LOG_ERROR() << "amount is missing";
-                                return -1;
-                            }
-
-                            ECC::Hash::Value receiverID = from_hex(vm[cli::RECEIVER_ADDR].as<string>());
-                            receiverWalletID = receiverID;
-
-                            auto signedAmount = vm[cli::AMOUNT].as<double>();
-                            if (signedAmount < 0)
-                            {
-                                LOG_ERROR() << "Unable to send negative amount of coins";
-                                return -1;
-                            }
-
-                            signedAmount *= Rules::Coin; // convert beams to coins
-
-                            amount = static_cast<ECC::Amount>(signedAmount);
-                            if (amount == 0)
-                            {
-                                LOG_ERROR() << "Unable to send zero coins";
-                                return -1;
-                            }
-
-                            auto signedFee = vm[cli::FEE].as<double>();
-                            if (signedFee < 0)
-                            {
-                                LOG_ERROR() << "Unable to take negative fee";
-                                return -1;
-                            }
-
-                            signedFee *= Rules::Coin; // convert beams to coins
-
-                            fee = static_cast<ECC::Amount>(signedFee);
-                        }
-
-                        bool is_server = command == cli::LISTEN;
-
-                        IKeyStore::Options options;
-                        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-                        options.fileName = bbsKeysPath;
-
-                        IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
-
-                        auto wallet_io = make_shared<WalletNetworkIO >( node_addr
-                                                                      , keychain
-                                                                      , keystore
-                                                                      , reactor);
-                        Wallet wallet{ keychain
-                                     , wallet_io
-                                     , false
-                                     , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
-
-                        if (isTxInitiator)
-                        {
-                            // TODO: make db request by 'default' label
-                            auto addresses = keychain->getAddresses(true);
-                            assert(!addresses.empty());
-                            wallet.transfer_money(addresses[0].m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
-                        }
-
-                        wallet_io->start();
-                    }
-                    else
-                    {
-                        LOG_ERROR() << "command parameter not specified.";
-                        printHelp(options);
-                    }
-                }
-            }
-        }
-        catch (const po::error& e)
-        {
-            LOG_ERROR() << e.what();
-            printHelp(options);
-        }
-        catch (const std::runtime_error& e)
-        {
-            LOG_ERROR() << e.what();
-        }
-    }
-    catch (const std::exception& e)
-    {
-        std::cout << e.what() << std::endl;
-    }
-
-    return 0;
-}
-
-int main(int argc, char* argv[]) {
-#ifdef _WIN32
-    return main_impl(argc, argv);
-#else
-    block_sigpipe();
-    auto f = std::async(
-        std::launch::async,
-        [argc, argv]() -> int {
-            // TODO: this hungs app on OSX
-            //lock_signals_in_this_thread();
-            int ret = main_impl(argc, argv);
-            kill(0, SIGINT);
-            return ret;
-        }
-    );
-
-    wait_for_termination(0);
-
-    if (reactor) reactor->stop();
-
-    return f.get();
-#endif
-}
 
 #include <jni.h>
 #include <android/log.h>
@@ -674,17 +21,65 @@ int main(int argc, char* argv[]) {
   ((void)__android_log_print(ANDROID_LOG_INFO, "beamwallet::", __VA_ARGS__))
 
 #define CONCAT1(prefix, class, function)    CONCAT2(prefix, class, function)
-#define CONCAT2(prefix, class, function)    JNICALL Java_ ## prefix ## _ ## class ## _ ## function
+#define CONCAT2(prefix, class, function)    Java_ ## prefix ## _ ## class ## _ ## function
 
 #define BEAM_JAVA_PREFIX                    com_senlainc_beamwallet_core
 #define BEAM_JAVA_INTERFACE(function)       CONCAT1(BEAM_JAVA_PREFIX, Api, function)
 
+namespace
+{
+    struct JString
+    {
+        JString(JNIEnv *envVal, jstring nameVal)
+            : env(envVal)
+            , name(nameVal)
+            , isCopy(JNI_FALSE)
+            , data(env->GetStringUTFChars(name, &isCopy))
+        {
+        }
+
+        ~JString()
+        {
+            if (isCopy == JNI_TRUE)
+            {
+                env->ReleaseStringUTFChars(name, data);
+            }
+        }
+
+        std::string value() const
+        {
+            return data;
+        }
+    private:
+        JNIEnv* env;
+        jstring name;
+        jboolean isCopy;
+        const char* data;
+    };    
+}
+
 extern "C"
 {
-    JNIEXPORT jstring BEAM_JAVA_INTERFACE(createWallet)(JNIEnv *env, jobject thiz) 
+    JNIEXPORT jstring JNICALL BEAM_JAVA_INTERFACE(createWallet)(JNIEnv *env, jobject thiz, 
+        jstring j_dbName, jstring j_pass, jstring j_seed)
     {
-        LOGI("creating Beam wallet");
+        LOGI("creating Beam wallet...");
 
-        return env->NewStringUTF("creating Beam wallet!");
+        JString dbName(env, j_dbName);
+        JString pass(env, j_pass);
+        JString seed(env, j_seed);
+
+        auto keychain = beam::Keychain::init(dbName.value(), pass.value(), beam::SecString(seed.value()).hash());
+
+        if(keychain)
+        {
+            LOGI("wallet successfully created.");
+
+            return env->NewStringUTF("creating Beam wallet!");
+        }
+
+        LOGI("wallet creation error.");
+
+        return env->NewStringUTF("wallet creation error.");
     }    
 }
