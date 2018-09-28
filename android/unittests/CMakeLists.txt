@@ -1,3 +1,0 @@
-add_definitions( -DSQLITE_HAS_CODEC )
-
-# add_test_snippet(wallet_test wallet)

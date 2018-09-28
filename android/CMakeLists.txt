@@ -9,3 +9,15 @@ configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/v
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(unittests)
+
+find_package(Java REQUIRED)
+include(UseJava)
+
+set(CMAKE_JAVA_COMPILE_FLAGS "-source" "1.8" "-target" "1.8")
+
+set(CMAKE_JAVA_JAR_ENTRY_POINT WalletJNI)
+
+add_jar(WalletJNI 
+    SOURCES WalletJNI.java
+    ENTRY_POINT WalletJNI
+)
