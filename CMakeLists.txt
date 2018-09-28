@@ -180,10 +180,9 @@ add_subdirectory(sqlite)
 add_subdirectory(beam)
 add_subdirectory(android)
 
-#if(ANDROID)
-#else()
-#	add_subdirectory(ui)
-#endif()
+if(NOT ANDROID)
+	add_subdirectory(ui)
+endif()
 
 ########################################################
 ### PACKAGING ##########################################

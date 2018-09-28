@@ -7,7 +7,8 @@ public class Api
 	public native boolean isWalletInitialized(String dbName);
 	public native void closeWallet(int wallet);
 
-	static {
-	//    System.loadLibrary("libwallet-jni");
+	static 
+    {
+	    System.loadLibrary("wallet-jni");
 	}
 }
