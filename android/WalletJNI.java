@@ -1,16 +1,11 @@
+import com.senlainc.beamwallet.core.Api;
+
 public class WalletJNI
 {
-	public native int createWallet(String dbName, String pass, String seed);
-	public native int openWallet(String dbName, String pass);
-	public native boolean isWalletInitialized(String dbName);
-	public native void closeWallet(int wallet);
-
-	static {
-	//    System.loadLibrary("libwallet-jni");
-	}
-
 	public static void main(String[] args)
 	{
+		Api api = new Api();
+
 		System.out.println("hello world");
 	}
 }
