@@ -15,13 +15,19 @@
 #include "wallet/wallet_db.h"
 
 #include <jni.h>
-#include <android/log.h>
 
+#if defined(__ANDROID__)
+#include <android/log.h>
 #define LOGI(...) \
   ((void)__android_log_print(ANDROID_LOG_INFO, "beamwallet::", __VA_ARGS__))
 
 #define LOGE(...) \
   ((void)__android_log_print(ANDROID_LOG_ERROR, "beamwallet::", __VA_ARGS__))
+#else
+#define LOGI(...)
+#define LOGE(...)
+#endif
+
 
 #define CONCAT1(prefix, class, function)    CONCAT2(prefix, class, function)
 #define CONCAT2(prefix, class, function)    Java_ ## prefix ## _ ## class ## _ ## function

@@ -178,12 +178,12 @@ add_subdirectory(p2p)
 add_subdirectory(wallet)
 add_subdirectory(sqlite)
 add_subdirectory(beam)
+add_subdirectory(android)
 
-if(ANDROID)
-	add_subdirectory(android)
-else()
-	add_subdirectory(ui)
-endif()
+#if(ANDROID)
+#else()
+#	add_subdirectory(ui)
+#endif()
 
 ########################################################
 ### PACKAGING ##########################################

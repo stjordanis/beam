@@ -3,7 +3,10 @@ set(TARGET_NAME wallet-jni)
 add_library(${TARGET_NAME} SHARED jni.cpp)
 add_dependencies(${TARGET_NAME} wallet utility)
 target_link_libraries(${TARGET_NAME} wallet utility)
-target_link_libraries(${TARGET_NAME} android log)
+
+if(ANDROID)
+    target_link_libraries(${TARGET_NAME} android log)
+endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -11,7 +14,9 @@ target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(unittests)
 
 find_package(Java REQUIRED)
+find_package(JNI REQUIRED)
 include(UseJava)
+include_directories(${JNI_INCLUDE_DIRS})
 
 set(CMAKE_JAVA_COMPILE_FLAGS "-source" "1.8" "-target" "1.8")
 
@@ -21,3 +26,5 @@ add_jar(WalletJNI
     SOURCES WalletJNI.java
     ENTRY_POINT WalletJNI
 )
+
+add_dependencies(WalletJNI wallet-jni)
