@@ -11,23 +11,42 @@ public class WalletJNI
 
         if(api.isWalletInitialized("."))
         {
-            wallet = api.openWallet(".", "pass123");
+            wallet = api.openWallet(".", "123");
 
             System.out.println(wallet < 0 ? "wallet opening error" : "wallet successfully opened");
         }
         else
         {
-            wallet = api.createWallet(".", "pass123", "seed123");
+            wallet = api.createWallet(".", "123", "seed123");
 
             System.out.println(wallet < 0 ? "wallet creation error" : "wallet successfully created");
         }
 
         if(wallet >= 0)
         {
-            SystemState state = api.getSystemState(wallet);
+            {
+                SystemState state = api.getSystemState(wallet);
+                System.out.println("system height is " + state.height);
+            }
 
-            System.out.println("system state is " + state.height);
-            System.out.println("system hash length is " + state.hash.length);
+            {
+                Utxo[] utxos = api.getUtxos(wallet);
+
+                System.out.println("utxos length: " + utxos.length);
+
+                System.out.println("+-------------------------------------------------------");
+                System.out.println("| id:   | amount:       | type:");
+                System.out.println("+-------+---------------+-------------------------------");
+
+                for(int i = 0; i < utxos.length; i++)
+                {
+                    System.out.println("| " + utxos[i].id 
+                        + "\t| "  + utxos[i].amount
+                        + "\t| "  + utxos[i].keyType);
+                }
+
+                System.out.println("+-------------------------------------------------------");
+            }
 
             api.closeWallet(wallet);
         }

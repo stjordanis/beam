@@ -8,6 +8,7 @@ public class Api
 	public native void closeWallet(int wallet);
     public native void changeWalletPassword(int wallet, String pass);
     public native SystemState getSystemState(int wallet);
+    public native Utxo[] getUtxos(int wallet);
 
 	static 
     {

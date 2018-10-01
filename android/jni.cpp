@@ -37,7 +37,7 @@
 #define BEAM_JAVA_INTERFACE(function)       CONCAT1(BEAM_JAVA_PREFIX, core_Api, function)
 
 #define WALLET_FILENAME "wallet.db"
-#define BBS_FILENAME "bbs_keys.db"
+#define BBS_FILENAME "keys.bbs"
 
 using namespace beam;
 
@@ -208,7 +208,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_INTERFACE(getSystemState)(JNIEnv *env, jobje
             jobject systemState = env->AllocObject(SystemState);
 
             {
-                jfieldID height = env->GetFieldID(SystemState, "height", "I");
+                jfieldID height = env->GetFieldID(SystemState, "height", "J");
                 env->SetLongField(systemState, height, stateID.m_Height);
             }
 
@@ -226,6 +226,72 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_INTERFACE(getSystemState)(JNIEnv *env, jobje
 
             return systemState;
         }
+    }
+    else
+    {
+        // raise error here
+    }
+
+    return nullptr;
+}
+
+JNIEXPORT jobject JNICALL BEAM_JAVA_INTERFACE(getUtxos)(JNIEnv *env, jobject thiz,
+    int index)
+{
+    LOGI("getting System State...");
+
+    if (index < wallets.size() && wallets[index])
+    {
+        auto wallet = wallets[index];
+
+        jclass Utxo = env->FindClass("com/mw/beam/beamwallet/core/Utxo");
+        std::vector<jobject> utxosVec;
+
+        wallet->visit([&](const Coin& coin)->bool
+        {
+            jobject utxo = env->AllocObject(Utxo);
+
+            {
+                jfieldID height = env->GetFieldID(Utxo, "id", "J");
+                env->SetLongField(utxo, height, coin.m_id);
+            }
+
+            {
+                jfieldID amount = env->GetFieldID(Utxo, "amount", "J");
+                env->SetLongField(utxo, amount, coin.m_amount);
+            }
+
+            {
+                jfieldID status = env->GetFieldID(Utxo, "status", "I");
+                env->SetIntField(utxo, status, coin.m_status);
+            }
+
+            {
+                jfieldID createHeight = env->GetFieldID(Utxo, "createHeight", "J");
+                env->SetLongField(utxo, createHeight, coin.m_createHeight);
+            }
+
+            {
+                jfieldID maturity = env->GetFieldID(Utxo, "maturity", "J");
+                env->SetLongField(utxo, maturity, coin.m_maturity);
+            }
+
+            {
+                jfieldID keyType = env->GetFieldID(Utxo, "keyType", "I");
+                env->SetIntField(utxo, keyType, static_cast<jint>(coin.m_key_type));
+            }
+
+            utxosVec.push_back(utxo);
+
+            return true;
+        });
+
+        jobjectArray utxos = env->NewObjectArray(utxosVec.size(), Utxo, NULL);
+
+        for(int i = 0; i < utxosVec.size(); ++i)
+            env->SetObjectArrayElement(utxos, i, utxosVec[i]);
+
+        return utxos;
     }
     else
     {
