@@ -32,7 +32,7 @@
 #define CONCAT1(prefix, class, function)    CONCAT2(prefix, class, function)
 #define CONCAT2(prefix, class, function)    Java_ ## prefix ## _ ## class ## _ ## function
 
-#define BEAM_JAVA_PREFIX                    com_senlainc_beamwallet
+#define BEAM_JAVA_PREFIX                    com_mw_beam_beamwallet
 #define BEAM_JAVA_INTERFACE(function)       CONCAT1(BEAM_JAVA_PREFIX, core_Api, function)
 
 namespace
