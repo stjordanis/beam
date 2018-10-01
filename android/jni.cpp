@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "wallet/wallet_db.h"
+#include "wallet/keystore.h"
 
 #include <jni.h>
 
@@ -24,8 +25,8 @@
 #define LOGE(...) \
   ((void)__android_log_print(ANDROID_LOG_ERROR, "beamwallet::", __VA_ARGS__))
 #else
-#define LOGI(...)
-#define LOGE(...)
+#define LOGI(...) {printf("beamwallet::"); printf(__VA_ARGS__); putc('\n', stdout);}
+#define LOGE(...) {printf("beamwallet::"); printf(__VA_ARGS__); putc('\n', stderr);}
 #endif
 
 
@@ -34,6 +35,11 @@
 
 #define BEAM_JAVA_PREFIX                    com_mw_beam_beamwallet
 #define BEAM_JAVA_INTERFACE(function)       CONCAT1(BEAM_JAVA_PREFIX, core_Api, function)
+
+#define WALLET_FILENAME "wallet.db"
+#define BBS_FILENAME "bbs_keys.db"
+
+using namespace beam;
 
 namespace
 {
@@ -66,7 +72,7 @@ namespace
         const char* data;
     };
 
-    using WalletDBList = std::vector<beam::IKeyChain::Ptr>;
+    using WalletDBList = std::vector<IKeyChain::Ptr>;
     static WalletDBList wallets;
 }
 
@@ -75,20 +81,42 @@ extern "C" {
 #endif
 
 JNIEXPORT jint JNICALL BEAM_JAVA_INTERFACE(createWallet)(JNIEnv *env, jobject thiz, 
-    jstring dbName, jstring pass, jstring seed)
+    jstring appDataStr, jstring passStr, jstring seed)
 {
     LOGI("creating wallet...");
 
-    auto wallet = beam::Keychain::init(
-        JString(env, dbName).value(), 
-        JString(env, pass).value(), 
-        beam::SecString(JString(env, seed).value()).hash());
+    auto appData = JString(env, appDataStr).value();
+    auto pass = JString(env, passStr).value();
+
+    auto wallet = Keychain::init(
+        appData + "/" WALLET_FILENAME,
+        pass,
+        SecString(JString(env, seed).value()).hash());
 
     if(wallet)
     {
         LOGI("wallet successfully created.");
 
         wallets.push_back(wallet);
+
+        {
+            IKeyStore::Options options;
+            options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+            options.fileName = appData + "/" BBS_FILENAME;
+
+            IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
+
+            // generate default address
+            WalletAddress defaultAddress = {};
+            defaultAddress.m_own = true;
+            defaultAddress.m_label = "default";
+            defaultAddress.m_createTime = getTimestamp();
+            defaultAddress.m_duration = std::numeric_limits<uint64_t>::max();
+            keystore->gen_keypair(defaultAddress.m_walletID);
+            keystore->save_keypair(defaultAddress.m_walletID, true);
+
+            wallet->saveAddress(defaultAddress);
+        }
 
         return wallets.size() - 1;
     }
@@ -99,19 +127,19 @@ JNIEXPORT jint JNICALL BEAM_JAVA_INTERFACE(createWallet)(JNIEnv *env, jobject th
 }
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_INTERFACE(isWalletInitialized)(JNIEnv *env, jobject thiz, 
-    jstring dbName)
+    jstring appData)
 {
     LOGI("checking if wallet exists...");
 
-    return beam::Keychain::isInitialized(JString(env, dbName).value()) ? JNI_TRUE : JNI_FALSE;
+    return Keychain::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL BEAM_JAVA_INTERFACE(openWallet)(JNIEnv *env, jobject thiz, 
-    jstring dbName, jstring pass)
+    jstring appData, jstring pass)
 {
     LOGI("opening wallet...");
 
-    auto wallet = beam::Keychain::open(JString(env, dbName).value(), JString(env, pass).value());
+    auto wallet = Keychain::open(JString(env, appData).value() + "/" WALLET_FILENAME, JString(env, pass).value());
 
     if(wallet)
     {
@@ -139,8 +167,72 @@ JNIEXPORT void JNICALL BEAM_JAVA_INTERFACE(closeWallet)(JNIEnv *env, jobject thi
         LOGI("wallet successfully closed.");
         return;
     }
+    else
+    {
+        // raise error here
+    }
 
     LOGE("wallet doesn't exist or already closed.");
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_INTERFACE(checkWalletPassword)(JNIEnv *env, jobject thiz,
+    int index, jstring passStr)
+{
+    LOGI("changing wallet password...");
+
+    if (index < wallets.size() && wallets[index])
+    {
+        auto wallet = wallets[index];
+        wallet->changePassword(JString(env, passStr).value());
+    }
+    else
+    {
+        // raise error here
+    }
+}
+
+JNIEXPORT jobject JNICALL BEAM_JAVA_INTERFACE(getSystemState)(JNIEnv *env, jobject thiz,
+    int index)
+{
+    LOGI("getting System State...");
+
+    if (index < wallets.size() && wallets[index])
+    {
+        auto wallet = wallets[index];
+
+        Block::SystemState::ID stateID = {};
+        wallet->getSystemStateID(stateID);
+
+        {
+            jclass SystemState = env->FindClass("com/mw/beam/beamwallet/core/SystemState");
+            jobject systemState = env->AllocObject(SystemState);
+
+            {
+                jfieldID height = env->GetFieldID(SystemState, "height", "I");
+                env->SetLongField(systemState, height, stateID.m_Height);
+            }
+
+            {
+                jbyteArray hash = env->NewByteArray(ECC::uintBig::nBytes);
+                jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
+
+                memcpy(hashBytes, stateID.m_Hash.m_pData, ECC::uintBig::nBytes);
+
+                jfieldID hashField = env->GetFieldID(SystemState, "hash", "[B");
+                env->SetObjectField(systemState, hashField, hash);
+
+                env->ReleaseByteArrayElements(hash, hashBytes, 0);
+            }
+
+            return systemState;
+        }
+    }
+    else
+    {
+        // raise error here
+    }
+
+    return nullptr;
 }
 
 #ifdef __cplusplus

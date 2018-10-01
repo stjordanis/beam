@@ -23,7 +23,11 @@ set(CMAKE_JAVA_COMPILE_FLAGS "-source" "1.8" "-target" "1.8")
 set(CMAKE_JAVA_JAR_ENTRY_POINT WalletJNI)
 
 add_jar(WalletJNI 
-    SOURCES WalletJNI.java com/senlainc/beamwallet/core/Api.java
+    SOURCES 
+        WalletJNI.java 
+        com/mw/beam/beamwallet/core/Api.java
+        com/mw/beam/beamwallet/core/Utxo.java
+        com/mw/beam/beamwallet/core/SystemState.java
     ENTRY_POINT WalletJNI
 )
 
