@@ -43,37 +43,37 @@ using namespace beam;
 
 namespace
 {
-    struct JString
-    {
-        JString(JNIEnv *envVal, jstring nameVal)
-            : env(envVal)
-            , name(nameVal)
-            , isCopy(JNI_FALSE)
-            , data(env->GetStringUTFChars(name, &isCopy))
-        {
-        }
+	struct JString
+	{
+		JString(JNIEnv *envVal, jstring nameVal)
+			: env(envVal)
+			, name(nameVal)
+			, isCopy(JNI_FALSE)
+			, data(env->GetStringUTFChars(name, &isCopy))
+		{
+		}
 
-        ~JString()
-        {
-            if (isCopy == JNI_TRUE)
-            {
-                env->ReleaseStringUTFChars(name, data);
-            }
-        }
+		~JString()
+		{
+			if (isCopy == JNI_TRUE)
+			{
+				env->ReleaseStringUTFChars(name, data);
+			}
+		}
 
-        std::string value() const
-        {
-            return data;
-        }
-    private:
-        JNIEnv* env;
-        jstring name;
-        jboolean isCopy;
-        const char* data;
-    };
+		std::string value() const
+		{
+			return data;
+		}
+	private:
+		JNIEnv* env;
+		jstring name;
+		jboolean isCopy;
+		const char* data;
+	};
 
-    using WalletDBList = std::vector<IKeyChain::Ptr>;
-    static WalletDBList wallets;
+	using WalletDBList = std::vector<IKeyChain::Ptr>;
+	static WalletDBList wallets;
 }
 
 #ifdef __cplusplus
@@ -81,224 +81,224 @@ extern "C" {
 #endif
 
 JNIEXPORT jint JNICALL BEAM_JAVA_INTERFACE(createWallet)(JNIEnv *env, jobject thiz, 
-    jstring appDataStr, jstring passStr, jstring seed)
+	jstring appDataStr, jstring passStr, jstring seed)
 {
-    LOGI("creating wallet...");
+	LOGI("creating wallet...");
 
-    auto appData = JString(env, appDataStr).value();
-    auto pass = JString(env, passStr).value();
+	auto appData = JString(env, appDataStr).value();
+	auto pass = JString(env, passStr).value();
 
-    auto wallet = Keychain::init(
-        appData + "/" WALLET_FILENAME,
-        pass,
-        SecString(JString(env, seed).value()).hash());
+	auto wallet = Keychain::init(
+		appData + "/" WALLET_FILENAME,
+		pass,
+		SecString(JString(env, seed).value()).hash());
 
-    if(wallet)
-    {
-        LOGI("wallet successfully created.");
+	if(wallet)
+	{
+		LOGI("wallet successfully created.");
 
-        wallets.push_back(wallet);
+		wallets.push_back(wallet);
 
-        {
-            IKeyStore::Options options;
-            options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-            options.fileName = appData + "/" BBS_FILENAME;
+		{
+			IKeyStore::Options options;
+			options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+			options.fileName = appData + "/" BBS_FILENAME;
 
-            IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
+			IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
 
-            // generate default address
-            WalletAddress defaultAddress = {};
-            defaultAddress.m_own = true;
-            defaultAddress.m_label = "default";
-            defaultAddress.m_createTime = getTimestamp();
-            defaultAddress.m_duration = std::numeric_limits<uint64_t>::max();
-            keystore->gen_keypair(defaultAddress.m_walletID);
-            keystore->save_keypair(defaultAddress.m_walletID, true);
+			// generate default address
+			WalletAddress defaultAddress = {};
+			defaultAddress.m_own = true;
+			defaultAddress.m_label = "default";
+			defaultAddress.m_createTime = getTimestamp();
+			defaultAddress.m_duration = std::numeric_limits<uint64_t>::max();
+			keystore->gen_keypair(defaultAddress.m_walletID);
+			keystore->save_keypair(defaultAddress.m_walletID, true);
 
-            wallet->saveAddress(defaultAddress);
-        }
+			wallet->saveAddress(defaultAddress);
+		}
 
-        return wallets.size() - 1;
-    }
+		return wallets.size() - 1;
+	}
 
-    LOGE("wallet creation error.");
+	LOGE("wallet creation error.");
 
-    return -1;
+	return -1;
 }
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_INTERFACE(isWalletInitialized)(JNIEnv *env, jobject thiz, 
-    jstring appData)
+	jstring appData)
 {
-    LOGI("checking if wallet exists...");
+	LOGI("checking if wallet exists...");
 
-    return Keychain::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
+	return Keychain::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL BEAM_JAVA_INTERFACE(openWallet)(JNIEnv *env, jobject thiz, 
-    jstring appData, jstring pass)
+	jstring appData, jstring pass)
 {
-    LOGI("opening wallet...");
+	LOGI("opening wallet...");
 
-    auto wallet = Keychain::open(JString(env, appData).value() + "/" WALLET_FILENAME, JString(env, pass).value());
+	auto wallet = Keychain::open(JString(env, appData).value() + "/" WALLET_FILENAME, JString(env, pass).value());
 
-    if(wallet)
-    {
-        LOGI("wallet successfully opened.");
+	if(wallet)
+	{
+		LOGI("wallet successfully opened.");
 
-        wallets.push_back(wallet);
+		wallets.push_back(wallet);
 
-        return wallets.size() - 1;
-    }
+		return wallets.size() - 1;
+	}
 
-    LOGE("wallet not opened.");
+	LOGE("wallet not opened.");
 
-    return -1;
+	return -1;
 }
 
 
 JNIEXPORT void JNICALL BEAM_JAVA_INTERFACE(closeWallet)(JNIEnv *env, jobject thiz, 
-    int index)
+	int index)
 {
-    LOGI("closing wallet...");
+	LOGI("closing wallet...");
 
-    if(index < wallets.size() && wallets[index])
-    {
-        wallets[index].reset();
-        LOGI("wallet successfully closed.");
-        return;
-    }
-    else
-    {
-        // raise error here
-    }
+	if(index < wallets.size() && wallets[index])
+	{
+		wallets[index].reset();
+		LOGI("wallet successfully closed.");
+		return;
+	}
+	else
+	{
+		// raise error here
+	}
 
-    LOGE("wallet doesn't exist or already closed.");
+	LOGE("wallet doesn't exist or already closed.");
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_INTERFACE(checkWalletPassword)(JNIEnv *env, jobject thiz,
-    int index, jstring passStr)
+	int index, jstring passStr)
 {
-    LOGI("changing wallet password...");
+	LOGI("changing wallet password...");
 
-    if (index < wallets.size() && wallets[index])
-    {
-        auto wallet = wallets[index];
-        wallet->changePassword(JString(env, passStr).value());
-    }
-    else
-    {
-        // raise error here
-    }
+	if (index < wallets.size() && wallets[index])
+	{
+		auto wallet = wallets[index];
+		wallet->changePassword(JString(env, passStr).value());
+	}
+	else
+	{
+		// raise error here
+	}
 }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_INTERFACE(getSystemState)(JNIEnv *env, jobject thiz,
-    int index)
+	int index)
 {
-    LOGI("getting System State...");
+	LOGI("getting System State...");
 
-    if (index < wallets.size() && wallets[index])
-    {
-        auto wallet = wallets[index];
+	if (index < wallets.size() && wallets[index])
+	{
+		auto wallet = wallets[index];
 
-        Block::SystemState::ID stateID = {};
-        wallet->getSystemStateID(stateID);
+		Block::SystemState::ID stateID = {};
+		wallet->getSystemStateID(stateID);
 
-        {
-            jclass SystemState = env->FindClass("com/mw/beam/beamwallet/core/SystemState");
-            jobject systemState = env->AllocObject(SystemState);
+		{
+			jclass SystemState = env->FindClass("com/mw/beam/beamwallet/core/SystemState");
+			jobject systemState = env->AllocObject(SystemState);
 
-            {
-                jfieldID height = env->GetFieldID(SystemState, "height", "J");
-                env->SetLongField(systemState, height, stateID.m_Height);
-            }
+			{
+				jfieldID height = env->GetFieldID(SystemState, "height", "J");
+				env->SetLongField(systemState, height, stateID.m_Height);
+			}
 
-            {
-                jbyteArray hash = env->NewByteArray(ECC::uintBig::nBytes);
-                jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
+			{
+				jbyteArray hash = env->NewByteArray(ECC::uintBig::nBytes);
+				jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
 
-                memcpy(hashBytes, stateID.m_Hash.m_pData, ECC::uintBig::nBytes);
+				memcpy(hashBytes, stateID.m_Hash.m_pData, ECC::uintBig::nBytes);
 
-                jfieldID hashField = env->GetFieldID(SystemState, "hash", "[B");
-                env->SetObjectField(systemState, hashField, hash);
+				jfieldID hashField = env->GetFieldID(SystemState, "hash", "[B");
+				env->SetObjectField(systemState, hashField, hash);
 
-                env->ReleaseByteArrayElements(hash, hashBytes, 0);
-            }
+				env->ReleaseByteArrayElements(hash, hashBytes, 0);
+			}
 
-            return systemState;
-        }
-    }
-    else
-    {
-        // raise error here
-    }
+			return systemState;
+		}
+	}
+	else
+	{
+		// raise error here
+	}
 
-    return nullptr;
+	return nullptr;
 }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_INTERFACE(getUtxos)(JNIEnv *env, jobject thiz,
-    int index)
+	int index)
 {
-    LOGI("getting System State...");
+	LOGI("getting System State...");
 
-    if (index < wallets.size() && wallets[index])
-    {
-        auto wallet = wallets[index];
+	if (index < wallets.size() && wallets[index])
+	{
+		auto wallet = wallets[index];
 
-        jclass Utxo = env->FindClass("com/mw/beam/beamwallet/core/Utxo");
-        std::vector<jobject> utxosVec;
+		jclass Utxo = env->FindClass("com/mw/beam/beamwallet/core/Utxo");
+		std::vector<jobject> utxosVec;
 
-        wallet->visit([&](const Coin& coin)->bool
-        {
-            jobject utxo = env->AllocObject(Utxo);
+		wallet->visit([&](const Coin& coin)->bool
+		{
+			jobject utxo = env->AllocObject(Utxo);
 
-            {
-                jfieldID height = env->GetFieldID(Utxo, "id", "J");
-                env->SetLongField(utxo, height, coin.m_id);
-            }
+			{
+				jfieldID height = env->GetFieldID(Utxo, "id", "J");
+				env->SetLongField(utxo, height, coin.m_id);
+			}
 
-            {
-                jfieldID amount = env->GetFieldID(Utxo, "amount", "J");
-                env->SetLongField(utxo, amount, coin.m_amount);
-            }
+			{
+				jfieldID amount = env->GetFieldID(Utxo, "amount", "J");
+				env->SetLongField(utxo, amount, coin.m_amount);
+			}
 
-            {
-                jfieldID status = env->GetFieldID(Utxo, "status", "I");
-                env->SetIntField(utxo, status, coin.m_status);
-            }
+			{
+				jfieldID status = env->GetFieldID(Utxo, "status", "I");
+				env->SetIntField(utxo, status, coin.m_status);
+			}
 
-            {
-                jfieldID createHeight = env->GetFieldID(Utxo, "createHeight", "J");
-                env->SetLongField(utxo, createHeight, coin.m_createHeight);
-            }
+			{
+				jfieldID createHeight = env->GetFieldID(Utxo, "createHeight", "J");
+				env->SetLongField(utxo, createHeight, coin.m_createHeight);
+			}
 
-            {
-                jfieldID maturity = env->GetFieldID(Utxo, "maturity", "J");
-                env->SetLongField(utxo, maturity, coin.m_maturity);
-            }
+			{
+				jfieldID maturity = env->GetFieldID(Utxo, "maturity", "J");
+				env->SetLongField(utxo, maturity, coin.m_maturity);
+			}
 
-            {
-                jfieldID keyType = env->GetFieldID(Utxo, "keyType", "I");
-                env->SetIntField(utxo, keyType, static_cast<jint>(coin.m_key_type));
-            }
+			{
+				jfieldID keyType = env->GetFieldID(Utxo, "keyType", "I");
+				env->SetIntField(utxo, keyType, static_cast<jint>(coin.m_key_type));
+			}
 
-            utxosVec.push_back(utxo);
+			utxosVec.push_back(utxo);
 
-            return true;
-        });
+			return true;
+		});
 
-        jobjectArray utxos = env->NewObjectArray(utxosVec.size(), Utxo, NULL);
+		jobjectArray utxos = env->NewObjectArray(utxosVec.size(), Utxo, NULL);
 
-        for(int i = 0; i < utxosVec.size(); ++i)
-            env->SetObjectArrayElement(utxos, i, utxosVec[i]);
+		for(int i = 0; i < utxosVec.size(); ++i)
+			env->SetObjectArrayElement(utxos, i, utxosVec[i]);
 
-        return utxos;
-    }
-    else
-    {
-        // raise error here
-    }
+		return utxos;
+	}
+	else
+	{
+		// raise error here
+	}
 
-    return nullptr;
+	return nullptr;
 }
 
 #ifdef __cplusplus
