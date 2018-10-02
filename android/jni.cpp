@@ -90,6 +90,11 @@ namespace
         env->SetIntField(obj, env->GetFieldID(clazz, name, "I"), value);
     }
 
+    inline void setBooleanField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jboolean value)
+    {
+        env->SetBooleanField(obj, env->GetFieldID(clazz, name, "Z"), value);
+    }
+
 	inline void setHashField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const ECC::uintBig& value)
 	{
 		jbyteArray hash = env->NewByteArray(ECC::uintBig::nBytes);
@@ -101,6 +106,22 @@ namespace
 
 		env->ReleaseByteArrayElements(hash, hashBytes, 0);
 	}
+
+    template <typename T>
+    inline void setByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const T& value)
+    {
+        if (value.size())
+        {
+            jbyteArray hash = env->NewByteArray(value.size());
+            jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
+
+            std::memcpy(hashBytes, &value[0], value.size());
+
+            env->SetObjectField(obj, env->GetFieldID(clazz, name, "[B"), hash);
+
+            env->ReleaseByteArrayElements(hash, hashBytes, 0);
+        }
+    }
 
     jobject regWallet(JNIEnv *env, jobject thiz, IKeyChain::Ptr wallet)
     {
@@ -233,7 +254,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxos)(JNIEnv *env, jobject thiz)
 {
-	LOGI("getting System State...");
+	LOGI("getting Utxos...");
 
 	jclass Utxo = env->FindClass(BEAM_JAVA_PATH "/Utxo");
 	std::vector<jobject> utxosVec;
@@ -252,7 +273,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxos)(JNIEnv *env, jobj
         setHashField(env, Utxo, utxo, "confirmHash", coin.m_confirmHash);
         setLongField(env, Utxo, utxo, "lockHeight", coin.m_lockedHeight);
 
-        // TODO: add m_createTxId m_spentTxId here
+        if(coin.m_createTxId)
+            setByteArrayField(env, Utxo, utxo, "createTxId", *coin.m_createTxId);
+
+        if (coin.m_spentTxId)
+            setByteArrayField(env, Utxo, utxo, "spentTxId", *coin.m_spentTxId);
 
 		utxosVec.push_back(utxo);
 
@@ -265,6 +290,40 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxos)(JNIEnv *env, jobj
 		env->SetObjectArrayElement(utxos, i, utxosVec[i]);
 
 	return utxos;
+}
+
+JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, jobject thiz)
+{
+	LOGI("getting transaction history...");
+
+	jclass TxDescription = env->FindClass(BEAM_JAVA_PATH "/TxDescription");
+
+    auto txHistory = getWallet(env, thiz)->getTxHistory();
+
+	jobjectArray txs = env->NewObjectArray(txHistory.size(), TxDescription, NULL);
+
+    for (int i = 0; i < txHistory.size(); ++i)
+    {
+        const auto& tx = txHistory[i];
+        jobject txObj = env->AllocObject(TxDescription);
+
+        setByteArrayField(env, TxDescription, txObj, "id", tx.m_txId);
+        setLongField(env, TxDescription, txObj, "amount", tx.m_amount);
+        setLongField(env, TxDescription, txObj, "fee", tx.m_fee);
+        setLongField(env, TxDescription, txObj, "change", tx.m_change);
+        setLongField(env, TxDescription, txObj, "minHeight", tx.m_minHeight);
+        setHashField(env, TxDescription, txObj, "peerId", tx.m_peerId);
+        setHashField(env, TxDescription, txObj, "myId", tx.m_myId);
+        setByteArrayField(env, TxDescription, txObj, "message", tx.m_message);
+        setLongField(env, TxDescription, txObj, "createTime", tx.m_createTime);
+        setLongField(env, TxDescription, txObj, "modifyTime", tx.m_modifyTime);
+        setBooleanField(env, TxDescription, txObj, "sender", tx.m_sender);
+        setIntField(env, TxDescription, txObj, "status", tx.m_status);
+
+	 	env->SetObjectArrayElement(txs, i, txObj);
+    }
+
+	return txs;
 }
 
 #ifdef __cplusplus

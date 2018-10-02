@@ -26,5 +26,5 @@ public class Utxo
 	public byte[] confirmHash;
 	public long lockHeight;
 	public byte[] createTxId;
-	public byte[] spendTxId;
+	public byte[] spentTxId;
 }

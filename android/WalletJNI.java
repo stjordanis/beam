@@ -50,6 +50,8 @@ public class WalletJNI
 				System.out.println("utxos length: " + utxos.length);
 
 				System.out.println("+-------------------------------------------------------");
+				System.out.println("| UTXO");
+				System.out.println("+-------------------------------------------------------");
 				System.out.println("| id:   | amount:       | type:");
 				System.out.println("+-------+---------------+-------------------------------");
 
@@ -58,6 +60,25 @@ public class WalletJNI
 					System.out.println("| " + utxos[i].id 
 						+ "\t| "  + utxos[i].amount
 						+ "\t| "  + utxos[i].keyType);
+				}
+
+				System.out.println("+-------------------------------------------------------");
+			}
+
+			{
+				TxDescription[] tx = wallet.getTxHistory();
+
+				System.out.println("+-------------------------------------------------------");
+				System.out.println("| TRANSACTIONS");
+				System.out.println("+----------------------------------------------------------------------");
+				System.out.println("| date:                         | amount:       | status:");
+				System.out.println("+-------------------------------+---------------+-----------------------");
+
+				for(int i = 0; i < tx.length; i++)
+				{
+					System.out.println("| " + new java.util.Date(tx[i].createTime*1000)
+						+ "\t| " + tx[i].amount
+						+ "\t| " + tx[i].status);
 				}
 
 				System.out.println("+-------------------------------------------------------");

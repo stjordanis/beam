@@ -14,14 +14,18 @@
 
 package com.mw.beam.beamwallet.core;
 
-public class Wallet
+public class TxDescription
 {
-	long _this;
-
-	public native void closeWallet();
-
-	public native void changeWalletPassword(String pass);
-	public native SystemState getSystemState();
-	public native Utxo[] getUtxos();
-	public native TxDescription[] getTxHistory();
+	public byte[] id;
+	public long amount;
+	public long fee;
+	public long change;
+	public long minHeight;
+	public byte[] peerId;
+	public byte[] myId;
+	public byte[] message;
+	public long createTime;
+	public long modifyTime;
+	public boolean sender;
+	public int status;
 }
