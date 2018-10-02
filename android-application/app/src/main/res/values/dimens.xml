@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="common_padding">16dp</dimen>
+    <dimen name="common_margin">5dp</dimen>
+    <dimen name="toolbar_title_text_size">18sp</dimen>
+    <dimen name="toolbar_status_text_size">12sp</dimen>
+    <dimen name="toolbar_padding_bottom">2dp</dimen>
+    <dimen name="toolbar_padding_for_status">5dp</dimen>
+
+    <!--OpenWalletActivity-->
+    <dimen name="open_wallet_password_margin">32dp</dimen>
+    <dimen name="open_wallet_password_hint_size">12sp</dimen>
+    <dimen name="open_wallet_title_margin">50dp</dimen>
+    <dimen name="open_wallet_title_text_size">32sp</dimen>
+
+    <!--MainActivity-->
+    <dimen name="main_card_title_text_size">16sp</dimen>
+    <dimen name="main_card_corner_radius">10dp</dimen>
+</resources>

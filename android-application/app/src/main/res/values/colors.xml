@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#1c435b</color>
+    <color name="colorPrimaryDark">#032e49</color>
+    <color name="colorAccent">#00f6d2</color>
+    <color name="colorAccentPicked">#01c4a7</color>
+    <color name="snack_bar_color">#0a4b66</color>
+    <color name="status_bar_color">#566a7c</color>
+    <color name="toolbar_title_color">#ffffff</color>
+    <color name="toolbar_status_color">#8da1ad</color>
+
+    <!--OpenWalletActivity-->
+    <color name="password_text_color">#ffffff</color>
+    <color name="password_underline_color">#84a5b2</color>
+
+    <!--MainActivity-->
+    <color name="main_card_title_color">#ffffff</color>
+</resources>
