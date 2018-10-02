@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">Beam Wallet</string>
+    <string name="common_successful">Done!</string>
+    <string name="common_error">Ooops, something went wrong…</string>
+    <string name="common_title">Wallet</string>
+    <string name="common_status_online">online</string>
+
+    <!--OpenWalletActivity-->
+    <string name="open_wallet_password_hint">Enter password</string>
+    <string name="open_wallet_confirm_password_hint">Confirm password</string>
+    <string name="open_wallet_seed_hint">Enter seed</string>
+    <string name="open_wallet_title_create">Create new wallet</string>
+    <string name="open_wallet_title_open">Open wallet</string>
+    <string name="open_wallet_btn_proceed">proceed to your wallet</string>
+
+    <string name="open_wallet_no_text_error">Field should not be empty</string>
+    <string name="open_wallet_pass_not_match_error">Passwords don\'t match</string>
+
+    <!--MainActivity-->
+    <string name="main_height">Height</string>
+    <string name="main_hash">Hash</string>
+</resources>
