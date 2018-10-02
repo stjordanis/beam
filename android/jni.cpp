@@ -78,28 +78,51 @@ namespace
 	};
 
 	using WalletDBList = std::vector<IKeyChain::Ptr>;
-	static WalletDBList wallets;
+	WalletDBList wallets;
+
+    inline void setLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jlong value)
+    {
+        env->SetLongField(obj, env->GetFieldID(clazz, name, "J"), value);
+    }
+
+    inline void setIntField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jint value)
+    {
+        env->SetIntField(obj, env->GetFieldID(clazz, name, "I"), value);
+    }
+
+	inline void setHashField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const ECC::uintBig& value)
+	{
+		jbyteArray hash = env->NewByteArray(ECC::uintBig::nBytes);
+		jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
+
+		std::memcpy(hashBytes, value.m_pData, ECC::uintBig::nBytes);
+
+		env->SetObjectField(obj, env->GetFieldID(clazz, name, "[B"), hash);
+
+		env->ReleaseByteArrayElements(hash, hashBytes, 0);
+	}
+
+    jobject regWallet(JNIEnv *env, jobject thiz, IKeyChain::Ptr wallet)
+    {
+	    wallets.push_back(wallet);
+
+        jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/Wallet");
+	    jobject walletObj = env->AllocObject(Wallet);
+
+        setLongField(env, Wallet, walletObj, "_this", wallets.size() - 1);
+
+	    return walletObj;
+    }
+
+    IKeyChain::Ptr getWallet(JNIEnv *env, jobject thiz)
+    {
+	    jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/Wallet");
+	    jfieldID _this = env->GetFieldID(Wallet, "_this", "J");
+	    return wallets[env->GetLongField(thiz, _this)];
+    }
+
 }
 
-static jobject regWallet(JNIEnv *env, jobject thiz, IKeyChain::Ptr wallet)
-{
-	wallets.push_back(wallet);
-
-    jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/Wallet");
-	jobject walletObj = env->AllocObject(Wallet);
-
-	jfieldID _this = env->GetFieldID(Wallet, "_this", "J");
-	env->SetLongField(walletObj, _this, wallets.size() - 1);
-
-	return walletObj;
-}
-
-static IKeyChain::Ptr getWallet(JNIEnv *env, jobject thiz)
-{
-	jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/Wallet");
-	jfieldID _this = env->GetFieldID(Wallet, "_this", "J");
-	return wallets[env->GetLongField(thiz, _this)];
-}
 
 #ifdef __cplusplus
 extern "C" {
@@ -202,22 +225,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env
 	jclass SystemState = env->FindClass(BEAM_JAVA_PATH "/SystemState");
 	jobject systemState = env->AllocObject(SystemState);
 
-	{
-		jfieldID height = env->GetFieldID(SystemState, "height", "J");
-		env->SetLongField(systemState, height, stateID.m_Height);
-	}
-
-	{
-		jbyteArray hash = env->NewByteArray(ECC::uintBig::nBytes);
-		jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
-
-		memcpy(hashBytes, stateID.m_Hash.m_pData, ECC::uintBig::nBytes);
-
-		jfieldID hashField = env->GetFieldID(SystemState, "hash", "[B");
-		env->SetObjectField(systemState, hashField, hash);
-
-		env->ReleaseByteArrayElements(hash, hashBytes, 0);
-	}
+	setLongField(env, SystemState, systemState, "height", stateID.m_Height);
+	setHashField(env, SystemState, systemState, "hash", stateID.m_Hash);
 
 	return systemState;
 }
@@ -233,35 +242,17 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxos)(JNIEnv *env, jobj
 	{
 		jobject utxo = env->AllocObject(Utxo);
 
-		{
-			jfieldID height = env->GetFieldID(Utxo, "id", "J");
-			env->SetLongField(utxo, height, coin.m_id);
-		}
+        setLongField(env, Utxo, utxo, "id", coin.m_id);
+        setLongField(env, Utxo, utxo, "amount", coin.m_amount);
+        setIntField(env, Utxo, utxo, "status", coin.m_status);
+        setLongField(env, Utxo, utxo, "createHeight", coin.m_createHeight);
+        setLongField(env, Utxo, utxo, "maturity", coin.m_maturity);
+        setIntField(env, Utxo, utxo, "keyType", static_cast<jint>(coin.m_key_type));
+        setLongField(env, Utxo, utxo, "confirmHeight", coin.m_confirmHeight);
+        setHashField(env, Utxo, utxo, "confirmHash", coin.m_confirmHash);
+        setLongField(env, Utxo, utxo, "lockHeight", coin.m_lockedHeight);
 
-		{
-			jfieldID amount = env->GetFieldID(Utxo, "amount", "J");
-			env->SetLongField(utxo, amount, coin.m_amount);
-		}
-
-		{
-			jfieldID status = env->GetFieldID(Utxo, "status", "I");
-			env->SetIntField(utxo, status, coin.m_status);
-		}
-
-		{
-			jfieldID createHeight = env->GetFieldID(Utxo, "createHeight", "J");
-			env->SetLongField(utxo, createHeight, coin.m_createHeight);
-		}
-
-		{
-			jfieldID maturity = env->GetFieldID(Utxo, "maturity", "J");
-			env->SetLongField(utxo, maturity, coin.m_maturity);
-		}
-
-		{
-			jfieldID keyType = env->GetFieldID(Utxo, "keyType", "I");
-			env->SetIntField(utxo, keyType, static_cast<jint>(coin.m_key_type));
-		}
+        // TODO: add m_createTxId m_spentTxId here
 
 		utxosVec.push_back(utxo);
 
