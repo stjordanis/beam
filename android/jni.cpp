@@ -36,10 +36,10 @@
 #define DEF2STR(x) DEF2STR2(x)
 
 #define BEAM_JAVA_PACKAGE(sep) 					com ## sep ## mw ## sep ## beam ## sep ## beamwallet ## sep ## core
-#define BEAM_JAVA_PREFIX                        BEAM_JAVA_PACKAGE(_)
-#define BEAM_JAVA_PATH                        	DEF2STR(BEAM_JAVA_PACKAGE(/))
-#define BEAM_JAVA_API_INTERFACE(function)       CONCAT1(BEAM_JAVA_PREFIX, Api, function)
-#define BEAM_JAVA_WALLET_INTERFACE(function)    CONCAT1(BEAM_JAVA_PREFIX, Wallet, function)
+#define BEAM_JAVA_PREFIX 						BEAM_JAVA_PACKAGE(_)
+#define BEAM_JAVA_PATH 							DEF2STR(BEAM_JAVA_PACKAGE(/))
+#define BEAM_JAVA_API_INTERFACE(function) 		CONCAT1(BEAM_JAVA_PREFIX, Api, function)
+#define BEAM_JAVA_WALLET_INTERFACE(function) 	CONCAT1(BEAM_JAVA_PREFIX, Wallet, function)
 
 #define WALLET_FILENAME "wallet.db"
 #define BBS_FILENAME "keys.bbs"
@@ -80,67 +80,64 @@ namespace
 	using WalletDBList = std::vector<IKeyChain::Ptr>;
 	WalletDBList wallets;
 
-    inline void setLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jlong value)
-    {
-        env->SetLongField(obj, env->GetFieldID(clazz, name, "J"), value);
-    }
-
-    inline void setIntField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jint value)
-    {
-        env->SetIntField(obj, env->GetFieldID(clazz, name, "I"), value);
-    }
-
-    inline void setBooleanField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jboolean value)
-    {
-        env->SetBooleanField(obj, env->GetFieldID(clazz, name, "Z"), value);
-    }
-
-	inline void setHashField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const ECC::uintBig& value)
+	inline void setLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jlong value)
 	{
-		jbyteArray hash = env->NewByteArray(ECC::uintBig::nBytes);
-		jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
-
-		std::memcpy(hashBytes, value.m_pData, ECC::uintBig::nBytes);
-
-		env->SetObjectField(obj, env->GetFieldID(clazz, name, "[B"), hash);
-
-		env->ReleaseByteArrayElements(hash, hashBytes, 0);
+		env->SetLongField(obj, env->GetFieldID(clazz, name, "J"), value);
 	}
 
-    template <typename T>
-    inline void setByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const T& value)
-    {
-        if (value.size())
-        {
-            jbyteArray hash = env->NewByteArray(value.size());
-            jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
+	inline void setIntField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jint value)
+	{
+		env->SetIntField(obj, env->GetFieldID(clazz, name, "I"), value);
+	}
 
-            std::memcpy(hashBytes, &value[0], value.size());
+	inline void setBooleanField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jboolean value)
+	{
+		env->SetBooleanField(obj, env->GetFieldID(clazz, name, "Z"), value);
+	}
 
-            env->SetObjectField(obj, env->GetFieldID(clazz, name, "[B"), hash);
 
-            env->ReleaseByteArrayElements(hash, hashBytes, 0);
-        }
-    }
+	template <typename T>
+	inline void setByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const T& value)
+	{
+		if (value.size())
+		{
+			jbyteArray hash = env->NewByteArray(value.size());
+			jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
 
-    jobject regWallet(JNIEnv *env, jobject thiz, IKeyChain::Ptr wallet)
-    {
-	    wallets.push_back(wallet);
+			std::memcpy(hashBytes, &value[0], value.size());
 
-        jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/Wallet");
-	    jobject walletObj = env->AllocObject(Wallet);
+			env->SetObjectField(obj, env->GetFieldID(clazz, name, "[B"), hash);
 
-        setLongField(env, Wallet, walletObj, "_this", wallets.size() - 1);
+			env->ReleaseByteArrayElements(hash, hashBytes, 0);
+		}
+	}
 
-	    return walletObj;
-    }
+	template <>
+	inline void setByteArrayField<ECC::uintBig>(JNIEnv *env, jclass clazz, jobject obj, const char* name, const ECC::uintBig& value)
+	{
+		std::vector<uint8_t> data;
+		data.assign(value.m_pData, value.m_pData + ECC::uintBig::nBytes);
+		setByteArrayField(env, clazz, obj, name, data);
+	}
 
-    IKeyChain::Ptr getWallet(JNIEnv *env, jobject thiz)
-    {
-	    jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/Wallet");
-	    jfieldID _this = env->GetFieldID(Wallet, "_this", "J");
-	    return wallets[env->GetLongField(thiz, _this)];
-    }
+	jobject regWallet(JNIEnv *env, jobject thiz, IKeyChain::Ptr wallet)
+	{
+		wallets.push_back(wallet);
+
+		jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/Wallet");
+		jobject walletObj = env->AllocObject(Wallet);
+
+		setLongField(env, Wallet, walletObj, "_this", wallets.size() - 1);
+
+		return walletObj;
+	}
+
+	IKeyChain::Ptr getWallet(JNIEnv *env, jobject thiz)
+	{
+		jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/Wallet");
+		jfieldID _this = env->GetFieldID(Wallet, "_this", "J");
+		return wallets[env->GetLongField(thiz, _this)];
+	}
 
 }
 
@@ -227,16 +224,14 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(closeWallet)(JNIEnv *env, jobj
 	getWallet(env, thiz).reset();
 }
 
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(checkWalletPassword)(JNIEnv *env, jobject thiz,
-	int index, jstring passStr)
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(checkWalletPassword)(JNIEnv *env, jobject thiz, jstring passStr)
 {
 	LOGI("changing wallet password...");
 
 	getWallet(env, thiz)->changePassword(JString(env, passStr).value());
 }
 
-JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env, jobject thiz,
-	int index)
+JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env, jobject thiz)
 {
 	LOGI("getting System State...");
 
@@ -247,7 +242,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env
 	jobject systemState = env->AllocObject(SystemState);
 
 	setLongField(env, SystemState, systemState, "height", stateID.m_Height);
-	setHashField(env, SystemState, systemState, "hash", stateID.m_Hash);
+	setByteArrayField(env, SystemState, systemState, "hash", stateID.m_Hash);
 
 	return systemState;
 }
@@ -263,21 +258,21 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxos)(JNIEnv *env, jobj
 	{
 		jobject utxo = env->AllocObject(Utxo);
 
-        setLongField(env, Utxo, utxo, "id", coin.m_id);
-        setLongField(env, Utxo, utxo, "amount", coin.m_amount);
-        setIntField(env, Utxo, utxo, "status", coin.m_status);
-        setLongField(env, Utxo, utxo, "createHeight", coin.m_createHeight);
-        setLongField(env, Utxo, utxo, "maturity", coin.m_maturity);
-        setIntField(env, Utxo, utxo, "keyType", static_cast<jint>(coin.m_key_type));
-        setLongField(env, Utxo, utxo, "confirmHeight", coin.m_confirmHeight);
-        setHashField(env, Utxo, utxo, "confirmHash", coin.m_confirmHash);
-        setLongField(env, Utxo, utxo, "lockHeight", coin.m_lockedHeight);
+		setLongField(env, Utxo, utxo, "id", coin.m_id);
+		setLongField(env, Utxo, utxo, "amount", coin.m_amount);
+		setIntField(env, Utxo, utxo, "status", coin.m_status);
+		setLongField(env, Utxo, utxo, "createHeight", coin.m_createHeight);
+		setLongField(env, Utxo, utxo, "maturity", coin.m_maturity);
+		setIntField(env, Utxo, utxo, "keyType", static_cast<jint>(coin.m_key_type));
+		setLongField(env, Utxo, utxo, "confirmHeight", coin.m_confirmHeight);
+		setByteArrayField(env, Utxo, utxo, "confirmHash", coin.m_confirmHash);
+		setLongField(env, Utxo, utxo, "lockHeight", coin.m_lockedHeight);
 
-        if(coin.m_createTxId)
-            setByteArrayField(env, Utxo, utxo, "createTxId", *coin.m_createTxId);
+		if(coin.m_createTxId)
+			setByteArrayField(env, Utxo, utxo, "createTxId", *coin.m_createTxId);
 
-        if (coin.m_spentTxId)
-            setByteArrayField(env, Utxo, utxo, "spentTxId", *coin.m_spentTxId);
+		if (coin.m_spentTxId)
+			setByteArrayField(env, Utxo, utxo, "spentTxId", *coin.m_spentTxId);
 
 		utxosVec.push_back(utxo);
 
@@ -298,30 +293,30 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, 
 
 	jclass TxDescription = env->FindClass(BEAM_JAVA_PATH "/TxDescription");
 
-    auto txHistory = getWallet(env, thiz)->getTxHistory();
+	auto txHistory = getWallet(env, thiz)->getTxHistory();
 
 	jobjectArray txs = env->NewObjectArray(txHistory.size(), TxDescription, NULL);
 
-    for (int i = 0; i < txHistory.size(); ++i)
-    {
-        const auto& tx = txHistory[i];
-        jobject txObj = env->AllocObject(TxDescription);
+	for (int i = 0; i < txHistory.size(); ++i)
+	{
+		const auto& tx = txHistory[i];
+		jobject txObj = env->AllocObject(TxDescription);
 
-        setByteArrayField(env, TxDescription, txObj, "id", tx.m_txId);
-        setLongField(env, TxDescription, txObj, "amount", tx.m_amount);
-        setLongField(env, TxDescription, txObj, "fee", tx.m_fee);
-        setLongField(env, TxDescription, txObj, "change", tx.m_change);
-        setLongField(env, TxDescription, txObj, "minHeight", tx.m_minHeight);
-        setHashField(env, TxDescription, txObj, "peerId", tx.m_peerId);
-        setHashField(env, TxDescription, txObj, "myId", tx.m_myId);
-        setByteArrayField(env, TxDescription, txObj, "message", tx.m_message);
-        setLongField(env, TxDescription, txObj, "createTime", tx.m_createTime);
-        setLongField(env, TxDescription, txObj, "modifyTime", tx.m_modifyTime);
-        setBooleanField(env, TxDescription, txObj, "sender", tx.m_sender);
-        setIntField(env, TxDescription, txObj, "status", tx.m_status);
+		setByteArrayField(env, TxDescription, txObj, "id", tx.m_txId);
+		setLongField(env, TxDescription, txObj, "amount", tx.m_amount);
+		setLongField(env, TxDescription, txObj, "fee", tx.m_fee);
+		setLongField(env, TxDescription, txObj, "change", tx.m_change);
+		setLongField(env, TxDescription, txObj, "minHeight", tx.m_minHeight);
+		setByteArrayField(env, TxDescription, txObj, "peerId", tx.m_peerId);
+		setByteArrayField(env, TxDescription, txObj, "myId", tx.m_myId);
+		setByteArrayField(env, TxDescription, txObj, "message", tx.m_message);
+		setLongField(env, TxDescription, txObj, "createTime", tx.m_createTime);
+		setLongField(env, TxDescription, txObj, "modifyTime", tx.m_modifyTime);
+		setBooleanField(env, TxDescription, txObj, "sender", tx.m_sender);
+		setIntField(env, TxDescription, txObj, "status", tx.m_status);
 
-	 	env->SetObjectArrayElement(txs, i, txObj);
-    }
+		env->SetObjectArrayElement(txs, i, txObj);
+	}
 
 	return txs;
 }
