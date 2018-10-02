@@ -21,30 +21,31 @@ public class WalletJNI
 		System.out.println("Start Wallet JNI test...");
 
 		Api api = new Api();
-		int wallet = -1;
+
+		Wallet wallet;
 
 		if(api.isWalletInitialized("."))
 		{
 			wallet = api.openWallet(".", "123");
 
-			System.out.println(wallet < 0 ? "wallet opening error" : "wallet successfully opened");
+			System.out.println(wallet == null ? "wallet opening error" : "wallet successfully opened");
 		}
 		else
 		{
 			wallet = api.createWallet(".", "123", "seed123");
 
-			System.out.println(wallet < 0 ? "wallet creation error" : "wallet successfully created");
+			System.out.println(wallet == null ? "wallet creation error" : "wallet successfully created");
 		}
 
-		if(wallet >= 0)
+		if(wallet != null)
 		{
 			{
-				SystemState state = api.getSystemState(wallet);
+				SystemState state = wallet.getSystemState();
 				System.out.println("system height is " + state.height);
 			}
 
 			{
-				Utxo[] utxos = api.getUtxos(wallet);
+				Utxo[] utxos = wallet.getUtxos();
 
 				System.out.println("utxos length: " + utxos.length);
 
@@ -62,7 +63,7 @@ public class WalletJNI
 				System.out.println("+-------------------------------------------------------");
 			}
 
-			api.closeWallet(wallet);
+			wallet.closeWallet();
 		}
 	}
 }

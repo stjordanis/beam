@@ -14,14 +14,13 @@
 
 package com.mw.beam.beamwallet.core;
 
-public class Api
+public class Wallet
 {
-	public native boolean isWalletInitialized(String path);	
-	public native Wallet createWallet(String path, String pass, String seed);
-	public native Wallet openWallet(String path, String pass);
+	private long _this;
 
-	static 
-	{
-		System.loadLibrary("wallet-jni");
-	}
+	public native void closeWallet();
+
+	public native void changeWalletPassword(String pass);
+	public native SystemState getSystemState();
+	public native Utxo[] getUtxos();
 }
