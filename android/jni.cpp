@@ -37,7 +37,7 @@
 
 #define BEAM_JAVA_PACKAGE(sep) 					com ## sep ## mw ## sep ## beam ## sep ## beamwallet ## sep ## core
 #define BEAM_JAVA_PREFIX 						BEAM_JAVA_PACKAGE(_)
-#define BEAM_JAVA_PATH 							DEF2STR(BEAM_JAVA_PACKAGE(/))
+#define BEAM_JAVA_PATH 							"com/mw/beam/beamwallet/core"
 #define BEAM_JAVA_API_INTERFACE(function) 		CONCAT1(BEAM_JAVA_PREFIX, Api, function)
 #define BEAM_JAVA_WALLET_INTERFACE(function) 	CONCAT1(BEAM_JAVA_PREFIX, Wallet, function)
 
