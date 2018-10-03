@@ -9,12 +9,12 @@ matrix:
     - env: 
       - ANDROID_ABI=armeabi-v7a
       - BUILD_TYPE=Release
-    # - env:
-    #   - ANDROID_ABI=x86
-    #   - BUILD_TYPE=Debug
-    # - env: 
-    #   - ANDROID_ABI=armeabi-v7a
-    #   - BUILD_TYPE=Debug
+    - env:
+      - ANDROID_ABI=x86
+      - BUILD_TYPE=Debug
+    - env: 
+      - ANDROID_ABI=armeabi-v7a
+      - BUILD_TYPE=Debug
 
 android:
   components:
