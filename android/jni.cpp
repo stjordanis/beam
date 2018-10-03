@@ -391,7 +391,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz
 	
 	if (!node_addr.resolve(nodeURI.c_str()))
 	{
-		LOGE("unable to resolve node address: %s", nodeURI);
+		LOGE("unable to resolve node address: %s", nodeURI.c_str());
 		return;
 	}
 
