@@ -39,8 +39,6 @@ public class WalletJNI
 
 		if(wallet != null)
 		{
-			wallet.listen(new WalletListenerJNI());
-
 			{
 				SystemState state = wallet.getSystemState();
 				System.out.println("system height is " + state.height);
@@ -86,7 +84,7 @@ public class WalletJNI
 				System.out.println("+-------------------------------------------------------");
 			}
 
-			wallet.run("172.104.249.212:8101");
+			wallet.run("172.104.249.212:8101", new WalletListenerJNI());
 			wallet.closeWallet();
 		}
 	}

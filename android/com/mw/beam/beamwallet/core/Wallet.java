@@ -19,7 +19,6 @@ import java.util.*;
 public class Wallet
 {
 	long _this;
-
 	WalletListener _listener;
 
 	public native void closeWallet();
@@ -28,10 +27,5 @@ public class Wallet
 	public native SystemState getSystemState();
 	public native Utxo[] getUtxos();
 	public native TxDescription[] getTxHistory();
-	public native void run(String nodeAddr);
-
-	public void listen(WalletListener listener)
-	{
-		_listener = listener;
-	}
+	public native void run(String nodeAddr, WalletListener listener);
 }

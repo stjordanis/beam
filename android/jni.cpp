@@ -141,98 +141,57 @@ namespace
 		return wallets[env->GetLongField(thiz, _this)];
 	}
 
-    class WalletObserver : public beam::IWalletObserver
-    {
-        JNIEnv* _env;
-        jobject _wallet;
+	class WalletObserver : public beam::IWalletObserver
+	{
+		JNIEnv* _env;
+		jobject _listener;
+		jclass _WalletListenerClass;
 
-        jobject getWalletListener()
-        {
-            jclass Wallet = _env->FindClass(BEAM_JAVA_PATH "/Wallet");
-            jfieldID listener = _env->GetFieldID(Wallet, "_listener", "L" BEAM_JAVA_PATH "/WalletListener;");
-            return _env->GetObjectField(_wallet, listener);
-        }
-    public:
+	public:
 
-        WalletObserver(JNIEnv *env, jobject wallet)
-            : _env(env)
-            , _wallet(wallet)
-        {
+		WalletObserver(JNIEnv *env, jobject listener)
+			: _env(env)
+			, _listener(listener)
+		{
+			_WalletListenerClass = _env->GetObjectClass(_listener);
+		}
 
-        }
+		void onKeychainChanged() override 
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onKeychainChanged", "()V");
+			_env->CallVoidMethod(_listener, callback);
+		}
 
-        void onKeychainChanged() override 
-        {
-            jobject listener = getWalletListener();
+		void onTransactionChanged(beam::ChangeAction action, std::vector<beam::TxDescription>&& items) override
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onTransactionChanged", "()V");
+			_env->CallVoidMethod(_listener, callback);
+		}
 
-            if (listener)
-            {
-                jclass WalletListenerClass = _env->GetObjectClass(listener);
-                jmethodID callback = _env->GetMethodID(WalletListenerClass, "onKeychainChanged", "()V");
-                _env->CallVoidMethod(listener, callback);
-            }
-        }
+		void onSystemStateChanged() override
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onSystemStateChanged", "()V");
+			_env->CallVoidMethod(_listener, callback);
+		}
 
-        void onTransactionChanged(beam::ChangeAction action, std::vector<beam::TxDescription>&& items) override
-        {
-            jobject listener = getWalletListener();
+		void onTxPeerChanged() override
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onTxPeerChanged", "()V");
+			_env->CallVoidMethod(_listener, callback);
+		}
 
-            if (listener)
-            {
-                jclass WalletListenerClass = _env->GetObjectClass(listener);
-                jmethodID callback = _env->GetMethodID(WalletListenerClass, "onTransactionChanged", "()V");
-                _env->CallVoidMethod(listener, callback);
-            }
-        }
+		void onAddressChanged() override
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onAddressChanged", "()V");
+			_env->CallVoidMethod(_listener, callback);
+		}
 
-        void onSystemStateChanged() override
-        {
-            jobject listener = getWalletListener();
-
-            if (listener)
-            {
-                jclass WalletListenerClass = _env->GetObjectClass(listener);
-                jmethodID callback = _env->GetMethodID(WalletListenerClass, "onSystemStateChanged", "()V");
-                _env->CallVoidMethod(listener, callback);
-            }
-        }
-
-        void onTxPeerChanged() override
-        {
-            jobject listener = getWalletListener();
-
-            if (listener)
-            {
-                jclass WalletListenerClass = _env->GetObjectClass(listener);
-                jmethodID callback = _env->GetMethodID(WalletListenerClass, "onTxPeerChanged", "()V");
-                _env->CallVoidMethod(listener, callback);
-            }
-        }
-
-        void onAddressChanged() override
-        {
-            jobject listener = getWalletListener();
-
-            if (listener)
-            {
-                jclass WalletListenerClass = _env->GetObjectClass(listener);
-                jmethodID callback = _env->GetMethodID(WalletListenerClass, "onAddressChanged", "()V");
-                _env->CallVoidMethod(listener, callback);
-            }
-        }
-
-        void onSyncProgress(int done, int total) override
-        {
-            jobject listener = getWalletListener();
-
-            if (listener)
-            {
-                jclass WalletListenerClass = _env->GetObjectClass(listener);
-                jmethodID callback = _env->GetMethodID(WalletListenerClass, "onSyncProgress", "(II)V");
-                _env->CallVoidMethod(listener, callback, done, total);
-            }
-        }
-    };
+		void onSyncProgress(int done, int total) override
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onSyncProgress", "(II)V");
+			_env->CallVoidMethod(_listener, callback, done, total);
+		}
+	};
 }
 
 
@@ -416,9 +375,9 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, 
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz,
-	jstring nodeAddr)
+	jstring nodeAddr, jobject listener)
 {
-    setbuf(stdout, NULL);
+	setbuf(stdout, NULL);
 
 	LOGI("run wallet...");
 
@@ -446,13 +405,13 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz
 	std::string pass("123");
 	IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
 
-    auto wallet_io = std::make_shared<WalletNetworkIO>(node_addr, keychain, keystore, reactor);
+	auto wallet_io = std::make_shared<WalletNetworkIO>(node_addr, keychain, keystore, reactor);
 
 	Wallet wallet{ keychain, wallet_io};
-    
-    WalletObserver observer(env, thiz);
+	
+	WalletObserver observer(env, listener);
 
-    wallet.subscribe(&observer);
+	wallet.subscribe(&observer);
 
 	wallet_io->start();
 }
