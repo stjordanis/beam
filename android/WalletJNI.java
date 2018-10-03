@@ -14,6 +14,39 @@
 
 import com.mw.beam.beamwallet.core.*;
 
+class Listener extends WalletListener
+{
+	@Override
+	public void onKeychainChanged()
+	{
+		System.out.println("onKeychainChanged");
+	}
+
+	@Override
+	public void onTransactionChanged()
+	{
+		System.out.println("onTransactionChanged");
+	}
+
+	@Override
+	public void onSystemStateChanged()
+	{
+		System.out.println("onSystemStateChanged");
+	}
+
+	@Override
+	public void onTxPeerChanged()
+	{
+		System.out.println("onTxPeerChanged");
+	}
+
+	@Override
+	public void onAddressChanged()
+	{
+		System.out.println("onAddressChanged");
+	}
+}
+
 public class WalletJNI
 {
 	public static void main(String[] args)
@@ -39,6 +72,10 @@ public class WalletJNI
 
 		if(wallet != null)
 		{
+			WalletListener listener = new WalletListener();
+
+			wallet.listen(listener);
+
 			{
 				SystemState state = wallet.getSystemState();
 				System.out.println("system height is " + state.height);
@@ -84,6 +121,7 @@ public class WalletJNI
 				System.out.println("+-------------------------------------------------------");
 			}
 
+			wallet.run("172.104.249.212:8101");
 			wallet.closeWallet();
 		}
 	}

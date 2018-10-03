@@ -14,24 +14,11 @@
 
 package com.mw.beam.beamwallet.core;
 
-import java.util.*; 
-
-public class Wallet
+public class WalletListener
 {
-	long _this;
-
-	WalletListener _listener;
-
-	public native void closeWallet();
-
-	public native void changeWalletPassword(String pass);
-	public native SystemState getSystemState();
-	public native Utxo[] getUtxos();
-	public native TxDescription[] getTxHistory();
-	public native void run(String nodeAddr);
-
-	public void listen(WalletListener listener)
-	{
-		_listener = listener;
-	}
+	protected void onKeychainChanged() {}
+	protected void onTransactionChanged() {}
+	protected void onSystemStateChanged() {}
+	protected void onTxPeerChanged() {}
+	protected void onAddressChanged() {}
 }

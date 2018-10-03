@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/keystore.h"
+#include "wallet/wallet_network.h"
 
 #include <jni.h>
 
@@ -37,7 +39,7 @@
 
 #define BEAM_JAVA_PACKAGE(sep) 					com ## sep ## mw ## sep ## beam ## sep ## beamwallet ## sep ## core
 #define BEAM_JAVA_PREFIX 						BEAM_JAVA_PACKAGE(_)
-#define BEAM_JAVA_PATH 							"com/mw/beam/beamwallet/core"
+#define BEAM_JAVA_PATH 							"com/mw/beam/beamwallet/core" // doesn't work on clang DEF2STR(BEAM_JAVA_PACKAGE(/))
 #define BEAM_JAVA_API_INTERFACE(function) 		CONCAT1(BEAM_JAVA_PREFIX, Api, function)
 #define BEAM_JAVA_WALLET_INTERFACE(function) 	CONCAT1(BEAM_JAVA_PREFIX, Wallet, function)
 
@@ -319,6 +321,42 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, 
 	}
 
 	return txs;
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz,
+	jstring nodeAddr)
+{
+	LOGI("run wallet...");
+
+	io::Reactor::Ptr reactor = io::Reactor::create();
+	io::Reactor::Scope scope(*reactor);
+
+	io::Reactor::GracefulIntHandler gih(*reactor);
+
+	std::string nodeURI = JString(env, nodeAddr).value();
+	io::Address node_addr;
+	
+	if (!node_addr.resolve(nodeURI.c_str()))
+	{
+		LOGE("unable to resolve node address: %s", nodeURI);
+		return;
+	}
+
+	auto keychain = getWallet(env, thiz);
+
+	IKeyStore::Options options;
+	options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+	options.fileName = BBS_FILENAME;
+
+	// TODO: remove this
+	std::string pass("123");
+	IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
+
+    auto wallet_io = std::make_shared<WalletNetworkIO>(node_addr, keychain, keystore, reactor);
+
+	Wallet wallet{ keychain, wallet_io};
+
+	wallet_io->start();
 }
 
 #ifdef __cplusplus
