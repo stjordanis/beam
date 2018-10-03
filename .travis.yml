@@ -18,4 +18,5 @@ before_script:
   - export PATH=$ANDROID_NDK_HOME:$PATH
 
 script:
-  cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=x86 .
+  - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=x86 .
+  - make -j4
