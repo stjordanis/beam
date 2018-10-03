@@ -43,5 +43,5 @@ script:
 
 after_success:
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$ANDROID_ABI
-  - tar -cvzf wallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/android wallet-jni.so
-  - curl --retry 3 --ftp-create-dirs -T wallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/android libwallet-jni.so
+  - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
