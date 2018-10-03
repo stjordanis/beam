@@ -1,6 +1,11 @@
 language: android
 sudo: true
 
+matrix:
+  include:
+    - env: ANDROID_ABI=x86
+    - env: ANDROID_ABI=armeabi-v7a
+
 android:
   components:
     - tools
@@ -22,5 +27,5 @@ before_script:
   - export PATH=$ANDROID_NDK_HOME:$PATH
 
 script:
-  - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=x86 .
-  - make -j4
+  - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=$ANDROID_ABI .
+  - make wallet-jni -j4
