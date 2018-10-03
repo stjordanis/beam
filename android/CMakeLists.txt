@@ -24,11 +24,13 @@ else()
 	add_jar(WalletJNI 
 		SOURCES 
 			WalletJNI.java 
+            WalletListenerJNI.java
 			com/mw/beam/beamwallet/core/Api.java
 			com/mw/beam/beamwallet/core/Utxo.java
 			com/mw/beam/beamwallet/core/TxDescription.java
 			com/mw/beam/beamwallet/core/SystemState.java
 			com/mw/beam/beamwallet/core/Wallet.java
+			com/mw/beam/beamwallet/core/WalletListener.java
 		ENTRY_POINT WalletJNI
 	)
 

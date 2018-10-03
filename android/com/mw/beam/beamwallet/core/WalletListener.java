@@ -21,4 +21,5 @@ public class WalletListener
 	protected void onSystemStateChanged() {}
 	protected void onTxPeerChanged() {}
 	protected void onAddressChanged() {}
+	protected void onSyncProgress(int done, int total) {}
 }
