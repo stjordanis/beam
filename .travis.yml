@@ -7,7 +7,7 @@ android:
     - platform-tools
 
 install:
-  - echo y | sdkmanager "ndk-bundle"
+  - yes | sdkmanager "ndk-bundle" --licenses
 
 before_install:
   - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
@@ -18,7 +18,7 @@ before_install:
 before_script:
   - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
   - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
-  - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android
+  - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
   - export PATH=$ANDROID_NDK_HOME:$PATH
 
 script:
