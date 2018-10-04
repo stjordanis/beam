@@ -26,8 +26,8 @@ else()
 			WalletJNI.java 
 			WalletListenerJNI.java
 			com/mw/beam/beamwallet/core/Api.java
-			com/mw/beam/beamwallet/core/Wallet.java
-			com/mw/beam/beamwallet/core/WalletListener.java
+			com/mw/beam/beamwallet/core/entities/Wallet.java
+			com/mw/beam/beamwallet/core/entities/WalletListener.java
 			com/mw/beam/beamwallet/core/entities/Utxo.java
 			com/mw/beam/beamwallet/core/entities/TxDescription.java
 			com/mw/beam/beamwallet/core/entities/SystemState.java

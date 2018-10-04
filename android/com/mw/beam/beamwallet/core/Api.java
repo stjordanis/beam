@@ -14,6 +14,8 @@
 
 package com.mw.beam.beamwallet.core;
 
+import  com.mw.beam.beamwallet.core.entities.Wallet;
+
 public class Api
 {
 	public native boolean isWalletInitialized(String path);	

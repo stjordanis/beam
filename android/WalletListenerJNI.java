@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import com.mw.beam.beamwallet.core.*;
+import com.mw.beam.beamwallet.core.entities.*;
 
 public class WalletListenerJNI extends WalletListener
 {
@@ -46,7 +46,7 @@ public class WalletListenerJNI extends WalletListener
 		System.out.println("onAddressChanged");
 	}
 
-    @Override
+	@Override
 	public void onSyncProgress(int done, int total)
 	{
 		System.out.println("onSyncProgress [" + done + "/" + total + "]");
