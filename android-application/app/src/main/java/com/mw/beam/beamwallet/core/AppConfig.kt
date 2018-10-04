@@ -7,7 +7,7 @@ import java.util.*
  */
 object AppConfig {
     var DB_PATH = ""
-    var LOCALE = Locale.US
+    var LOCALE : Locale = Locale.US
 
     enum class Status(val value : Int) {
         STATUS_OK (0), STATUS_ERROR (-1);
