@@ -271,26 +271,20 @@ namespace beam
             m_negotiators.emplace(tx.m_txId, r);
             m_keyChain->saveTx(tx);
             Cleaner c{ m_removedNegotiators };
-            if (r->ProcessInvitation(msg))
+			r->ProcessInvitation(msg);
+
+            if (m_synchronized)
             {
-                if (m_synchronized)
-                {
-                    r->start();
-                    r->processEvent(events::TxInvited{});
-                }
-                else
-                {
-                    m_pendingEvents.emplace_back([r]()
-                    {
-                        r->start();
-                        r->processEvent(events::TxInvited{});
-                    });
-                }
+                r->start();
+                r->processEvent(events::TxInvited{});
             }
             else
             {
-                LOG_ERROR() << msg.m_txId << " Failed to process invitation";
-                r->processEvent(events::TxFailed{ true });
+                m_pendingEvents.emplace_back([r]()
+                {
+                    r->start();
+                    r->processEvent(events::TxInvited{});
+                });
             }
         }
         else
@@ -602,7 +596,7 @@ namespace beam
                 }
                 else
                 {
-                    m_knownStateID = {};
+                    ZeroObject(m_knownStateID);
                 }
                 m_stateFinder.reset();
                 LOG_INFO() << "Rolled back to " << m_knownStateID;
@@ -687,8 +681,8 @@ namespace beam
         vector<Coin> unconfirmed;
         m_keyChain->visit([&](const Coin& coin)
         {
-            if (coin.m_createTxId == txID && coin.m_status == Coin::Unconfirmed
-                || coin.m_spentTxId == txID && coin.m_status == Coin::Locked)
+            if ((coin.m_createTxId == txID && coin.m_status == Coin::Unconfirmed)
+                || (coin.m_spentTxId == txID && coin.m_status == Coin::Locked))
             {
                 unconfirmed.emplace_back(coin);
             }

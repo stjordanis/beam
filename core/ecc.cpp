@@ -19,18 +19,20 @@
 #define ENABLE_MODULE_RANGEPROOF
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wunused-function"
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wunused-function"
 #else
-    #pragma warning (push, 0) // suppress warnings from secp256k1
+#	pragma warning (push, 0) // suppress warnings from secp256k1
+#	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
 #include "../secp256k1-zkp/src/secp256k1.c"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-    #pragma GCC diagnostic pop
+#	pragma GCC diagnostic pop
 #else
-    #pragma warning (pop)
+#	pragma warning (default: 4706 4701)
+#	pragma warning (pop)
 #endif
 
 #ifndef WIN32
@@ -807,31 +809,35 @@ namespace ECC {
 	}
 
 
-	bool GetOddAndShift(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int& nOdd, unsigned int& nBitTrg)
+	void MultiMac::FastAux::Schedule(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int* pTbl, unsigned int iThisEntry)
 	{
 		const Scalar::Native::uint* p = k.get().d;
 		const uint32_t nWordBits = sizeof(*p) << 3;
 
 		assert(1 & nMaxOdd); // must be odd
-		unsigned int nVal = 0;
+		unsigned int nVal = 0, nBitTrg = 0;
 
 		while (iBitsRemaining--)
 		{
 			nVal <<= 1;
 			if (nVal > nMaxOdd)
-				return true;
+				break;
 
 			uint32_t n = p[iBitsRemaining / nWordBits] >> (iBitsRemaining & (nWordBits - 1));
 
 			if (1 & n)
 			{
 				nVal |= 1;
-				nOdd = nVal;
+				m_nOdd = nVal;
 				nBitTrg = iBitsRemaining;
 			}
 		}
 
-		return nVal > 0;
+		if (nVal > 0)
+		{
+			m_nNextItem = pTbl[nBitTrg];
+			pTbl[nBitTrg] = iThisEntry;
+		}
 	}
 
 	void MultiMac::Calculate(Point::Native& res) const
@@ -852,25 +858,12 @@ namespace ECC {
 			ZeroObject(pTblPrepared);
 
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
-			{
-				FastAux& x = m_pAuxPrepared[iEntry];
-				unsigned int iBit;
-				if (GetOddAndShift(m_pKPrep[iEntry], nBits, Prepared::Fast::nMaxOdd, x.m_nOdd, iBit))
-				{
-					x.m_nNextItem = pTblPrepared[iBit];
-					pTblPrepared[iBit] = iEntry + 1;
-				}
-			}
+				m_pAuxPrepared[iEntry].Schedule(m_pKPrep[iEntry], nBits, Prepared::Fast::nMaxOdd, pTblPrepared, iEntry + 1);
 
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 			{
 				Casual& x = m_pCasual[iEntry];
-				unsigned int iBit;
-				if (GetOddAndShift(x.m_K, nBits, Casual::Fast::nMaxOdd, x.m_Aux.m_nOdd, iBit))
-				{
-					x.m_Aux.m_nNextItem = pTblCasual[iBit];
-					pTblCasual[iBit] = iEntry + 1;
-				}
+				x.m_Aux.Schedule(x.m_K, nBits, Casual::Fast::nMaxOdd, pTblCasual, iEntry + 1);
 			}
 
 		}
@@ -912,14 +905,7 @@ namespace ECC {
 
 					res += x.m_pPt[nElem];
 
-					unsigned int iBit2;
-					if (GetOddAndShift(x.m_K, iBit, Casual::Fast::nMaxOdd, x.m_Aux.m_nOdd, iBit2))
-					{
-						assert(iBit2 < iBit);
-
-						x.m_Aux.m_nNextItem = pTblCasual[iBit2];
-						pTblCasual[iBit2] = iEntry;
-					}
+					x.m_Aux.Schedule(x.m_K, iBit, Casual::Fast::nMaxOdd, pTblCasual, iEntry);
 				}
 
 
@@ -935,14 +921,7 @@ namespace ECC {
 
 					Generator::ToPt(res, ge.V, m_ppPrepared[iEntry - 1]->m_Fast.m_pPt[nElem], false);
 
-					unsigned int iBit2;
-					if (GetOddAndShift(m_pKPrep[iEntry - 1], iBit, Prepared::Fast::nMaxOdd, x.m_nOdd, iBit2))
-					{
-						assert(iBit2 < iBit);
-
-						x.m_nNextItem = pTblPrepared[iBit2];
-						pTblPrepared[iBit2] = iEntry;
-					}
+					x.Schedule(m_pKPrep[iEntry - 1], iBit, Prepared::Fast::nMaxOdd, pTblPrepared, iEntry);
 				}
 			}
 			else
@@ -994,7 +973,7 @@ namespace ECC {
 
 	/////////////////////
 	// Context
-	uint64_t g_pContextBuf[(sizeof(Context) + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
+	alignas(32) char g_pContextBuf[sizeof(Context)];
 
 	// Currently - auto-init in global obj c'tor
 	Initializer g_Initializer;
@@ -1006,12 +985,12 @@ namespace ECC {
 	const Context& Context::get()
 	{
 		assert(g_bContextInitialized);
-		return *(Context*) g_pContextBuf;
+		return *reinterpret_cast<Context*>(g_pContextBuf);
 	}
 
 	void InitializeContext()
 	{
-		Context& ctx = *(Context*) g_pContextBuf;
+		Context& ctx = *reinterpret_cast<Context*>(g_pContextBuf);
 
 		Mode::Scope scope(Mode::Fast);
 
@@ -1019,7 +998,9 @@ namespace ECC {
 
 		// make sure we get the same G,H for different generator kinds
 		Point::Native G_raw, H_raw;
-		Generator::CreatePointNnzFromSeed(G_raw, "G-gen", hp);
+
+		secp256k1_gej_set_ge(&G_raw.get_Raw(), &secp256k1_ge_const_g);
+
 		Generator::CreatePointNnzFromSeed(H_raw, "H-gen", hp);
 
 
@@ -1043,7 +1024,7 @@ namespace ECC {
 
 			for (uint32_t j = 0; j < 2; j++)
 			{
-				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + j;
+				szStr[_countof(STR_GEN_PREFIX) + 1] = '0' + char(j);
 				ctx.m_Ipp.m_pGen_[j][i].Initialize(szStr, hp);
 
 				secp256k1_ge ge;
@@ -1159,7 +1140,7 @@ namespace ECC {
 
 	/////////////////////
 	// Signature
-	void Signature::get_Challenge(Scalar::Native& out, const Point::Native& pt, const Hash::Value& msg)
+	void Signature::get_Challenge(Scalar::Native& out, const Point& pt, const Hash::Value& msg)
 	{
 		Oracle() << pt << msg >> out;
 	}
@@ -1170,62 +1151,57 @@ namespace ECC {
 		sk_.V = sk;
 
 		m_Nonce.GenerateNonce(sk_.V.m_Value, msg, NULL);
+		m_NoncePub = Context::get().G * m_Nonce;
 	}
 
-	void Signature::CoSign(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk, const MultiSig& msig)
+	void Signature::MultiSig::SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const
 	{
-		get_Challenge(k, msig.m_NoncePub, msg);
-		m_e = k;
+		get_Challenge(k, m_NoncePub, msg);
 
 		k *= sk;
+		k += m_Nonce;
 		k = -k;
-		k += msig.m_Nonce;
 	}
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		MultiSig msig;
 		msig.GenerateNonce(msg, sk);
-		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;
-		CoSign(k, msg, sk, msig);
+		msig.SignPartial(k, msg, sk);
+
+		m_NoncePub = msig.m_NoncePub;
 		m_k = k;
 	}
 
-	void Signature::get_PublicNonce(Point::Native& pubNonce, const Point::Native& pk) const
+	bool Signature::IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		pubNonce = Context::get().G * m_k;
-		pubNonce += pk * m_e;
-	}
+		Point::Native pt = Context::get().G * m_k;
 
-	bool Signature::IsValidPartial(const Point::Native& pubNonce, const Point::Native& pk) const
-	{
-		Point::Native pubN;
-		get_PublicNonce(pubN, pk);
+		Scalar::Native e;
+		get_Challenge(e, m_NoncePub, msg);
 
-		pubN = -pubN;
-		pubN += pubNonce;
-		return pubN == Zero;
+		pt += pk * e;
+		pt += pubNonce;
+
+		return pt == Zero;
 	}
 
 	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
 	{
 		Point::Native pubNonce;
-		get_PublicNonce(pubNonce, pk);
+		if (!pubNonce.Import(m_NoncePub))
+			return false;
 
-		Scalar::Native e2;
-
-		get_Challenge(e2, pubNonce, msg);
-
-		return m_e == Scalar(e2);
+		return IsValidPartial(msg, pubNonce, pk);
 	}
 
 	int Signature::cmp(const Signature& x) const
 	{
-		int n = m_e.cmp(x.m_e);
+		int n = m_NoncePub.cmp(x.m_NoncePub);
 		if (n)
 			return n;
 
