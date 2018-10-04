@@ -291,7 +291,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env
 	Block::SystemState::ID stateID = {};
 	getWallet(env, thiz)->getSystemStateID(stateID);
 
-	jclass SystemState = env->FindClass(BEAM_JAVA_PATH "/SystemState");
+	jclass SystemState = env->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
 	jobject systemState = env->AllocObject(SystemState);
 
 	setLongField(env, SystemState, systemState, "height", stateID.m_Height);
@@ -304,7 +304,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxos)(JNIEnv *env, jobj
 {
 	LOGI("getting Utxos...");
 
-	jclass Utxo = env->FindClass(BEAM_JAVA_PATH "/Utxo");
+	jclass Utxo = env->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
 	std::vector<jobject> utxosVec;
 
 	getWallet(env, thiz)->visit([&](const Coin& coin)->bool
@@ -344,7 +344,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, 
 {
 	LOGI("getting transaction history...");
 
-	jclass TxDescription = env->FindClass(BEAM_JAVA_PATH "/TxDescription");
+	jclass TxDescription = env->FindClass(BEAM_JAVA_PATH "/entities/TxDescription");
 
 	auto txHistory = getWallet(env, thiz)->getTxHistory();
 

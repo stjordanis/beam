@@ -14,6 +14,7 @@
 
 package com.mw.beam.beamwallet.core;
 
+import  com.mw.beam.beamwallet.core.entities.*;
 import java.util.*; 
 
 public class Wallet

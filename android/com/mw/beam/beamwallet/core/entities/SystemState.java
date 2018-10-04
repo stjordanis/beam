@@ -12,19 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.mw.beam.beamwallet.core;
+package com.mw.beam.beamwallet.core.entities;
 
-public class Utxo
+public class SystemState
 {
-	public long id;
-	public long amount;
-	public int status;
-	public long createHeight;
-	public long maturity;
-	public int keyType;
-	public long confirmHeight;
-	public byte[] confirmHash;
-	public long lockHeight;
-	public byte[] createTxId;
-	public byte[] spentTxId;
+	public byte[] hash;
+	public long height;
 }

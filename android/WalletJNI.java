@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import com.mw.beam.beamwallet.core.*;
+import com.mw.beam.beamwallet.core.entities.*;
 
 public class WalletJNI
 {
@@ -84,7 +85,7 @@ public class WalletJNI
 				System.out.println("+-------------------------------------------------------");
 			}
 
-			wallet.run("172.104.249.212:8101", new WalletListenerJNI());
+			wallet.run("176.58.98.195:8502", new WalletListenerJNI());
 			wallet.closeWallet();
 		}
 	}
