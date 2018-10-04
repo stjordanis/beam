@@ -22,6 +22,7 @@
         tools:ignore="RtlSymmetry" />
 
     <TextView
+        app:layout_constraintVertical_chainStyle="packed"
         android:id="@+id/message"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -29,6 +30,8 @@
         android:gravity="start"
         android:textColor="@color/transaction_sender_color"
         android:textSize="@dimen/transaction_sender_text_size"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/date"
         app:layout_constraintEnd_toStartOf="@id/barrier"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toEndOf="@id/icon" />
@@ -41,6 +44,7 @@
         android:gravity="start"
         android:textColor="@color/transaction_data_color"
         android:textSize="@dimen/transaction_data_text_size"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/barrier"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toEndOf="@id/icon"
