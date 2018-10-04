@@ -25,7 +25,7 @@
 
 #include <boost/iostreams/filtering_stream.hpp>
 
-#if defined(clang)
+#if defined(__clang__)
 #  pragma clang diagnostic pop
 #endif
 
