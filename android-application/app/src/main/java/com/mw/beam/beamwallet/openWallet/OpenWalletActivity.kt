@@ -5,7 +5,7 @@ import android.os.Bundle
 import android.view.View
 import com.mw.beam.beamwallet.R
 import com.mw.beam.beamwallet.baseScreen.BaseActivity
-import com.mw.beam.beamwallet.wallet.WalletActivity
+import com.mw.beam.beamwallet.main.MainActivity
 import kotlinx.android.synthetic.main.activity_open_wallet.*
 
 /**
@@ -70,6 +70,6 @@ class OpenWalletActivity : BaseActivity<OpenWalletPresenter>(), OpenWalletContra
     }
 
     override fun startMainActivity() {
-        startActivity(Intent(this, WalletActivity::class.java))
+        startActivity(Intent(this, MainActivity::class.java))
     }
 }
