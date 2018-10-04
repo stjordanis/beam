@@ -12,4 +12,8 @@ abstract class BasePresenter<T : MvpView>(var view : T?) : MvpPresenter<T> {
     protected fun isViewAttached(): Boolean {
         return view != null
     }
+
+    override fun viewIsReady() {
+        view?.configNavDrawer()
+    }
 }
