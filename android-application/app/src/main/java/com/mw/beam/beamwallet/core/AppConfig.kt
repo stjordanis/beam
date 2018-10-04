@@ -1,10 +1,13 @@
 package com.mw.beam.beamwallet.core
 
+import java.util.*
+
 /**
  * Created by vain onnellinen on 10/1/18.
  */
-object ApiConfig {
+object AppConfig {
     var DB_PATH = ""
+    var LOCALE = Locale.US
 
     enum class Status(val value : Int) {
         STATUS_OK (0), STATUS_ERROR (-1);
