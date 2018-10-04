@@ -14,15 +14,18 @@
     <dimen name="open_wallet_title_margin">50dp</dimen>
     <dimen name="open_wallet_title_text_size">32sp</dimen>
 
-    <!--WalletActivity-->
+    <!--WalletFragment-->
     <dimen name="wallet_card_title_text_size">18sp</dimen>
     <dimen name="wallet_card_corner_radius">10dp</dimen>
+    <dimen name="wallet_available_text_size">46sp</dimen>
     <dimen name="transaction_item_padding">13dp</dimen>
     <dimen name="transaction_icon_padding_end">25dp</dimen>
     <dimen name="transaction_sender_text_size">16sp</dimen>
     <dimen name="transaction_data_text_size">12sp</dimen>
     <dimen name="transaction_sum_text_size">15sp</dimen>
     <dimen name="transaction_status_text_size">11sp</dimen>
+    <dimen name="transactions_title_text_size">18sp</dimen>
+    <dimen name="transactions_title_padding">10dp</dimen>
 
     <!--UtxoActivity-->
     <dimen name="utxo_card_title_text_size">16sp</dimen>
