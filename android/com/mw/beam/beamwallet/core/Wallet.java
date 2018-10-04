@@ -23,10 +23,12 @@ public class Wallet
 	WalletListener _listener;
 
 	public native void closeWallet();
-
 	public native void changeWalletPassword(String pass);
-	public native SystemState getSystemState();
-	public native Utxo[] getUtxos();
-	public native TxDescription[] getTxHistory();
+
+	public native SystemState 		getSystemState();
+	public native Utxo[] 			getUtxos();
+	public native TxDescription[] 	getTxHistory();
+	public native long 				getAvailable();
+
 	public native void run(String nodeAddr, WalletListener listener);
 }

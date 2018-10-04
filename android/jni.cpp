@@ -374,6 +374,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, 
 	return txs;
 }
 
+JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getAvailable)(JNIEnv *env, jobject thiz)
+{
+	LOGI("getting available money...");
+
+	return wallet::getAvailable(getWallet(env, thiz));
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz,
 	jstring nodeAddr, jobject listener)
 {

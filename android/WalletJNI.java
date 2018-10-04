@@ -46,6 +46,11 @@ public class WalletJNI
 			}
 
 			{
+				long available = wallet.getAvailable();
+				System.out.println("available " + available/1000000 + " BEAM and " + available%1000000 + " GROTH");
+			}
+
+			{
 				Utxo[] utxos = wallet.getUtxos();
 
 				System.out.println("utxos length: " + utxos.length);
