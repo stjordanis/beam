@@ -100,7 +100,7 @@ namespace
 	{
 		if (value.size())
 		{
-			jbyteArray hash = env->NewByteArray(value.size());
+			jbyteArray hash = env->NewByteArray(static_cast<jsize>(value.size()));
 			jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
 
 			memcpy(hashBytes, &value[0], value.size());
@@ -346,7 +346,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxos)(JNIEnv *env, jobj
 		return true;
 	});
 
-	jobjectArray utxos = env->NewObjectArray(utxosVec.size(), Utxo, NULL);
+	jobjectArray utxos = env->NewObjectArray(static_cast<jsize>(utxosVec.size()), Utxo, NULL);
 
 	for (int i = 0; i < utxosVec.size(); ++i)
 		env->SetObjectArrayElement(utxos, i, utxosVec[i]);
@@ -362,7 +362,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, 
 
 	auto txHistory = getWallet(env, thiz).keychain->getTxHistory();
 
-	jobjectArray txs = env->NewObjectArray(txHistory.size(), TxDescription, NULL);
+	jobjectArray txs = env->NewObjectArray(static_cast<jsize>(txHistory.size()), TxDescription, NULL);
 
 	for (int i = 0; i < txHistory.size(); ++i)
 	{
