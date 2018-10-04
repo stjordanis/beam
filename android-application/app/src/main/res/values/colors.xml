@@ -18,8 +18,9 @@
     <color name="password_text_color">#ffffff</color>
     <color name="password_underline_color">#84a5b2</color>
 
-    <!--WalletActivity-->
+    <!--WalletFragment-->
     <color name="wallet_card_title_color">#ffffff</color>
     <color name="transaction_sender_color">#ffffff</color>
     <color name="transaction_data_color">#50ffffff</color>
+    <color name="transactions_title_color">#ffffff</color>
 </resources>
