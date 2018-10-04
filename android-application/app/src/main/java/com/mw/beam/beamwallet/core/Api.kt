@@ -8,8 +8,7 @@ object Api {
         System.loadLibrary("wallet-jni")
     }
 
-    external fun createWallet(dbPath: String, pass: String, seed: String): Int
-    external fun openWallet(dbPath: String, pass: String): Int
+    external fun createWallet(dbPath: String, pass: String, seed: String): Wallet
+    external fun openWallet(dbPath: String, pass: String): Wallet
     external fun isWalletInitialized(dbPath: String): Boolean
-    external fun closeWallet(wallet : Int)
 }
