@@ -5,6 +5,7 @@ import com.crashlytics.android.Crashlytics
 import com.mw.beam.beamwallet.BuildConfig
 import com.squareup.leakcanary.LeakCanary
 import io.fabric.sdk.android.Fabric
+import java.util.*
 
 /**
  * Created by vain onnellinen on 10/1/18.
@@ -13,6 +14,8 @@ class App : Application() {
 
     companion object {
         lateinit var self: App
+        //TODO move into correct place
+        var wallet: Wallet = Wallet(-1)
     }
 
     override fun onCreate() {
@@ -26,7 +29,8 @@ class App : Application() {
         }
 
         self = this
-        ApiConfig.DB_PATH = filesDir.absolutePath
+        AppConfig.DB_PATH = filesDir.absolutePath
+        AppConfig.LOCALE = Locale.getDefault()
 
         if (BuildConfig.DEBUG) {
             LeakCanary.install(self)
