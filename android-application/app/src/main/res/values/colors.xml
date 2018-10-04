@@ -8,11 +8,18 @@
     <color name="status_bar_color">#566a7c</color>
     <color name="toolbar_title_color">#ffffff</color>
     <color name="toolbar_status_color">#8da1ad</color>
+    <color name="navigation_drawer_color">#02253c</color>
+    <color name="received_color">#0bccf7</color>
+    <color name="sent_color">#da68f5</color>
+    <color name="list_item_background">@color/colorPrimary</color>
+    <color name="ic_menu_color">#80929D</color>
 
     <!--OpenWalletActivity-->
     <color name="password_text_color">#ffffff</color>
     <color name="password_underline_color">#84a5b2</color>
 
-    <!--MainActivity-->
-    <color name="main_card_title_color">#ffffff</color>
+    <!--WalletActivity-->
+    <color name="wallet_card_title_color">#ffffff</color>
+    <color name="transaction_sender_color">#ffffff</color>
+    <color name="transaction_data_color">#50ffffff</color>
 </resources>

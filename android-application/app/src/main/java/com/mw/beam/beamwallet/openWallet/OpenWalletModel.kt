@@ -2,7 +2,8 @@ package com.mw.beam.beamwallet.openWallet
 
 import com.mw.beam.beamwallet.baseScreen.BaseModel
 import com.mw.beam.beamwallet.core.Api
-import com.mw.beam.beamwallet.core.ApiConfig
+import com.mw.beam.beamwallet.core.AppConfig
+import com.mw.beam.beamwallet.core.App
 
 /**
  * Created by vain onnellinen on 10/1/18.
@@ -10,18 +11,24 @@ import com.mw.beam.beamwallet.core.ApiConfig
 class OpenWalletModel : BaseModel() {
 
     fun isWalletInitialized(): Boolean {
-        return Api.isWalletInitialized(ApiConfig.DB_PATH)
+        return Api.isWalletInitialized(AppConfig.DB_PATH)
     }
 
-    fun createWallet(pass: String?, seed: String?): ApiConfig.Status {
-        return if (pass.isNullOrBlank() || seed.isNullOrBlank())
-            ApiConfig.Status.STATUS_ERROR
-        else ApiConfig.Status.fromValue(Api.createWallet(ApiConfig.DB_PATH, pass!!, seed!!))
+    fun createWallet(pass: String?, seed: String?): AppConfig.Status {
+        return if (pass.isNullOrBlank() || seed.isNullOrBlank()) {
+            AppConfig.Status.STATUS_ERROR
+        } else {
+            App.wallet = Api.createWallet(AppConfig.DB_PATH, pass!!, seed!!)
+            AppConfig.Status.STATUS_OK
+        }
     }
 
-    fun openWallet(pass: String?): ApiConfig.Status {
-        return if (pass.isNullOrBlank())
-            ApiConfig.Status.STATUS_ERROR
-        else ApiConfig.Status.fromValue(Api.openWallet(ApiConfig.DB_PATH, pass!!))
+    fun openWallet(pass: String?): AppConfig.Status {
+        return if (pass.isNullOrBlank()) {
+            AppConfig.Status.STATUS_ERROR
+        } else {
+            App.wallet = Api.openWallet(AppConfig.DB_PATH, pass!!)
+            return AppConfig.Status.STATUS_OK
+        }
     }
 }
