@@ -28,12 +28,13 @@
     <string name="open_wallet_no_text_error">Field should not be empty</string>
     <string name="open_wallet_pass_not_match_error">Passwords don\'t match</string>
 
-    <!--WalletActivity-->
+    <!--WalletFragment-->
     <string name="wallet_available">Available</string>
     <string name="wallet_btn_receive">Receive</string>
     <string name="wallet_btn_send">Send</string>
     <string name="wallet_status_received">Received</string>
     <string name="wallet_status_sent">Sent</string>
+    <string name="wallet_transactions_title">Transactions</string>
 
     <!--UtxoActivity-->
     <string name="utxo_height">Height</string>

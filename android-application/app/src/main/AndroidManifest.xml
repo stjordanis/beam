@@ -26,9 +26,10 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".wallet.WalletActivity"
+            android:name=".wallet.WalletFragment"
             android:screenOrientation="portrait" />
         <activity android:name=".utxo.UtxoActivity" />
+        <activity android:name=".main.MainActivity" />
 
         <meta-data
             android:name="io.fabric.ApiKey"
