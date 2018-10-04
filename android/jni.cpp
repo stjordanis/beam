@@ -71,8 +71,13 @@ namespace
 		const char* data;
 	};
 
-	using WalletDBList = vector<IKeyChain::Ptr>;
-	WalletDBList wallets;
+	struct WalletRecord
+	{
+		IKeyChain::Ptr keychain;
+		IKeyStore::Ptr keystore;
+	};
+
+	vector<WalletRecord> wallets;
 
 	inline void setLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jlong value)
 	{
@@ -114,9 +119,9 @@ namespace
 		setByteArrayField(env, clazz, obj, name, data);
 	}
 
-	jobject regWallet(JNIEnv *env, jobject thiz, IKeyChain::Ptr wallet)
+	jobject regWallet(JNIEnv *env, jobject thiz, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
 	{
-		wallets.push_back(wallet);
+		wallets.push_back(WalletRecord{keychain, keystore});
 
 		jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
 		jobject walletObj = env->AllocObject(Wallet);
@@ -126,7 +131,7 @@ namespace
 		return walletObj;
 	}
 
-	IKeyChain::Ptr getWallet(JNIEnv *env, jobject thiz)
+	WalletRecord getWallet(JNIEnv *env, jobject thiz)
 	{
 		jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
 		jfieldID _this = env->GetFieldID(Wallet, "_this", "J");
@@ -216,26 +221,24 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 	{
 		LOG_DEBUG() << "wallet successfully created.";
 
-		{
-			IKeyStore::Options options;
-			options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-			options.fileName = appData + "/" BBS_FILENAME;
+		IKeyStore::Options options;
+		options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+		options.fileName = appData + "/" BBS_FILENAME;
 
-			IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
+		IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
 
-			// generate default address
-			WalletAddress defaultAddress = {};
-			defaultAddress.m_own = true;
-			defaultAddress.m_label = "default";
-			defaultAddress.m_createTime = getTimestamp();
-			defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-			keystore->gen_keypair(defaultAddress.m_walletID);
-			keystore->save_keypair(defaultAddress.m_walletID, true);
+		// generate default address
+		WalletAddress defaultAddress = {};
+		defaultAddress.m_own = true;
+		defaultAddress.m_label = "default";
+		defaultAddress.m_createTime = getTimestamp();
+		defaultAddress.m_duration = numeric_limits<uint64_t>::max();
+		keystore->gen_keypair(defaultAddress.m_walletID);
+		keystore->save_keypair(defaultAddress.m_walletID, true);
 
-			wallet->saveAddress(defaultAddress);
-		}
+		wallet->saveAddress(defaultAddress);
 
-		return regWallet(env, thiz, wallet);
+		return regWallet(env, thiz, wallet, keystore);
 	}
 
 	LOG_ERROR() << "wallet creation error.";
@@ -252,21 +255,28 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletInitialized)(JNIEnv *
 }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobject thiz, 
-	jstring appDataStr, jstring pass)
+	jstring appDataStr, jstring passStr)
 {
-    auto appData = JString(env, appDataStr).value();
+	auto appData = JString(env, appDataStr).value();
 
-    initLogger(appData);
+	initLogger(appData);
 
 	LOG_DEBUG() << "opening wallet...";
 
-	auto wallet = Keychain::open(appData + "/" WALLET_FILENAME, JString(env, pass).value());
+	string pass = JString(env, passStr).value();
+	auto wallet = Keychain::open(appData + "/" WALLET_FILENAME, pass);
 
 	if(wallet)
 	{
 		LOG_DEBUG() << "wallet successfully opened.";
 
-		return regWallet(env, thiz, wallet);
+		IKeyStore::Options options;
+		options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
+		options.fileName = BBS_FILENAME;
+
+		IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
+
+		return regWallet(env, thiz, wallet, keystore);
 	}
 
 	LOG_ERROR() << "wallet not opened.";
@@ -278,14 +288,14 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(closeWallet)(JNIEnv *env, jobj
 {
 	LOG_DEBUG() << "closing wallet...";
 
-	getWallet(env, thiz).reset();
+	getWallet(env, thiz).keychain.reset();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(checkWalletPassword)(JNIEnv *env, jobject thiz, jstring passStr)
 {
 	LOG_DEBUG() << "changing wallet password...";
 
-	getWallet(env, thiz)->changePassword(JString(env, passStr).value());
+	getWallet(env, thiz).keychain->changePassword(JString(env, passStr).value());
 }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env, jobject thiz)
@@ -293,7 +303,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env
 	LOG_DEBUG() << "getting System State...";
 
 	Block::SystemState::ID stateID = {};
-	getWallet(env, thiz)->getSystemStateID(stateID);
+	getWallet(env, thiz).keychain->getSystemStateID(stateID);
 
 	jclass SystemState = env->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
 	jobject systemState = env->AllocObject(SystemState);
@@ -311,7 +321,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxos)(JNIEnv *env, jobj
 	jclass Utxo = env->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
 	vector<jobject> utxosVec;
 
-	getWallet(env, thiz)->visit([&](const Coin& coin)->bool
+	getWallet(env, thiz).keychain->visit([&](const Coin& coin)->bool
 	{
 		jobject utxo = env->AllocObject(Utxo);
 
@@ -350,7 +360,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, 
 
 	jclass TxDescription = env->FindClass(BEAM_JAVA_PATH "/entities/TxDescription");
 
-	auto txHistory = getWallet(env, thiz)->getTxHistory();
+	auto txHistory = getWallet(env, thiz).keychain->getTxHistory();
 
 	jobjectArray txs = env->NewObjectArray(txHistory.size(), TxDescription, NULL);
 
@@ -382,7 +392,7 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getAvailable)(JNIEnv *env, jo
 {
 	LOG_DEBUG() << "getting available money...";
 
-	return wallet::getAvailable(getWallet(env, thiz));
+	return wallet::getAvailable(getWallet(env, thiz).keychain);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz,
@@ -404,20 +414,10 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz
 		return;
 	}
 
-	auto keychain = getWallet(env, thiz);
-
-	IKeyStore::Options options;
-	options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-	options.fileName = BBS_FILENAME;
-
-	// TODO: remove this
-	string pass("123");
-	IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
-
-	auto wallet_io = make_shared<WalletNetworkIO>(node_addr, keychain, keystore, reactor);
+	auto keychain = getWallet(env, thiz).keychain;
+	auto wallet_io = make_shared<WalletNetworkIO>(node_addr, keychain, getWallet(env, thiz).keystore, reactor);
 
 	Wallet wallet{ keychain, wallet_io};
-	
 	WalletObserver observer(env, listener);
 
 	wallet.subscribe(&observer);
