@@ -7,7 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.mw.beam.beamwallet.R
-import com.mw.beam.beamwallet.core.TxDescription
+import com.mw.beam.beamwallet.core.entities.TxDescription
 import com.mw.beam.beamwallet.core.helpers.EntitiesHelper
 import com.mw.beam.beamwallet.core.utils.CalendarUtils
 import kotlinx.android.extensions.LayoutContainer
@@ -48,6 +48,7 @@ class TransactionsAdapter(private val context: Context, private var data: Array<
 
             date.text = CalendarUtils.fromTimestamp(transaction.modifyTime)
             sum.text = EntitiesHelper.convertToBeam(transaction.amount).toString()
+            message.visibility = if (transaction.message == null) View.GONE else View.VISIBLE
             if (transaction.message != null) {
                 message.text = String(transaction.message)
             }
