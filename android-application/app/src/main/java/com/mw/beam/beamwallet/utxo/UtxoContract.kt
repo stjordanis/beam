@@ -1,13 +1,15 @@
-package com.mw.beam.beamwallet.main
+package com.mw.beam.beamwallet.utxo
 
 import com.mw.beam.beamwallet.baseScreen.MvpPresenter
 import com.mw.beam.beamwallet.baseScreen.MvpView
+import com.mw.beam.beamwallet.core.Wallet
 
 /**
- * Created by vain onnellinen on 10/1/18.
+ * Created by vain onnellinen on 10/2/18.
  */
-interface MainContract {
+interface UtxoContract {
     interface View : MvpView {
+        fun configData(wallet : Wallet)
     }
 
     interface Presenter : MvpPresenter<View> {
