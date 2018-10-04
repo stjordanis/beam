@@ -4,6 +4,18 @@
     <string name="common_error">Ooops, something went wrong…</string>
     <string name="common_title">Wallet</string>
     <string name="common_status_online">online</string>
+    <string name="common_drawer_open">open</string>
+    <string name="common_drawer_close">close</string>
+
+    <!--NavigationDrawer-->
+    <string name="nav_dashboard">dashboard</string>
+    <string name="nav_wallet">wallet</string>
+    <string name="nav_address_book">address book</string>
+    <string name="nav_utxo">utxo</string>
+    <string name="nav_blockchain_info">blockchain info</string>
+    <string name="nav_notifications">notifications</string>
+    <string name="nav_help">help</string>
+    <string name="nav_settings">settings</string>
 
     <!--OpenWalletActivity-->
     <string name="open_wallet_password_hint">Enter password</string>
@@ -16,7 +28,14 @@
     <string name="open_wallet_no_text_error">Field should not be empty</string>
     <string name="open_wallet_pass_not_match_error">Passwords don\'t match</string>
 
-    <!--MainActivity-->
-    <string name="main_height">Height</string>
-    <string name="main_hash">Hash</string>
+    <!--WalletActivity-->
+    <string name="wallet_available">Available</string>
+    <string name="wallet_btn_receive">Receive</string>
+    <string name="wallet_btn_send">Send</string>
+    <string name="wallet_status_received">Received</string>
+    <string name="wallet_status_sent">Sent</string>
+
+    <!--UtxoActivity-->
+    <string name="utxo_height">Height</string>
+    <string name="utxo_hash">Hash</string>
 </resources>
