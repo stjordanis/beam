@@ -14,6 +14,16 @@ abstract class BaseFragment<T : BasePresenter<out MvpView>> : Fragment(), MvpVie
         this.presenter.viewIsReady()
     }
 
+    override fun onResume() {
+        super.onResume()
+        presenter.onResume()
+    }
+
+    override fun onPause() {
+        presenter.onPause()
+        super.onPause()
+    }
+
     override fun onDestroy() {
         presenter.detachView()
 

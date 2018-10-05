@@ -1,9 +1,12 @@
 package com.mw.beam.beamwallet.core
 
+import com.mw.beam.beamwallet.core.entities.Wallet
+
 /**
  * Created by vain onnellinen on 10/1/18.
  */
 object Api {
+
     init {
         System.loadLibrary("wallet-jni")
     }
