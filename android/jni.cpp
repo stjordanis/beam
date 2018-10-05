@@ -398,7 +398,7 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getAvailable)(JNIEnv *env, jo
 
 		if(WalletListener)
 		{
-			jmethodID callback = env->GetMethodID(WalletListener, "onKeychainChanged", "()V");
+			jmethodID callback = env->GetStaticMethodID(WalletListener, "onKeychainChanged", "()V");
 
 			if(callback)
 			{
