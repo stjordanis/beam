@@ -52,6 +52,8 @@ dependencies {
     implementation "com.android.support:recyclerview-v7:$ver_support"
     implementation "com.android.support:design:$ver_support"
     implementation "com.android.support:cardview-v7:$ver_support"
+    implementation "io.reactivex.rxjava2:rxandroid:$ver_rx"
+    implementation "io.reactivex.rxjava2:rxjava:$ver_rx"
     debugImplementation "com.squareup.leakcanary:leakcanary-android:$ver_leak_canary"
     releaseImplementation "com.squareup.leakcanary:leakcanary-android-no-op:$ver_leak_canary"
     debugImplementation "com.squareup.leakcanary:leakcanary-support-fragment:$ver_leak_canary"
