@@ -8,7 +8,6 @@ import android.view.View
 import android.view.ViewGroup
 import com.mw.beam.beamwallet.R
 import com.mw.beam.beamwallet.baseScreen.BaseFragment
-import com.mw.beam.beamwallet.core.Wallet
 import com.mw.beam.beamwallet.core.entities.TxDescription
 import com.mw.beam.beamwallet.core.helpers.EntitiesHelper
 import kotlinx.android.synthetic.main.fragment_wallet.*
@@ -41,14 +40,16 @@ class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         presenter = WalletPresenter(this, WalletModel())
         configPresenter(presenter)
     }
 
-    override fun configData(wallet: Wallet) {
-        adapter.setData(wallet.getTxHistory())
-        available.text = EntitiesHelper.convertToBeam(wallet.getAvailable()).toString()
+    override fun configTxHistory(txHistory: Array<TxDescription>) {
+        adapter.setData(txHistory)
+    }
+
+    override fun configAvailable(availableSum: Long) {
+        available.text = EntitiesHelper.convertToBeam(availableSum).toString()
     }
 
     override fun init() {
@@ -64,6 +65,4 @@ class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
         transactionsList.layoutManager = LinearLayoutManager(context)
         transactionsList.adapter = adapter
     }
-
-
 }
