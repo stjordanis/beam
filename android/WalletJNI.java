@@ -25,15 +25,15 @@ public class WalletJNI
 
 		Wallet wallet;
 
-		if(api.isWalletInitialized("."))
+		if(api.isWalletInitialized("test"))
 		{
-			wallet = api.openWallet(".", "123");
+			wallet = api.openWallet("test", "123");
 
 			System.out.println(wallet == null ? "wallet opening error" : "wallet successfully opened");
 		}
 		else
 		{
-			wallet = api.createWallet(".", "123", "111");
+			wallet = api.createWallet("test", "123", "111");
 
 			System.out.println(wallet == null ? "wallet creation error" : "wallet successfully created");
 		}

@@ -272,7 +272,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
 		IKeyStore::Options options;
 		options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-		options.fileName = BBS_FILENAME;
+		options.fileName = appData + "/" BBS_FILENAME;
 
 		IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
 
@@ -391,25 +391,6 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, 
 JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getAvailable)(JNIEnv *env, jobject thiz)
 {
 	LOG_DEBUG() << "getting available money...";
-
-	// TODO: just for test
-	{
-		jclass WalletListener = env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
-
-		if(WalletListener)
-		{
-			jmethodID callback = env->GetStaticMethodID(WalletListener, "onKeychainChanged", "()V");
-
-			if(callback)
-			{
-				env->CallStaticVoidMethod(WalletListener, callback);
-
-				LOG_INFO() << "WalletListener::onKeychainChanged() successfully called";	
-			}
-			else LOG_ERROR() << "WalletListener::onKeychainChanged() not found";
-		}
-		else LOG_ERROR() << BEAM_JAVA_PATH "/listeners/WalletListener not found";
-	}
 
 	return wallet::getAvailable(getWallet(env, thiz).keychain);
 }
