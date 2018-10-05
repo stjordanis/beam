@@ -12,6 +12,13 @@ class WalletPresenter(currentView: WalletContract.View, private val model: Walle
     override fun viewIsReady() {
         super.viewIsReady()
         view?.init()
-        view?.configData(model.wallet)
+
+        disposable.add(model.getTxHistory().subscribe {
+            view?.configTxHistory(it)
+        })
+
+        disposable.add(model.getAvailable().subscribe {
+            view?.configAvailable(it)
+        })
     }
 }
