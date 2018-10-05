@@ -392,6 +392,25 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getAvailable)(JNIEnv *env, jo
 {
 	LOG_DEBUG() << "getting available money...";
 
+	// TODO: just for test
+	{
+		jclass WalletListener = env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+
+		if(WalletListener)
+		{
+			jmethodID callback = env->GetMethodID(WalletListener, "onKeychainChanged", "()V");
+
+			if(callback)
+			{
+				env->CallStaticVoidMethod(WalletListener, callback);
+
+				LOG_INFO() << "WalletListener::onKeychainChanged() successfully called";	
+			}
+			else LOG_ERROR() << "WalletListener::onKeychainChanged() not found";
+		}
+		else LOG_ERROR() << BEAM_JAVA_PATH "/listeners/WalletListener not found";
+	}
+
 	return wallet::getAvailable(getWallet(env, thiz).keychain);
 }
 
