@@ -22,7 +22,9 @@ class OpenWalletPresenter(currentView: OpenWalletContract.View, private val mode
 
         if (model.isWalletInitialized()) {
             if (view != null && view!!.hasValidPass()) {
-                view?.showSnackBar(model.openWallet(view?.getPass()))
+                disposable.add(model.openWallet(view?.getPass()).subscribe { status ->
+                    view?.showSnackBar(status)
+                })
             }
         } else {
             if (view != null && !view!!.hasErrors()) {
