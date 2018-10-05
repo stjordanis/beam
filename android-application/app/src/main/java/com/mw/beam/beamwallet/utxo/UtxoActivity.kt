@@ -3,7 +3,7 @@ package com.mw.beam.beamwallet.utxo
 import android.os.Bundle
 import com.mw.beam.beamwallet.R
 import com.mw.beam.beamwallet.baseScreen.BaseActivity
-import com.mw.beam.beamwallet.core.Wallet
+import com.mw.beam.beamwallet.core.entities.Wallet
 import kotlinx.android.synthetic.main.activity_utxo.*
 
 /**

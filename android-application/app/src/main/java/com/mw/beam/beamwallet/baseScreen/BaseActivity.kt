@@ -103,6 +103,16 @@ abstract class BaseActivity<T : BasePresenter<out MvpView>> : AppCompatActivity(
         imm.hideSoftInputFromWindow(findViewById<View>(android.R.id.content).windowToken, 0)
     }
 
+    override fun onResume() {
+        super.onResume()
+        presenter.onResume()
+    }
+
+    override fun onPause() {
+        presenter.onPause()
+        super.onPause()
+    }
+
     override fun onDestroy() {
         presenter.detachView()
 
