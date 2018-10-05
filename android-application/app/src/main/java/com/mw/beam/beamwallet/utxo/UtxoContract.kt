@@ -2,7 +2,7 @@ package com.mw.beam.beamwallet.utxo
 
 import com.mw.beam.beamwallet.baseScreen.MvpPresenter
 import com.mw.beam.beamwallet.baseScreen.MvpView
-import com.mw.beam.beamwallet.core.Wallet
+import com.mw.beam.beamwallet.core.entities.Wallet
 
 /**
  * Created by vain onnellinen on 10/2/18.
