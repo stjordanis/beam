@@ -9,9 +9,11 @@ import io.reactivex.android.schedulers.AndroidSchedulers
 /**
  * Created by vain onnellinen on 10/1/18.
  */
-open class BaseModel {
-    val wallet: Wallet
-        get() = App.wallet
+open class BaseRepository : MvpRepository {
+
+    override fun getWallet(): Wallet {
+        return App.wallet
+    }
 
     fun <T> createObservable(block: () -> Unit): Observable<T> {
         return Observable
