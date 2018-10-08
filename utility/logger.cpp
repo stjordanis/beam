@@ -20,6 +20,7 @@
 
 #if defined(__clang__)
 #  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunknown-warning-option"
 #  pragma clang diagnostic ignored "-Wtautological-constant-compare"
 #endif
 
