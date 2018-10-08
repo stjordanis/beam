@@ -40,7 +40,7 @@ class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        presenter = WalletPresenter(this, WalletModel())
+        presenter = WalletPresenter(this, WalletRepository())
         configPresenter(presenter)
     }
 
