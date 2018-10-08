@@ -17,6 +17,8 @@
 #include "wallet/keystore.h"
 #include "wallet/wallet_network.h"
 
+#include "utility/bridge.h"
+
 #include <boost/filesystem.hpp>
 #include <jni.h>
 
@@ -71,14 +73,266 @@ namespace
 		const char* data;
 	};
 
-	struct WalletRecord
+	// TODO: remove copy paste from UI
+	struct IWalletModelAsync
+	{
+		using Ptr = std::shared_ptr<IWalletModelAsync>;
+
+		virtual void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
+		virtual void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
+		virtual void syncWithNode() = 0;
+		virtual void calcChange(beam::Amount&& amount) = 0;
+		virtual void getWalletStatus() = 0;
+		virtual void getUtxosStatus() = 0;
+		virtual void getAddresses(bool own) = 0;
+		virtual void cancelTx(const beam::TxID& id) = 0;
+		virtual void deleteTx(const beam::TxID& id) = 0;
+		virtual void createNewAddress(beam::WalletAddress&& address) = 0;
+		virtual void generateNewWalletID() = 0;
+		virtual void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) = 0;
+
+		virtual void deleteAddress(const beam::WalletID& id) = 0;
+		virtual void deleteOwnAddress(const beam::WalletID& id) = 0 ;
+
+		virtual void setNodeAddress(const std::string& addr) = 0;
+		virtual void emergencyReset() = 0;
+
+		virtual void changeWalletPassword(const beam::SecString& password) = 0;
+
+		virtual ~IWalletModelAsync() {}
+	};
+
+	struct WalletModel : IWalletModelAsync, IWalletObserver
 	{
 		IKeyChain::Ptr keychain;
 		IKeyStore::Ptr keystore;
+
+		IWalletModelAsync::Ptr async;
+
+        void initObserver(JNIEnv *env, jobject listener)
+        {
+            _env = env;
+            _listener = listener;
+            _WalletListenerClass = _env->GetObjectClass(_listener);
+        }
+
+		///////////////////////////////////////////////
+		// IWalletModelAsync impl
+		///////////////////////////////////////////////
+		void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
+		void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
+		void syncWithNode() override {}
+		void calcChange(beam::Amount&& amount) override {}
+		void getWalletStatus() override {}
+		void getUtxosStatus() override {}
+		void getAddresses(bool own) override {}
+		void cancelTx(const beam::TxID& id) override {}
+		void deleteTx(const beam::TxID& id) override {}
+		void createNewAddress(beam::WalletAddress&& address) override {}
+		void generateNewWalletID() override {}
+		void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override {}
+		void deleteAddress(const beam::WalletID& id) override {}
+		void deleteOwnAddress(const beam::WalletID& id)  override {}
+		void setNodeAddress(const std::string& addr) override {}
+		void emergencyReset() override {}
+		void changeWalletPassword(const beam::SecString& password) override {}
+
+		///////////////////////////////////////////////
+		// IWalletObserver impl
+		///////////////////////////////////////////////
+		void onKeychainChanged() override 
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onKeychainChanged", "()V");
+			_env->CallVoidMethod(_listener, callback);
+		}
+
+		void onTransactionChanged(beam::ChangeAction action, vector<beam::TxDescription>&& items) override
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onTransactionChanged", "()V");
+			_env->CallVoidMethod(_listener, callback);
+		}
+
+		void onSystemStateChanged() override
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onSystemStateChanged", "()V");
+			_env->CallVoidMethod(_listener, callback);
+		}
+
+		void onTxPeerChanged() override
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onTxPeerChanged", "()V");
+			_env->CallVoidMethod(_listener, callback);
+		}
+
+		void onAddressChanged() override
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onAddressChanged", "()V");
+			_env->CallVoidMethod(_listener, callback);
+		}
+
+		void onSyncProgress(int done, int total) override
+		{
+			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onSyncProgress", "(II)V");
+			_env->CallVoidMethod(_listener, callback, done, total);
+		}
+
+		IWalletObserver* observer()
+		{
+			return this;
+		}
+	private:
+		JNIEnv* _env;
+		jobject _listener;
+		jclass _WalletListenerClass;
 	};
 
-	vector<WalletRecord> wallets;
+	vector<WalletModel> wallets;
 
+	struct WalletModelBridge : public Bridge<IWalletModelAsync>
+	{
+		BRIDGE_INIT(WalletModelBridge);
+
+		void sendMoney(const beam::WalletID& senderID, const beam::WalletID& receiverID, Amount&& amount, Amount&& fee) override
+		{
+			tx.send([senderID, receiverID, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
+			{
+				receiver_.sendMoney(senderID, receiverID, move(amount), move(fee));
+			});
+		}
+
+		void sendMoney(const beam::WalletID& receiverID, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override
+		{
+			tx.send([receiverID, comment, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
+			{
+				receiver_.sendMoney(receiverID, comment, move(amount), move(fee));
+			});
+		}
+
+		void syncWithNode() override
+		{
+			tx.send([](BridgeInterface& receiver_) mutable
+			{
+				receiver_.syncWithNode();
+			});
+		}
+
+		void calcChange(beam::Amount&& amount) override
+		{
+			tx.send([amount{move(amount)}](BridgeInterface& receiver_) mutable
+			{
+				receiver_.calcChange(move(amount));
+			});
+		}
+
+		void getWalletStatus() override
+		{
+			tx.send([](BridgeInterface& receiver_) mutable
+			{
+				receiver_.getWalletStatus();
+			});
+		}
+
+		void getUtxosStatus() override
+		{
+			tx.send([](BridgeInterface& receiver_) mutable
+			{
+				receiver_.getUtxosStatus();
+			});
+		}
+
+		void getAddresses(bool own) override
+		{
+			tx.send([own](BridgeInterface& receiver_) mutable
+			{
+				receiver_.getAddresses(own);
+			});
+		}
+
+		void cancelTx(const beam::TxID& id) override
+		{
+			tx.send([id](BridgeInterface& receiver_) mutable
+			{
+				receiver_.cancelTx(id);
+			});
+		}
+
+		void deleteTx(const beam::TxID& id) override
+		{
+			tx.send([id](BridgeInterface& receiver_) mutable
+			{
+				receiver_.deleteTx(id);
+			});
+		}
+
+		void createNewAddress(WalletAddress&& address) override
+		{
+			tx.send([address{ move(address) }](BridgeInterface& receiver_) mutable
+			{
+				receiver_.createNewAddress(move(address));
+			});
+		}
+
+		void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override
+		{
+			tx.send([senderID, receiverID](BridgeInterface& receiver_) mutable
+			{
+				receiver_.changeCurrentWalletIDs(senderID, receiverID);
+			});
+		}
+
+		void generateNewWalletID() override
+		{
+			tx.send([](BridgeInterface& receiver_) mutable
+			{
+				receiver_.generateNewWalletID();
+			});
+		}
+
+		void deleteAddress(const beam::WalletID& id) override
+		{
+			tx.send([id](BridgeInterface& receiver_) mutable
+			{
+				receiver_.deleteAddress(id);
+			});
+		}
+
+		void deleteOwnAddress(const beam::WalletID& id) override
+		{
+			tx.send([id](BridgeInterface& receiver_) mutable
+			{
+				receiver_.deleteOwnAddress(id);
+			});
+		}
+
+		void setNodeAddress(const std::string& addr) override
+		{
+			tx.send([addr](BridgeInterface& receiver_) mutable
+			{
+				receiver_.setNodeAddress(addr);
+			});
+		}
+
+		void emergencyReset() override
+		{
+			tx.send([](BridgeInterface& receiver_) mutable
+			{
+				receiver_.emergencyReset();
+			});
+		}
+
+		void changeWalletPassword(const SecString& pass) override
+		{
+			// TODO: should be investigated, don't know how to "move" SecString into lambda
+			std::string passStr(pass.data(), pass.size());
+
+			tx.send([passStr](BridgeInterface& receiver_) mutable
+			{
+				receiver_.changeWalletPassword(passStr);
+			});
+		}
+	};
+
+	//////////////
 	inline void setLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jlong value)
 	{
 		env->SetLongField(obj, env->GetFieldID(clazz, name, "J"), value);
@@ -121,7 +375,10 @@ namespace
 
 	jobject regWallet(JNIEnv *env, jobject thiz, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
 	{
-		wallets.push_back(WalletRecord{keychain, keystore});
+		WalletModel model;
+		model.keychain = keychain;
+		model.keystore = keystore;
+		wallets.push_back(model);
 
 		jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
 		jobject walletObj = env->AllocObject(Wallet);
@@ -131,69 +388,17 @@ namespace
 		return walletObj;
 	}
 
-	WalletRecord getWallet(JNIEnv *env, jobject thiz)
+	WalletModel& getWallet(JNIEnv *env, jobject thiz)
 	{
 		jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
 		jfieldID _this = env->GetFieldID(Wallet, "_this", "J");
 		return wallets[env->GetLongField(thiz, _this)];
 	}
 
-	class WalletObserver : public beam::IWalletObserver
-	{
-		JNIEnv* _env;
-		jobject _listener;
-		jclass _WalletListenerClass;
-
-	public:
-
-		WalletObserver(JNIEnv *env, jobject listener)
-			: _env(env)
-			, _listener(listener)
-		{
-			_WalletListenerClass = _env->GetObjectClass(_listener);
-		}
-
-		void onKeychainChanged() override 
-		{
-			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onKeychainChanged", "()V");
-			_env->CallVoidMethod(_listener, callback);
-		}
-
-		void onTransactionChanged(beam::ChangeAction action, vector<beam::TxDescription>&& items) override
-		{
-			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onTransactionChanged", "()V");
-			_env->CallVoidMethod(_listener, callback);
-		}
-
-		void onSystemStateChanged() override
-		{
-			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onSystemStateChanged", "()V");
-			_env->CallVoidMethod(_listener, callback);
-		}
-
-		void onTxPeerChanged() override
-		{
-			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onTxPeerChanged", "()V");
-			_env->CallVoidMethod(_listener, callback);
-		}
-
-		void onAddressChanged() override
-		{
-			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onAddressChanged", "()V");
-			_env->CallVoidMethod(_listener, callback);
-		}
-
-		void onSyncProgress(int done, int total) override
-		{
-			jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onSyncProgress", "(II)V");
-			_env->CallVoidMethod(_listener, callback, done, total);
-		}
-	};
-
 	void initLogger(const string& appData)
 	{
 		static auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_INFO, "wallet_", (fs::path(appData) / fs::path("logs")).string());
-		
+
 		Rules::get().UpdateChecksum();
 		LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 	}
@@ -403,6 +608,10 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz
 {
 	LOG_DEBUG() << "run wallet...";
 
+	auto& model = getWallet(env, thiz);
+
+    model.initObserver(env, listener);
+
 	io::Reactor::Ptr reactor = io::Reactor::create();
 	io::Reactor::Scope scope(*reactor);
 
@@ -417,13 +626,13 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz
 		return;
 	}
 
-	auto keychain = getWallet(env, thiz).keychain;
-	auto wallet_io = make_shared<WalletNetworkIO>(node_addr, keychain, getWallet(env, thiz).keystore, reactor);
+	auto wallet_io = make_shared<WalletNetworkIO>(node_addr, model.keychain, model.keystore, reactor);
 
-	Wallet wallet{ keychain, wallet_io};
-	WalletObserver observer(env, listener);
+	Wallet wallet{ model.keychain, wallet_io};
 
-	wallet.subscribe(&observer);
+	model.async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(&model)), *reactor);
+
+	wallet.subscribe(model.observer());
 
 	wallet_io->start();
 }
