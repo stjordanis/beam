@@ -380,7 +380,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, 
 		setLongField(env, TxDescription, txObj, "createTime", tx.m_createTime);
 		setLongField(env, TxDescription, txObj, "modifyTime", tx.m_modifyTime);
 		setBooleanField(env, TxDescription, txObj, "sender", tx.m_sender);
-		setIntField(env, TxDescription, txObj, "status", tx.m_status);
+		setIntField(env, TxDescription, txObj, "status", static_cast<jint>(tx.m_status));
 
 		env->SetObjectArrayElement(txs, i, txObj);
 	}

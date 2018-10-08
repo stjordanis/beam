@@ -17,7 +17,7 @@
 // protocol version
 #define WALLET_MAJOR 0
 #define WALLET_MINOR 0
-#define WALLET_REV   1
+#define WALLET_REV   2
 
 using namespace std;
 
@@ -46,15 +46,11 @@ namespace beam {
         , m_reconnect_ms{ reconnect_ms }
         , m_sync_period_ms{ sync_period_ms }
         , m_close_timeout_ms{ 10 *1000 }
-        , m_sync_timer{io::Timer::create(m_reactor)}
+        , m_sync_timer{io::Timer::create(*m_reactor)}
         , m_keystore(keyStore)
         , m_lastReceiver(0)
     {
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::Invite,             &WalletNetworkIO::on_message>(senderInvitationCode, this, 1, 20000);
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmTransaction, &WalletNetworkIO::on_message>(senderConfirmationCode, this, 1, 20000);
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::ConfirmInvitation,  &WalletNetworkIO::on_message>(receiverConfirmationCode, this, 1, 20000);
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::TxRegistered,       &WalletNetworkIO::on_message>(receiverRegisteredCode, this, 1, 20000);
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::TxFailed,           &WalletNetworkIO::on_message>(failedCode, this, 1, 20000);
+        m_protocol.add_message_handler<WalletNetworkIO, wallet::SetTxParameter,     &WalletNetworkIO::on_message>(setTxParameterCode, this, 1, 20000);
 
         ByteBuffer buffer;
         m_keychain->getBlob(BBS_TIMESTAMPS, buffer);
@@ -83,7 +79,7 @@ namespace beam {
             s.swap_buf(buffer);
             if (!buffer.empty())
             {
-                m_keychain->setVarRaw(BBS_TIMESTAMPS, buffer.data(), buffer.size());
+                m_keychain->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
             }
         }
         catch(...)
@@ -105,29 +101,9 @@ namespace beam {
         m_wallets.insert(walletID);
     }
 
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::Invite&& msg)
+    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::SetTxParameter&& msg)
     {
-        send(to, senderInvitationCode, move(msg));
-    }
-
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::ConfirmTransaction&& msg)
-    {
-        send(to, senderConfirmationCode, move(msg));
-    }
-
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::ConfirmInvitation&& msg)
-    {
-        send(to, receiverConfirmationCode, move(msg));
-    }
-
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::TxRegistered&& msg)
-    {
-        send(to, receiverRegisteredCode, move(msg));
-    }
-
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::TxFailed&& msg)
-    {
-        send(to, failedCode, move(msg));
+        send(to, setTxParameterCode, move(msg));
     }
 
     void WalletNetworkIO::send_node_message(proto::NewTransaction&& msg)
@@ -178,7 +154,7 @@ namespace beam {
     {
         if (m_is_node_connected && !m_close_timer)
         {
-            m_close_timer = io::Timer::create(m_reactor);
+            m_close_timer = io::Timer::create(*m_reactor);
             m_close_timer->start(m_close_timeout_ms, false, BIND_THIS_MEMFN(on_close_connection_timer));
         }
     }
@@ -199,35 +175,7 @@ namespace beam {
         }
     }
 
-    bool WalletNetworkIO::on_message(uint64_t, wallet::Invite&& msg)
-    {
-        assert(m_lastReceiver);
-        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
-        return true;
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t, wallet::ConfirmTransaction&& msg)
-    {
-        assert(m_lastReceiver);
-        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
-        return true;
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t, wallet::ConfirmInvitation&& msg)
-    {
-        assert(m_lastReceiver);
-        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
-        return true;
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t, wallet::TxRegistered&& msg)
-    {
-        assert(m_lastReceiver);
-        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
-        return true;
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t, wallet::TxFailed&& msg)
+    bool WalletNetworkIO::on_message(uint64_t, wallet::SetTxParameter&& msg)
     {
         assert(m_lastReceiver);
         get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
@@ -377,7 +325,7 @@ namespace beam {
         : m_address{address}
         , m_wallet {wallet}
         , m_connecting{false}
-        , m_timer{io::Timer::create(reactor)}
+        , m_timer{io::Timer::create(*reactor)}
         , m_reconnectMsec{reconnectMsec}
         , m_io{io}
     {

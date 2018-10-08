@@ -1,10 +1,12 @@
 set(UTILITY_SRC
+    common.cpp
     logger.cpp
     logger_checkpoints.cpp
     helpers.cpp
     config.cpp
 	options.cpp
 	string_helpers.cpp
+	asynccontext.cpp
 # ~etc
 )
 
@@ -16,11 +18,12 @@ set(IO_SRC
     io/timer.cpp
     io/address.cpp
     io/tcpserver.cpp
+    #io/sslserver.cpp
     io/tcpstream.cpp
+    #io/sslstream.cpp
     io/errorhandling.cpp
     io/coarsetimer.cpp
-    asynccontext.cpp
-    ../core/common.cpp
+    io/fragment_writer.cpp
 # ~etc
 )
 
