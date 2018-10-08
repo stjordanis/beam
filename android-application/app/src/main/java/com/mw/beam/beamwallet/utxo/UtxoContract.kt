@@ -1,6 +1,7 @@
 package com.mw.beam.beamwallet.utxo
 
 import com.mw.beam.beamwallet.baseScreen.MvpPresenter
+import com.mw.beam.beamwallet.baseScreen.MvpRepository
 import com.mw.beam.beamwallet.baseScreen.MvpView
 import com.mw.beam.beamwallet.core.entities.Wallet
 
@@ -9,9 +10,9 @@ import com.mw.beam.beamwallet.core.entities.Wallet
  */
 interface UtxoContract {
     interface View : MvpView {
-        fun configData(wallet : Wallet)
+        fun configData(wallet: Wallet)
     }
 
-    interface Presenter : MvpPresenter<View> {
-    }
+    interface Presenter : MvpPresenter<View>
+    interface Repository : MvpRepository
 }

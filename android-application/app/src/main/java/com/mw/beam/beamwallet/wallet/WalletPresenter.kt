@@ -5,7 +5,7 @@ import com.mw.beam.beamwallet.baseScreen.BasePresenter
 /**
  * Created by vain onnellinen on 10/1/18.
  */
-class WalletPresenter(currentView: WalletContract.View, private val model: WalletModel)
+class WalletPresenter(currentView: WalletContract.View, private val repository: WalletContract.Repository)
     : BasePresenter<WalletContract.View>(currentView),
         WalletContract.Presenter {
 
@@ -13,11 +13,11 @@ class WalletPresenter(currentView: WalletContract.View, private val model: Walle
         super.viewIsReady()
         view?.init()
 
-        disposable.add(model.getTxHistory().subscribe {
+        disposable.add(repository.getTxHistory().subscribe {
             view?.configTxHistory(it)
         })
 
-        disposable.add(model.getAvailable().subscribe {
+        disposable.add(repository.getAvailable().subscribe {
             view?.configAvailable(it)
         })
     }

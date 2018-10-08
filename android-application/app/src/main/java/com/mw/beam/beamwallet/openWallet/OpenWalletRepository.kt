@@ -1,6 +1,6 @@
 package com.mw.beam.beamwallet.openWallet
 
-import com.mw.beam.beamwallet.baseScreen.BaseModel
+import com.mw.beam.beamwallet.baseScreen.BaseRepository
 import com.mw.beam.beamwallet.core.Api
 import com.mw.beam.beamwallet.core.App
 import com.mw.beam.beamwallet.core.AppConfig
@@ -9,13 +9,13 @@ import io.reactivex.Observable
 /**
  * Created by vain onnellinen on 10/1/18.
  */
-class OpenWalletModel : BaseModel() {
+class OpenWalletRepository : BaseRepository(), OpenWalletContract.Repository {
 
-    fun isWalletInitialized(): Boolean {
+    override fun isWalletInitialized(): Boolean {
         return Api.isWalletInitialized(AppConfig.DB_PATH)
     }
 
-    fun createWallet(pass: String?, seed: String?): AppConfig.Status {
+    override fun createWallet(pass: String?, seed: String?): AppConfig.Status {
         return if (pass.isNullOrBlank() || seed.isNullOrBlank()) {
             AppConfig.Status.STATUS_ERROR
         } else {
@@ -24,7 +24,7 @@ class OpenWalletModel : BaseModel() {
         }
     }
 
-    fun openWallet(pass: String?): Observable<AppConfig.Status> {
+    override fun openWallet(pass: String?): Observable<AppConfig.Status> {
         return createObservable { App.wallet = Api.openWallet(AppConfig.DB_PATH, pass!!) }
     }
 }
