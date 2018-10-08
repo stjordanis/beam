@@ -16,7 +16,7 @@ class UtxoActivity : BaseActivity<UtxoPresenter>(), UtxoContract.View {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_utxo)
 
-        presenter = UtxoPresenter(this, UtxoModel())
+        presenter = UtxoPresenter(this, UtxoRepository())
         configPresenter(presenter)
     }
 
