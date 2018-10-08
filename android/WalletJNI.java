@@ -33,7 +33,7 @@ public class WalletJNI
 		}
 		else
 		{
-			wallet = api.createWallet("test", "123", "111");
+			wallet = api.createWallet("test", "123", "000");
 
 			System.out.println(wallet == null ? "wallet creation error" : "wallet successfully created");
 		}
@@ -90,7 +90,7 @@ public class WalletJNI
 				System.out.println("+-------------------------------------------------------");
 			}
 
-			wallet.run("172.104.249.212:8101", new WalletListenerJNI());
+			wallet.run("176.58.98.195:8501", new WalletListenerJNI());
 			wallet.closeWallet();
 		}
 	}
