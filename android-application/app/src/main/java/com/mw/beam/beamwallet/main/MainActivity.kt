@@ -14,7 +14,7 @@ class MainActivity : BaseActivity<MainPresenter>(), MainContract.View {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        presenter = MainPresenter(this, MainModel())
+        presenter = MainPresenter(this, MainRepository())
         configPresenter(presenter)
     }
 }
