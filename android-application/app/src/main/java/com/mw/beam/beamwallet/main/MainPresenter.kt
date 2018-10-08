@@ -5,7 +5,7 @@ import com.mw.beam.beamwallet.baseScreen.BasePresenter
 /**
  * Created by vain onnellinen on 10/4/18.
  */
-class MainPresenter(currentView: MainContract.View, private val model: MainModel)
+class MainPresenter(currentView: MainContract.View, private val repository: MainContract.Repository)
     : BasePresenter<MainContract.View>(currentView),
         MainContract.Presenter {
 

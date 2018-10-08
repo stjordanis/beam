@@ -18,7 +18,7 @@ class OpenWalletActivity : BaseActivity<OpenWalletPresenter>(), OpenWalletContra
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_open_wallet)
 
-        presenter = OpenWalletPresenter(this, OpenWalletModel())
+        presenter = OpenWalletPresenter(this, OpenWalletRepository())
         configPresenter(presenter)
 
         btnProceed.setOnClickListener {
