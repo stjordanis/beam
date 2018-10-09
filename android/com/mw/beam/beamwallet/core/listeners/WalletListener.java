@@ -14,9 +14,15 @@
 
 package com.mw.beam.beamwallet.core.listeners;
 
+import com.mw.beam.beamwallet.core.entities.WalletStatus;
+
 public class WalletListener
 {
-	static void onStatus(){} //const WalletStatus& status)
+	static void onStatus(WalletStatus status)
+	{
+		System.out.println(">>>>>>>>>>>>>> status in Java, available=" + status.available);
+	}
+
 	static void onTxStatus(){} //beam::ChangeAction, const std::vector<beam::TxDescription>& items) {}
 	static void onTxPeerUpdated(){} //const std::vector<beam::TxPeer>& peers) {}
 	static void onSyncProgressUpdated(){} //int done, int total) {}

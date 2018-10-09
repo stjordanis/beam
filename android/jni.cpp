@@ -73,6 +73,47 @@ namespace
 		const char* data;
 	};
 
+	//////////////
+	inline void setLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jlong value)
+	{
+		env->SetLongField(obj, env->GetFieldID(clazz, name, "J"), value);
+	}
+
+	inline void setIntField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jint value)
+	{
+		env->SetIntField(obj, env->GetFieldID(clazz, name, "I"), value);
+	}
+
+	inline void setBooleanField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jboolean value)
+	{
+		env->SetBooleanField(obj, env->GetFieldID(clazz, name, "Z"), value);
+	}
+
+
+	template <typename T>
+	inline void setByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const T& value)
+	{
+		if (value.size())
+		{
+			jbyteArray hash = env->NewByteArray(static_cast<jsize>(value.size()));
+			jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
+
+			memcpy(hashBytes, &value[0], value.size());
+
+			env->SetObjectField(obj, env->GetFieldID(clazz, name, "[B"), hash);
+
+			env->ReleaseByteArrayElements(hash, hashBytes, 0);
+		}
+	}
+
+	template <>
+	inline void setByteArrayField<ECC::uintBig>(JNIEnv *env, jclass clazz, jobject obj, const char* name, const ECC::uintBig& value)
+	{
+		vector<uint8_t> data;
+		data.assign(value.m_pData, value.m_pData + ECC::uintBig::nBytes);
+		setByteArrayField(env, clazz, obj, name, data);
+	}
+
 	// TODO: remove copy paste from UI
 	struct IWalletModelAsync
 	{
@@ -178,6 +219,19 @@ namespace
 		void onStatus(const WalletStatus& status)
 		{
 			LOG_DEBUG() << "onStatus... available=" << status.available;
+
+			jclass WalletStatus = _env->FindClass(BEAM_JAVA_PATH "/entities/WalletStatus");
+			jobject walletStatus = _env->AllocObject(WalletStatus);
+
+			setLongField(_env, WalletStatus, walletStatus, "available", status.available);
+			setLongField(_env, WalletStatus, walletStatus, "unconfirmed", status.unconfirmed);
+
+			////////////////
+
+			jclass WalletListener = _env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+
+			jmethodID callback = _env->GetStaticMethodID(WalletListener, "onStatus", "(L" BEAM_JAVA_PATH "/entities/WalletStatus;)V");
+			_env->CallStaticVoidMethod(WalletListener, callback, walletStatus);
 		}
 		
 		void onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>& items) {}
@@ -408,47 +462,6 @@ namespace
 			});
 		}
 	};
-
-	//////////////
-	inline void setLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jlong value)
-	{
-		env->SetLongField(obj, env->GetFieldID(clazz, name, "J"), value);
-	}
-
-	inline void setIntField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jint value)
-	{
-		env->SetIntField(obj, env->GetFieldID(clazz, name, "I"), value);
-	}
-
-	inline void setBooleanField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jboolean value)
-	{
-		env->SetBooleanField(obj, env->GetFieldID(clazz, name, "Z"), value);
-	}
-
-
-	template <typename T>
-	inline void setByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const T& value)
-	{
-		if (value.size())
-		{
-			jbyteArray hash = env->NewByteArray(static_cast<jsize>(value.size()));
-			jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
-
-			memcpy(hashBytes, &value[0], value.size());
-
-			env->SetObjectField(obj, env->GetFieldID(clazz, name, "[B"), hash);
-
-			env->ReleaseByteArrayElements(hash, hashBytes, 0);
-		}
-	}
-
-	template <>
-	inline void setByteArrayField<ECC::uintBig>(JNIEnv *env, jclass clazz, jobject obj, const char* name, const ECC::uintBig& value)
-	{
-		vector<uint8_t> data;
-		data.assign(value.m_pData, value.m_pData + ECC::uintBig::nBytes);
-		setByteArrayField(env, clazz, obj, name, data);
-	}
 
 	jobject regWallet(JNIEnv *env, jobject thiz, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
 	{
