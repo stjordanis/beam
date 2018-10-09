@@ -15,19 +15,47 @@
 package com.mw.beam.beamwallet.core.listeners;
 
 import com.mw.beam.beamwallet.core.entities.WalletStatus;
+import com.mw.beam.beamwallet.core.entities.Utxo;
 
 public class WalletListener
 {
 	static void onStatus(WalletStatus status)
 	{
-		System.out.println(">>>>>>>>>>>>>> status in Java, available=" + status.available);
+		System.out.println(">>>>>>>>>>>>>> async status in Java, available=" + status.available/1000000 + " BEAM and " + status.available%1000000 + " GROTH, unconfirmed=" + status.unconfirmed);
 	}
 
 	static void onTxStatus(){} //beam::ChangeAction, const std::vector<beam::TxDescription>& items) {}
 	static void onTxPeerUpdated(){} //const std::vector<beam::TxPeer>& peers) {}
 	static void onSyncProgressUpdated(){} //int done, int total) {}
 	static void onChangeCalculated(){} //beam::Amount change) {}
-	static void onAllUtxoChanged(){} //const std::vector<beam::Coin>& utxos) {}
+
+
+
+	static void onAllUtxoChanged(Utxo[] utxos)
+	{
+		System.out.println(">>>>>>>>>>>>>> async utxo in Java");
+		
+		if(utxos != null)
+		{
+			System.out.println("utxos length: " + utxos.length);
+
+			System.out.println("+-------------------------------------------------------");
+			System.out.println("| UTXO");
+			System.out.println("+-------------------------------------------------------");
+			System.out.println("| id:   | amount:       | type:");
+			System.out.println("+-------+---------------+-------------------------------");
+
+			for(int i = 0; i < utxos.length; i++)
+			{
+				System.out.println("| " + utxos[i].id 
+					+ "\t| "  + utxos[i].amount
+					+ "\t| "  + utxos[i].keyType);
+			}
+
+			System.out.println("+-------------------------------------------------------");			
+		}
+	}
+
 	static void onAdrresses(){} //bool own, const std::vector<beam::WalletAddress>& addresses) {}
 	static void onGeneratedNewWalletID(){} //const beam::WalletID& walletID) {}
 	static void onChangeCurrentWalletIDs(){} //beam::WalletID senderID, beam::WalletID receiverID) {}

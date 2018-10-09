@@ -178,12 +178,18 @@ namespace
 		void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
 		void syncWithNode() override {}
 		void calcChange(beam::Amount&& amount) override {}
+
 		void getWalletStatus() override 
 		{
 			LOG_DEBUG() << "getWalletStatus()";
 			onStatus(getStatus());
 		}
-		void getUtxosStatus() override {}
+
+		void getUtxosStatus() override 
+		{
+			onAllUtxoChanged(getUtxos());
+		}
+
 		void getAddresses(bool own) override {}
 		void cancelTx(const beam::TxID& id) override {}
 		void deleteTx(const beam::TxID& id) override {}
@@ -201,25 +207,23 @@ namespace
 		///////////////////////////////////////////////
 
 		// JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env, jobject thiz)
-// {
-// 	LOG_DEBUG() << "getting System State...";
+		// {
+		// 	LOG_DEBUG() << "getting System State...";
 
-// 	Block::SystemState::ID stateID = {};
-// 	getWallet(env, thiz).keychain->getSystemStateID(stateID);
+		// 	Block::SystemState::ID stateID = {};
+		// 	getWallet(env, thiz).keychain->getSystemStateID(stateID);
 
-// 	jclass SystemState = env->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
-// 	jobject systemState = env->AllocObject(SystemState);
+		// 	jclass SystemState = env->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
+		// 	jobject systemState = env->AllocObject(SystemState);
 
-// 	setLongField(env, SystemState, systemState, "height", stateID.m_Height);
-// 	setByteArrayField(env, SystemState, systemState, "hash", stateID.m_Hash);
+		// 	setLongField(env, SystemState, systemState, "height", stateID.m_Height);
+		// 	setByteArrayField(env, SystemState, systemState, "hash", stateID.m_Hash);
 
-// 	return systemState;
-// }
+		// 	return systemState;
+		// }
 
 		void onStatus(const WalletStatus& status)
 		{
-			LOG_DEBUG() << "onStatus... available=" << status.available;
-
 			jclass WalletStatus = _env->FindClass(BEAM_JAVA_PATH "/entities/WalletStatus");
 			jobject walletStatus = _env->AllocObject(WalletStatus);
 
@@ -238,7 +242,50 @@ namespace
 		void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers) {}
 		void onSyncProgressUpdated(int done, int total) {}
 		void onChangeCalculated(beam::Amount change) {}
-		void onAllUtxoChanged(const std::vector<beam::Coin>& utxos) {}
+
+		void onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec) 
+		{
+			jclass Utxo = _env->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
+			jobjectArray utxos = 0;
+
+			if(!utxosVec.empty())
+			{
+				utxos = _env->NewObjectArray(static_cast<jsize>(utxosVec.size()), Utxo, NULL);
+
+				for(int i = 0; i < utxosVec.size(); ++i)
+				{
+					const auto& coin = utxosVec[i];
+
+					jobject utxo = _env->AllocObject(Utxo);
+
+					setLongField(_env, Utxo, utxo, "id", coin.m_id);
+					setLongField(_env, Utxo, utxo, "amount", coin.m_amount);
+					setIntField(_env, Utxo, utxo, "status", coin.m_status);
+					setLongField(_env, Utxo, utxo, "createHeight", coin.m_createHeight);
+					setLongField(_env, Utxo, utxo, "maturity", coin.m_maturity);
+					setIntField(_env, Utxo, utxo, "keyType", static_cast<jint>(coin.m_key_type));
+					setLongField(_env, Utxo, utxo, "confirmHeight", coin.m_confirmHeight);
+					setByteArrayField(_env, Utxo, utxo, "confirmHash", coin.m_confirmHash);
+					setLongField(_env, Utxo, utxo, "lockHeight", coin.m_lockedHeight);
+
+					if(coin.m_createTxId)
+						setByteArrayField(_env, Utxo, utxo, "createTxId", *coin.m_createTxId);
+
+					if (coin.m_spentTxId)
+						setByteArrayField(_env, Utxo, utxo, "spentTxId", *coin.m_spentTxId);
+
+					_env->SetObjectArrayElement(utxos, i, utxo);
+				}				
+			}
+
+			//////////////////////////////////
+
+			jclass WalletListener = _env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+
+			jmethodID callback = _env->GetStaticMethodID(WalletListener, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/Utxo;)V");
+			_env->CallStaticVoidMethod(WalletListener, callback, utxos);
+		}
+
 		void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses) {}
 		void onGeneratedNewWalletID(const beam::WalletID& walletID) {}
 		void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) {}
@@ -311,6 +358,17 @@ namespace
 			keychain->getSystemStateID(status.stateID);
 
 			return status;
+		}
+
+		vector<Coin> getUtxos() const
+		{
+		    vector<Coin> utxos;
+		    keychain->visit([&utxos](const Coin& c)->bool
+		    {
+		        utxos.push_back(c);
+		        return true;
+		    });
+		    return utxos;
 		}
 
 	private:
@@ -596,51 +654,18 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getWalletStatus)(JNIEnv *env, 
 	getWallet(env, thiz).async->getWalletStatus();
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxosStatus)(JNIEnv *env, jobject thiz)
+{
+	LOG_DEBUG() << "getUtxosStatus()";
+
+	getWallet(env, thiz).async->getUtxosStatus();
+}
+
 // JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(checkWalletPassword)(JNIEnv *env, jobject thiz, jstring passStr)
 // {
 // 	LOG_DEBUG() << "changing wallet password...";
 
 // 	getWallet(env, thiz).keychain->changePassword(JString(env, passStr).value());
-// }
-
-// JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxos)(JNIEnv *env, jobject thiz)
-// {
-// 	LOG_DEBUG() << "getting Utxos...";
-
-// 	jclass Utxo = env->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
-// 	vector<jobject> utxosVec;
-
-// 	getWallet(env, thiz).keychain->visit([&](const Coin& coin)->bool
-// 	{
-// 		jobject utxo = env->AllocObject(Utxo);
-
-// 		setLongField(env, Utxo, utxo, "id", coin.m_id);
-// 		setLongField(env, Utxo, utxo, "amount", coin.m_amount);
-// 		setIntField(env, Utxo, utxo, "status", coin.m_status);
-// 		setLongField(env, Utxo, utxo, "createHeight", coin.m_createHeight);
-// 		setLongField(env, Utxo, utxo, "maturity", coin.m_maturity);
-// 		setIntField(env, Utxo, utxo, "keyType", static_cast<jint>(coin.m_key_type));
-// 		setLongField(env, Utxo, utxo, "confirmHeight", coin.m_confirmHeight);
-// 		setByteArrayField(env, Utxo, utxo, "confirmHash", coin.m_confirmHash);
-// 		setLongField(env, Utxo, utxo, "lockHeight", coin.m_lockedHeight);
-
-// 		if(coin.m_createTxId)
-// 			setByteArrayField(env, Utxo, utxo, "createTxId", *coin.m_createTxId);
-
-// 		if (coin.m_spentTxId)
-// 			setByteArrayField(env, Utxo, utxo, "spentTxId", *coin.m_spentTxId);
-
-// 		utxosVec.push_back(utxo);
-
-// 		return true;
-// 	});
-
-// 	jobjectArray utxos = env->NewObjectArray(static_cast<jsize>(utxosVec.size()), Utxo, NULL);
-
-// 	for (int i = 0; i < utxosVec.size(); ++i)
-// 		env->SetObjectArrayElement(utxos, i, utxosVec[i]);
-
-// 	return utxos;
 // }
 
 // JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, jobject thiz)
@@ -716,6 +741,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz
 	wallet.subscribe(model.observer());
 
 	model.getWalletStatus();
+	model.getUtxosStatus();
 
 	wallet_io->start();
 }

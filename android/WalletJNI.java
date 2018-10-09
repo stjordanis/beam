@@ -72,8 +72,10 @@ public class WalletJNI
 
 				System.out.println("Show info about wallet.");
 
+				// call async wallet requests
 				{
 					wallet.getWalletStatus();
+					wallet.getUtxosStatus();
 				}
 			}
 		}
