@@ -40,6 +40,7 @@ public class WalletJNI
 			System.out.println(wallet == null ? "wallet creation error" : "wallet successfully created");
 		}
 
+		while(true)
 		{
 			try
 			{

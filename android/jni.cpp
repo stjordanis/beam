@@ -159,224 +159,6 @@ namespace
 		beam::Block::SystemState::ID stateID;
 	};
 
-	struct WalletModel : IWalletModelAsync, IWalletObserver
-	{
-		IKeyChain::Ptr keychain;
-		IKeyStore::Ptr keystore;
-
-		IWalletModelAsync::Ptr async;
-
-		void initObserver(JNIEnv *env)
-		{
-			_env = env;
-		}
-
-		///////////////////////////////////////////////
-		// IWalletModelAsync impl
-		///////////////////////////////////////////////
-		void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
-		void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
-		void syncWithNode() override {}
-		void calcChange(beam::Amount&& amount) override {}
-
-		void getWalletStatus() override 
-		{
-			LOG_DEBUG() << "getWalletStatus()";
-			onStatus(getStatus());
-		}
-
-		void getUtxosStatus() override 
-		{
-			onAllUtxoChanged(getUtxos());
-		}
-
-		void getAddresses(bool own) override {}
-		void cancelTx(const beam::TxID& id) override {}
-		void deleteTx(const beam::TxID& id) override {}
-		void createNewAddress(beam::WalletAddress&& address) override {}
-		void generateNewWalletID() override {}
-		void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override {}
-		void deleteAddress(const beam::WalletID& id) override {}
-		void deleteOwnAddress(const beam::WalletID& id)  override {}
-		void setNodeAddress(const std::string& addr) override {}
-		void emergencyReset() override {}
-		void changeWalletPassword(const beam::SecString& password) override {}
-
-		///////////////////////////////////////////////
-		// callbacks
-		///////////////////////////////////////////////
-
-		// JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env, jobject thiz)
-		// {
-		// 	LOG_DEBUG() << "getting System State...";
-
-		// 	Block::SystemState::ID stateID = {};
-		// 	getWallet(env, thiz).keychain->getSystemStateID(stateID);
-
-		// 	jclass SystemState = env->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
-		// 	jobject systemState = env->AllocObject(SystemState);
-
-		// 	setLongField(env, SystemState, systemState, "height", stateID.m_Height);
-		// 	setByteArrayField(env, SystemState, systemState, "hash", stateID.m_Hash);
-
-		// 	return systemState;
-		// }
-
-		void onStatus(const WalletStatus& status)
-		{
-			jclass WalletStatus = _env->FindClass(BEAM_JAVA_PATH "/entities/WalletStatus");
-			jobject walletStatus = _env->AllocObject(WalletStatus);
-
-			setLongField(_env, WalletStatus, walletStatus, "available", status.available);
-			setLongField(_env, WalletStatus, walletStatus, "unconfirmed", status.unconfirmed);
-
-			////////////////
-
-			jclass WalletListener = _env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
-
-			jmethodID callback = _env->GetStaticMethodID(WalletListener, "onStatus", "(L" BEAM_JAVA_PATH "/entities/WalletStatus;)V");
-			_env->CallStaticVoidMethod(WalletListener, callback, walletStatus);
-		}
-		
-		void onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>& items) {}
-		void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers) {}
-		void onSyncProgressUpdated(int done, int total) {}
-		void onChangeCalculated(beam::Amount change) {}
-
-		void onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec) 
-		{
-			jclass Utxo = _env->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
-			jobjectArray utxos = 0;
-
-			if(!utxosVec.empty())
-			{
-				utxos = _env->NewObjectArray(static_cast<jsize>(utxosVec.size()), Utxo, NULL);
-
-				for(int i = 0; i < utxosVec.size(); ++i)
-				{
-					const auto& coin = utxosVec[i];
-
-					jobject utxo = _env->AllocObject(Utxo);
-
-					setLongField(_env, Utxo, utxo, "id", coin.m_id);
-					setLongField(_env, Utxo, utxo, "amount", coin.m_amount);
-					setIntField(_env, Utxo, utxo, "status", coin.m_status);
-					setLongField(_env, Utxo, utxo, "createHeight", coin.m_createHeight);
-					setLongField(_env, Utxo, utxo, "maturity", coin.m_maturity);
-					setIntField(_env, Utxo, utxo, "keyType", static_cast<jint>(coin.m_key_type));
-					setLongField(_env, Utxo, utxo, "confirmHeight", coin.m_confirmHeight);
-					setByteArrayField(_env, Utxo, utxo, "confirmHash", coin.m_confirmHash);
-					setLongField(_env, Utxo, utxo, "lockHeight", coin.m_lockedHeight);
-
-					if(coin.m_createTxId)
-						setByteArrayField(_env, Utxo, utxo, "createTxId", *coin.m_createTxId);
-
-					if (coin.m_spentTxId)
-						setByteArrayField(_env, Utxo, utxo, "spentTxId", *coin.m_spentTxId);
-
-					_env->SetObjectArrayElement(utxos, i, utxo);
-				}				
-			}
-
-			//////////////////////////////////
-
-			jclass WalletListener = _env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
-
-			jmethodID callback = _env->GetStaticMethodID(WalletListener, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/Utxo;)V");
-			_env->CallStaticVoidMethod(WalletListener, callback, utxos);
-		}
-
-		void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses) {}
-		void onGeneratedNewWalletID(const beam::WalletID& walletID) {}
-		void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) {}
-
-		///////////////////////////////////////////////
-		// IWalletObserver impl
-		///////////////////////////////////////////////
-		void onKeychainChanged() override 
-		{
-			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onKeychainChanged", "()V");
-			// _env->CallVoidMethod(_listener, callback);
-		}
-
-		void onTransactionChanged(beam::ChangeAction action, vector<beam::TxDescription>&& items) override
-		{
-			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onTransactionChanged", "()V");
-			// _env->CallVoidMethod(_listener, callback);
-		}
-
-		void onSystemStateChanged() override
-		{
-			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onSystemStateChanged", "()V");
-			// _env->CallVoidMethod(_listener, callback);
-		}
-
-		void onTxPeerChanged() override
-		{
-			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onTxPeerChanged", "()V");
-			// _env->CallVoidMethod(_listener, callback);
-		}
-
-		void onAddressChanged() override
-		{
-			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onAddressChanged", "()V");
-			// _env->CallVoidMethod(_listener, callback);
-		}
-
-		void onSyncProgress(int done, int total) override
-		{
-			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onSyncProgress", "(II)V");
-			// _env->CallVoidMethod(_listener, callback, done, total);
-		}
-
-		IWalletObserver* observer()
-		{
-			return this;
-		}
-
-		WalletStatus getStatus() const
-		{
-			WalletStatus status{ wallet::getAvailable(keychain), 0, 0, 0};
-
-			auto history = keychain->getTxHistory();
-
-			for (const auto& item : history)
-			{
-			   switch (item.m_status)
-			   {
-			   case TxStatus::Completed:
-				   (item.m_sender ? status.sent : status.received) += item.m_amount;
-				   break;
-			   default: break;
-			   }
-			}
-
-			status.unconfirmed += wallet::getTotal(keychain, Coin::Unconfirmed);
-
-			status.update.lastTime = keychain->getLastUpdateTime();
-			ZeroObject(status.stateID);
-			keychain->getSystemStateID(status.stateID);
-
-			return status;
-		}
-
-		vector<Coin> getUtxos() const
-		{
-			vector<Coin> utxos;
-			keychain->visit([&utxos](const Coin& c)->bool
-			{
-				utxos.push_back(c);
-				return true;
-			});
-			return utxos;
-		}
-
-	private:
-		JNIEnv* _env;
-	};
-
-	vector<WalletModel> wallets;
-
 	struct WalletModelBridge : public Bridge<IWalletModelAsync>
 	{
 		BRIDGE_INIT(WalletModelBridge);
@@ -520,13 +302,284 @@ namespace
 			});
 		}
 	};
-
-	jobject regWallet(JNIEnv *env, jobject thiz, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
+	
+	struct WalletModel : IWalletModelAsync, IWalletObserver
 	{
-		WalletModel model;
-		model.keychain = keychain;
-		model.keystore = keystore;
-		wallets.push_back(model);
+		WalletModel(JNIEnv *env)
+			: _threadEnv(nullptr)
+		{
+			env->GetJavaVM(&_jvm);
+            _startMutex = make_shared<mutex>();
+            _startCV = make_shared<condition_variable>();
+		}
+
+		void start(const string& nodeAddr, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
+		{
+			_thread = make_shared<thread>(&WalletModel::run, this, nodeAddr, keychain, keystore);
+
+            {
+                unique_lock<mutex> lock(*_startMutex);
+                _startCV->wait(lock);
+            }
+		}
+
+		void run(const string& nodeURI, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
+		{
+            _keychain = keychain;
+            _keystore = keystore;
+
+			_jvm->AttachCurrentThread(reinterpret_cast<void**>(&_threadEnv), NULL);
+
+			LOG_DEBUG() << "run wallet...";
+
+			io::Reactor::Ptr reactor = io::Reactor::create();
+			io::Reactor::Scope scope(*reactor);
+
+			io::Reactor::GracefulIntHandler gih(*reactor);
+
+			io::Address node_addr;
+			
+			if (!node_addr.resolve(nodeURI.c_str()))
+			{
+				LOG_ERROR() << "unable to resolve node address: " << nodeURI.c_str();
+				return;
+			}
+
+			auto wallet_io = make_shared<WalletNetworkIO>(node_addr, keychain, keystore, reactor);
+
+			Wallet wallet{ keychain, wallet_io};
+
+			async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *reactor);
+
+			wallet.subscribe(this);
+
+			getWalletStatus();
+			getUtxosStatus();
+
+            {
+                unique_lock<mutex> lock(*_startMutex);
+                _startCV->notify_one();
+            }
+
+			wallet_io->start();
+		}
+
+		///////////////////////////////////////////////
+		// IWalletModelAsync impl
+		///////////////////////////////////////////////
+		void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
+		void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
+		void syncWithNode() override {}
+		void calcChange(beam::Amount&& amount) override {}
+
+		void getWalletStatus() override 
+		{
+			LOG_DEBUG() << "getWalletStatus()";
+			onStatus(getStatus());
+		}
+
+		void getUtxosStatus() override 
+		{
+            LOG_DEBUG() << "getUtxosStatus()";
+			onAllUtxoChanged(getUtxos());
+		}
+
+		void getAddresses(bool own) override {}
+		void cancelTx(const beam::TxID& id) override {}
+		void deleteTx(const beam::TxID& id) override {}
+		void createNewAddress(beam::WalletAddress&& address) override {}
+		void generateNewWalletID() override {}
+		void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override {}
+		void deleteAddress(const beam::WalletID& id) override {}
+		void deleteOwnAddress(const beam::WalletID& id)  override {}
+		void setNodeAddress(const std::string& addr) override {}
+		void emergencyReset() override {}
+		void changeWalletPassword(const beam::SecString& password) override {}
+
+		///////////////////////////////////////////////
+		// callbacks
+		///////////////////////////////////////////////
+
+		// JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getSystemState)(JNIEnv *env, jobject thiz)
+		// {
+		// 	LOG_DEBUG() << "getting System State...";
+
+		// 	Block::SystemState::ID stateID = {};
+		// 	getWallet(env, thiz).keychain->getSystemStateID(stateID);
+
+		// 	jclass SystemState = env->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
+		// 	jobject systemState = env->AllocObject(SystemState);
+
+		// 	setLongField(env, SystemState, systemState, "height", stateID.m_Height);
+		// 	setByteArrayField(env, SystemState, systemState, "hash", stateID.m_Hash);
+
+		// 	return systemState;
+		// }
+
+		void onStatus(const WalletStatus& status)
+		{
+			jclass WalletStatus = _threadEnv->FindClass(BEAM_JAVA_PATH "/entities/WalletStatus");
+			jobject walletStatus = _threadEnv->AllocObject(WalletStatus);
+
+			setLongField(_threadEnv, WalletStatus, walletStatus, "available", status.available);
+			setLongField(_threadEnv, WalletStatus, walletStatus, "unconfirmed", status.unconfirmed);
+
+			////////////////
+
+			jclass WalletListener = _threadEnv->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+
+			jmethodID callback = _threadEnv->GetStaticMethodID(WalletListener, "onStatus", "(L" BEAM_JAVA_PATH "/entities/WalletStatus;)V");
+            _threadEnv->CallStaticVoidMethod(WalletListener, callback, walletStatus);
+		}
+		
+		void onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>& items) {}
+		void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers) {}
+		void onSyncProgressUpdated(int done, int total) {}
+		void onChangeCalculated(beam::Amount change) {}
+
+		void onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec) 
+		{
+			jclass Utxo = _threadEnv->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
+			jobjectArray utxos = 0;
+
+			if(!utxosVec.empty())
+			{
+				utxos = _threadEnv->NewObjectArray(static_cast<jsize>(utxosVec.size()), Utxo, NULL);
+
+				for(int i = 0; i < utxosVec.size(); ++i)
+				{
+					const auto& coin = utxosVec[i];
+
+					jobject utxo = _threadEnv->AllocObject(Utxo);
+
+					setLongField(_threadEnv, Utxo, utxo, "id", coin.m_id);
+					setLongField(_threadEnv, Utxo, utxo, "amount", coin.m_amount);
+					setIntField(_threadEnv, Utxo, utxo, "status", coin.m_status);
+					setLongField(_threadEnv, Utxo, utxo, "createHeight", coin.m_createHeight);
+					setLongField(_threadEnv, Utxo, utxo, "maturity", coin.m_maturity);
+					setIntField(_threadEnv, Utxo, utxo, "keyType", static_cast<jint>(coin.m_key_type));
+					setLongField(_threadEnv, Utxo, utxo, "confirmHeight", coin.m_confirmHeight);
+					setByteArrayField(_threadEnv, Utxo, utxo, "confirmHash", coin.m_confirmHash);
+					setLongField(_threadEnv, Utxo, utxo, "lockHeight", coin.m_lockedHeight);
+
+					if(coin.m_createTxId)
+						setByteArrayField(_threadEnv, Utxo, utxo, "createTxId", *coin.m_createTxId);
+
+					if (coin.m_spentTxId)
+						setByteArrayField(_threadEnv, Utxo, utxo, "spentTxId", *coin.m_spentTxId);
+
+                    _threadEnv->SetObjectArrayElement(utxos, i, utxo);
+				}				
+			}
+
+			//////////////////////////////////
+
+			jclass WalletListener = _threadEnv->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+
+			jmethodID callback = _threadEnv->GetStaticMethodID(WalletListener, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/Utxo;)V");
+            _threadEnv->CallStaticVoidMethod(WalletListener, callback, utxos);
+		}
+
+		void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses) {}
+		void onGeneratedNewWalletID(const beam::WalletID& walletID) {}
+		void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) {}
+
+		///////////////////////////////////////////////
+		// IWalletObserver impl
+		///////////////////////////////////////////////
+		void onKeychainChanged() override 
+		{
+			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onKeychainChanged", "()V");
+			// _env->CallVoidMethod(_listener, callback);
+		}
+
+		void onTransactionChanged(beam::ChangeAction action, vector<beam::TxDescription>&& items) override
+		{
+			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onTransactionChanged", "()V");
+			// _env->CallVoidMethod(_listener, callback);
+		}
+
+		void onSystemStateChanged() override
+		{
+			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onSystemStateChanged", "()V");
+			// _env->CallVoidMethod(_listener, callback);
+		}
+
+		void onTxPeerChanged() override
+		{
+			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onTxPeerChanged", "()V");
+			// _env->CallVoidMethod(_listener, callback);
+		}
+
+		void onAddressChanged() override
+		{
+			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onAddressChanged", "()V");
+			// _env->CallVoidMethod(_listener, callback);
+		}
+
+		void onSyncProgress(int done, int total) override
+		{
+			// jmethodID callback = _env->GetMethodID(_WalletListenerClass, "onSyncProgress", "(II)V");
+			// _env->CallVoidMethod(_listener, callback, done, total);
+		}
+
+		WalletStatus getStatus() const
+		{
+			WalletStatus status{ wallet::getAvailable(_keychain), 0, 0, 0};
+
+			auto history = _keychain->getTxHistory();
+
+			for (const auto& item : history)
+			{
+			   switch (item.m_status)
+			   {
+			   case TxStatus::Completed:
+				   (item.m_sender ? status.sent : status.received) += item.m_amount;
+				   break;
+			   default: break;
+			   }
+			}
+
+			status.unconfirmed += wallet::getTotal(_keychain, Coin::Unconfirmed);
+
+			status.update.lastTime = _keychain->getLastUpdateTime();
+			ZeroObject(status.stateID);
+			_keychain->getSystemStateID(status.stateID);
+
+			return status;
+		}
+
+		vector<Coin> getUtxos() const
+		{
+			vector<Coin> utxos;
+			_keychain->visit([&utxos](const Coin& c)->bool
+			{
+				utxos.push_back(c);
+				return true;
+			});
+			return utxos;
+		}
+
+		IWalletModelAsync::Ptr async;
+		
+	private:
+
+        JNIEnv* _threadEnv;
+		JavaVM* _jvm;
+		shared_ptr<thread> _thread;
+
+		IKeyChain::Ptr _keychain;
+		IKeyStore::Ptr _keystore;
+
+        shared_ptr<mutex> _startMutex;
+        shared_ptr<condition_variable> _startCV;
+	};
+
+	vector<WalletModel> wallets;
+
+	jobject regWallet(JNIEnv *env, jobject thiz)
+	{
+        wallets.push_back({ env });
 
 		jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
 		jobject walletObj = env->AllocObject(Wallet);
@@ -594,7 +647,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
 		wallet->saveAddress(defaultAddress);
 
-		return regWallet(env, thiz, wallet, keystore);
+		jobject walletObj = regWallet(env, thiz);
+
+		getWallet(env, walletObj).start(JString(env, nodeAddrStr).value(), wallet, keystore);
+
+		return walletObj;
 	}
 
 	LOG_ERROR() << "wallet creation error.";
@@ -608,49 +665,6 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletInitialized)(JNIEnv *
 	LOG_DEBUG() << "checking if wallet exists...";
 
 	return Keychain::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
-}
-
-#include <chrono>
-
-static JavaVM* jvm = 0;
-
-void run(size_t index, const string& nodeURI)
-{
-	JNIEnv* env;
-
-	jvm->AttachCurrentThread((void**)&env, NULL);
-
-	LOG_DEBUG() << "run wallet...";
-
-	WalletModel& model = wallets[index];
-
-	model.initObserver(env);
-
-	io::Reactor::Ptr reactor = io::Reactor::create();
-	io::Reactor::Scope scope(*reactor);
-
-	io::Reactor::GracefulIntHandler gih(*reactor);
-
-	io::Address node_addr;
-	
-	if (!node_addr.resolve(nodeURI.c_str()))
-	{
-		LOG_ERROR() << "unable to resolve node address: " << nodeURI.c_str();
-		return;
-	}
-
-	auto wallet_io = make_shared<WalletNetworkIO>(node_addr, model.keychain, model.keystore, reactor);
-
-	Wallet wallet{ model.keychain, wallet_io};
-
-	model.async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(&model)), *reactor);
-
-	wallet.subscribe(model.observer());
-
-	model.getWalletStatus();
-	model.getUtxosStatus();
-
-	wallet_io->start();
 }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobject thiz, 
@@ -675,12 +689,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
 		IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
 
-		jobject ret = regWallet(env, thiz, wallet, keystore);
+		jobject walletObj = regWallet(env, thiz);
 
-		env->GetJavaVM(&jvm);
-		static thread t(run, wallets.size() - 1, JString(env, nodeAddrStr).value());
+		getWallet(env, walletObj).start(JString(env, nodeAddrStr).value(), wallet, keystore);
 
-		return ret;
+		return walletObj;
 	}
 
 	LOG_ERROR() << "wallet not opened.";
@@ -692,7 +705,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(closeWallet)(JNIEnv *env, jobj
 {
 	LOG_DEBUG() << "closing wallet...";
 
-	getWallet(env, thiz).keychain.reset();
+//	getWallet(env, thiz).keychain.reset();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getWalletStatus)(JNIEnv *env, jobject thiz)
