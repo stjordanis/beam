@@ -15,24 +15,6 @@
 import com.mw.beam.beamwallet.core.*;
 import com.mw.beam.beamwallet.core.entities.*;
 
-class WalletTask implements Runnable
-{
-	private Wallet _wallet;
-
-	WalletTask(Wallet wallet)
-	{
-		_wallet = wallet;
-	}
-
-	public void run()
-	{
-		System.out.println("Hellow from the Wallet thread.");
-
-		_wallet.run("176.58.98.195:8501");
-		_wallet.closeWallet();
-	}
-}
-
 public class WalletJNI
 {
 	public static void main(String[] args)
@@ -43,40 +25,34 @@ public class WalletJNI
 
 		Wallet wallet;
 
+		String nodeAddr = "176.58.98.195:8501";
+
 		if(api.isWalletInitialized("test"))
 		{
-			wallet = api.openWallet("test", "123");
+			wallet = api.openWallet(nodeAddr, "test", "123");
 
 			System.out.println(wallet == null ? "wallet opening error" : "wallet successfully opened");
 		}
 		else
 		{
-			wallet = api.createWallet("test", "123", "000");
+			wallet = api.createWallet(nodeAddr, "test", "123", "000");
 
 			System.out.println(wallet == null ? "wallet creation error" : "wallet successfully created");
 		}
 
 		{
-			WalletTask wt = new WalletTask(wallet);
-
-			Thread t = new Thread(wt);
-			t.start();
-
-			while(t.isAlive())
+			try
 			{
-				try
-				{
-					Thread.sleep(5000);
-				}
-				catch(InterruptedException e) {}
+				Thread.sleep(5000);
+			}
+			catch(InterruptedException e) {}
 
-				System.out.println("Show info about wallet.");
+			System.out.println("Show info about wallet.");
 
-				// call async wallet requests
-				{
-					wallet.getWalletStatus();
-					wallet.getUtxosStatus();
-				}
+			// call async wallet requests
+			{
+				wallet.getWalletStatus();
+				wallet.getUtxosStatus();
 			}
 		}
 

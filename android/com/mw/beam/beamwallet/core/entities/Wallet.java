@@ -22,12 +22,6 @@ public class Wallet
 
 	public native void closeWallet();
 
-	// public native void changeWalletPassword(String pass);
-	// public native SystemState 		getSystemState();
-	// public native Utxo[] 			getUtxos();
-	// public native TxDescription[] 	getTxHistory();
-	// public native long 				getAvailable();
-
     public native void sendMoney();//const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0);
     public native void sendMoney2();//const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0);
     public native void syncWithNode();
@@ -45,7 +39,4 @@ public class Wallet
     public native void setNodeAddress();//const std::string& addr);
     public native void emergencyReset();
     public native void changeWalletPassword();//const beam::SecString& password);
-
-
-	public native void run(String nodeAddr);
 }

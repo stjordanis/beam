@@ -362,13 +362,13 @@ namespace
 
 		vector<Coin> getUtxos() const
 		{
-		    vector<Coin> utxos;
-		    keychain->visit([&utxos](const Coin& c)->bool
-		    {
-		        utxos.push_back(c);
-		        return true;
-		    });
-		    return utxos;
+			vector<Coin> utxos;
+			keychain->visit([&utxos](const Coin& c)->bool
+			{
+				utxos.push_back(c);
+				return true;
+			});
+			return utxos;
 		}
 
 	private:
@@ -558,7 +558,7 @@ extern "C" {
 #endif
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, jobject thiz, 
-	jstring appDataStr, jstring passStr, jstring seed)
+	jstring nodeAddrStr, jstring appDataStr, jstring passStr, jstring seed)
 {
 	auto appData = JString(env, appDataStr).value();
 
@@ -610,8 +610,51 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletInitialized)(JNIEnv *
 	return Keychain::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
 }
 
+#include <chrono>
+
+static JavaVM* jvm = 0;
+
+void run(size_t index, const string& nodeURI)
+{
+	JNIEnv* env;
+
+	jvm->AttachCurrentThread((void**)&env, NULL);
+
+	LOG_DEBUG() << "run wallet...";
+
+	WalletModel& model = wallets[index];
+
+	model.initObserver(env);
+
+	io::Reactor::Ptr reactor = io::Reactor::create();
+	io::Reactor::Scope scope(*reactor);
+
+	io::Reactor::GracefulIntHandler gih(*reactor);
+
+	io::Address node_addr;
+	
+	if (!node_addr.resolve(nodeURI.c_str()))
+	{
+		LOG_ERROR() << "unable to resolve node address: " << nodeURI.c_str();
+		return;
+	}
+
+	auto wallet_io = make_shared<WalletNetworkIO>(node_addr, model.keychain, model.keystore, reactor);
+
+	Wallet wallet{ model.keychain, wallet_io};
+
+	model.async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(&model)), *reactor);
+
+	wallet.subscribe(model.observer());
+
+	model.getWalletStatus();
+	model.getUtxosStatus();
+
+	wallet_io->start();
+}
+
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobject thiz, 
-	jstring appDataStr, jstring passStr)
+	jstring nodeAddrStr, jstring appDataStr, jstring passStr)
 {
 	auto appData = JString(env, appDataStr).value();
 
@@ -632,7 +675,12 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
 		IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
 
-		return regWallet(env, thiz, wallet, keystore);
+		jobject ret = regWallet(env, thiz, wallet, keystore);
+
+		env->GetJavaVM(&jvm);
+		static thread t(run, wallets.size() - 1, JString(env, nodeAddrStr).value());
+
+		return ret;
 	}
 
 	LOG_ERROR() << "wallet not opened.";
@@ -701,50 +749,6 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxosStatus)(JNIEnv *env, j
 
 // 	return txs;
 // }
-
-// JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getAvailable)(JNIEnv *env, jobject thiz)
-// {
-// 	LOG_DEBUG() << "getting available money...";
-
-// 	return wallet::getAvailable(getWallet(env, thiz).keychain);
-// }
-
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(run)(JNIEnv *env, jobject thiz,
-	jstring nodeAddr)
-{
-	LOG_DEBUG() << "run wallet...";
-
-	auto& model = getWallet(env, thiz);
-
-	model.initObserver(env);
-
-	io::Reactor::Ptr reactor = io::Reactor::create();
-	io::Reactor::Scope scope(*reactor);
-
-	io::Reactor::GracefulIntHandler gih(*reactor);
-
-	string nodeURI = JString(env, nodeAddr).value();
-	io::Address node_addr;
-	
-	if (!node_addr.resolve(nodeURI.c_str()))
-	{
-		LOG_ERROR() << "unable to resolve node address: " << nodeURI.c_str();
-		return;
-	}
-
-	auto wallet_io = make_shared<WalletNetworkIO>(node_addr, model.keychain, model.keystore, reactor);
-
-	Wallet wallet{ model.keychain, wallet_io};
-
-	model.async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(&model)), *reactor);
-
-	wallet.subscribe(model.observer());
-
-	model.getWalletStatus();
-	model.getUtxosStatus();
-
-	wallet_io->start();
-}
 
 #ifdef __cplusplus
 }

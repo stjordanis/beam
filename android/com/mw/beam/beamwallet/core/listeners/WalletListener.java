@@ -29,8 +29,6 @@ public class WalletListener
 	static void onSyncProgressUpdated(){} //int done, int total) {}
 	static void onChangeCalculated(){} //beam::Amount change) {}
 
-
-
 	static void onAllUtxoChanged(Utxo[] utxos)
 	{
 		System.out.println(">>>>>>>>>>>>>> async utxo in Java");
