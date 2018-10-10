@@ -328,7 +328,7 @@ namespace
 			_keychain = keychain;
 			_keystore = keystore;
 
-			_jvm->AttachCurrentThread(reinterpret_cast<void**>(&_threadEnv), NULL);
+			_jvm->AttachCurrentThread(&_threadEnv, NULL);
 
 			LOG_DEBUG() << "run wallet...";
 
