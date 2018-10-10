@@ -309,24 +309,24 @@ namespace
 			: _threadEnv(nullptr)
 		{
 			env->GetJavaVM(&_jvm);
-            _startMutex = make_shared<mutex>();
-            _startCV = make_shared<condition_variable>();
+			_startMutex = make_shared<mutex>();
+			_startCV = make_shared<condition_variable>();
 		}
 
 		void start(const string& nodeAddr, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
 		{
 			_thread = make_shared<thread>(&WalletModel::run, this, nodeAddr, keychain, keystore);
 
-            {
-                unique_lock<mutex> lock(*_startMutex);
-                _startCV->wait(lock);
-            }
+			{
+				unique_lock<mutex> lock(*_startMutex);
+				_startCV->wait(lock);
+			}
 		}
 
 		void run(const string& nodeURI, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
 		{
-            _keychain = keychain;
-            _keystore = keystore;
+			_keychain = keychain;
+			_keystore = keystore;
 
 			_jvm->AttachCurrentThread(reinterpret_cast<void**>(&_threadEnv), NULL);
 
@@ -353,13 +353,10 @@ namespace
 
 			wallet.subscribe(this);
 
-			getWalletStatus();
-			getUtxosStatus();
-
-            {
-                unique_lock<mutex> lock(*_startMutex);
-                _startCV->notify_one();
-            }
+			{
+				unique_lock<mutex> lock(*_startMutex);
+				_startCV->notify_one();
+			}
 
 			wallet_io->start();
 		}
@@ -380,7 +377,7 @@ namespace
 
 		void getUtxosStatus() override 
 		{
-            LOG_DEBUG() << "getUtxosStatus()";
+			LOG_DEBUG() << "getUtxosStatus()";
 			onAllUtxoChanged(getUtxos());
 		}
 
@@ -429,7 +426,7 @@ namespace
 			jclass WalletListener = _threadEnv->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
 
 			jmethodID callback = _threadEnv->GetStaticMethodID(WalletListener, "onStatus", "(L" BEAM_JAVA_PATH "/entities/WalletStatus;)V");
-            _threadEnv->CallStaticVoidMethod(WalletListener, callback, walletStatus);
+			_threadEnv->CallStaticVoidMethod(WalletListener, callback, walletStatus);
 		}
 		
 		void onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>& items) {}
@@ -468,7 +465,7 @@ namespace
 					if (coin.m_spentTxId)
 						setByteArrayField(_threadEnv, Utxo, utxo, "spentTxId", *coin.m_spentTxId);
 
-                    _threadEnv->SetObjectArrayElement(utxos, i, utxo);
+					_threadEnv->SetObjectArrayElement(utxos, i, utxo);
 				}				
 			}
 
@@ -477,7 +474,7 @@ namespace
 			jclass WalletListener = _threadEnv->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
 
 			jmethodID callback = _threadEnv->GetStaticMethodID(WalletListener, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/Utxo;)V");
-            _threadEnv->CallStaticVoidMethod(WalletListener, callback, utxos);
+			_threadEnv->CallStaticVoidMethod(WalletListener, callback, utxos);
 		}
 
 		void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses) {}
@@ -564,22 +561,22 @@ namespace
 		
 	private:
 
-        JNIEnv* _threadEnv;
+		JNIEnv* _threadEnv;
 		JavaVM* _jvm;
 		shared_ptr<thread> _thread;
 
 		IKeyChain::Ptr _keychain;
 		IKeyStore::Ptr _keystore;
 
-        shared_ptr<mutex> _startMutex;
-        shared_ptr<condition_variable> _startCV;
+		shared_ptr<mutex> _startMutex;
+		shared_ptr<condition_variable> _startCV;
 	};
 
 	vector<WalletModel> wallets;
 
 	jobject regWallet(JNIEnv *env, jobject thiz)
 	{
-        wallets.push_back({ env });
+		wallets.push_back({ env });
 
 		jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
 		jobject walletObj = env->AllocObject(Wallet);
@@ -699,13 +696,6 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 	LOG_ERROR() << "wallet not opened.";
 
 	return nullptr;
-}
-
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(closeWallet)(JNIEnv *env, jobject thiz)
-{
-	LOG_DEBUG() << "closing wallet...";
-
-//	getWallet(env, thiz).keychain.reset();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getWalletStatus)(JNIEnv *env, jobject thiz)

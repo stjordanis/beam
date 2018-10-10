@@ -42,11 +42,6 @@ public class WalletJNI
 
 		while(true)
 		{
-			try
-			{
-				Thread.sleep(5000);
-			}
-			catch(InterruptedException e) {}
 
 			System.out.println("Show info about wallet.");
 
@@ -54,7 +49,13 @@ public class WalletJNI
 			{
 				wallet.getWalletStatus();
 				wallet.getUtxosStatus();
+				// wallet.getUtxosStatus();
 			}
+			try
+			{
+				Thread.sleep(5000);
+			}
+			catch(InterruptedException e) {}
 		}
 
 		// if(wallet != null)
