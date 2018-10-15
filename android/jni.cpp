@@ -328,7 +328,11 @@ namespace
 			_keychain = keychain;
 			_keystore = keystore;
 
+#if defined (__ANDROID__)
 			_jvm->AttachCurrentThread(&_threadEnv, NULL);
+#else
+            _jvm->AttachCurrentThread((void**)&_threadEnv, NULL);
+#endif
 
 			LOG_DEBUG() << "run wallet...";
 
