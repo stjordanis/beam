@@ -64,7 +64,6 @@ struct Node
 		uint32_t m_BbsIdealChannelPopulation = 100;
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
-		uint32_t m_MinerID = 0; // used as a seed for miner nonce generation
 
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
@@ -107,8 +106,12 @@ struct Node
 			uint32_t m_TimeoutMax_ms = 50000;
 
 			uint32_t m_AggregationTime_ms = 10000;
-			uint32_t m_OutputsMin = 0; // must be aggregated. Currently disabled (until dummy-UTXO logic is implemented)
+			uint32_t m_OutputsMin = 5; // must be aggregated. Currently disabled (until dummy-UTXO logic is implemented)
 			uint32_t m_OutputsMax = 40; // may be aggregated
+
+			// dummy creation strategy
+			uint32_t m_DummyLifetimeLo = 720;
+			uint32_t m_DummyLifetimeHi = 1440 * 7; // set to 0 to disable
 
 		} m_Dandelion;
 
@@ -143,6 +146,7 @@ private:
 		void AdjustFossilEnd(Height&) override;
 		void OnStateData() override;
 		void OnBlockData() override;
+		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 
 		void ReportProgress();
         void ReportNewState();
@@ -295,6 +299,8 @@ private:
 	bool OnTransactionStem(Transaction::Ptr&&, const Peer*);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
+	void AddDummyInputs(Transaction&);
+	void AddDummyOutputs(Transaction&);
 	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
 
 	bool ValidateTx(Transaction::Context&, const Transaction&); // complete validation
@@ -464,7 +470,12 @@ private:
 	typedef boost::intrusive::list<Peer> PeerList;
 	PeerList m_lstPeers;
 
-	ECC::NoLeak<ECC::uintBig> m_SChannelSeed;
+	ECC::NoLeak<ECC::uintBig> m_NonceLast;
+	const ECC::uintBig& NextNonce();
+	void NextNonce(ECC::Scalar::Native&);
+
+	uint32_t RandomUInt32(uint32_t threshold);
+
 	ECC::NoLeak<ECC::Scalar> m_MyPrivateID;
 	PeerID m_MyPublicID;
 	PeerID m_MyOwnerID;
@@ -577,6 +588,7 @@ private:
 		// current data exchanged
 		HeightRange m_hrNew; // requested range. If min is non-zero - should be merged with previously-generated
 		HeightRange m_hrInplaceRequest;
+		Merkle::Hash m_hvTag;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Compressor)
 	} m_Compressor;
