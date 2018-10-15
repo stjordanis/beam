@@ -325,8 +325,6 @@ namespace
 			env->GetJavaVM(&_jvm);
 			_startMutex = make_shared<mutex>();
 			_startCV = make_shared<condition_variable>();
-
-			_threadEnv = env;
 		}
 
 		void start(const string& nodeAddr, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
@@ -345,7 +343,7 @@ namespace
 			_keystore = keystore;
 
 #if defined (__ANDROID__)
-			//_jvm->AttachCurrentThread(&_threadEnv, NULL);
+			_jvm->AttachCurrentThread(&_threadEnv, NULL);
 #else
 			_jvm->AttachCurrentThread((void**)&_threadEnv, NULL);
 #endif
