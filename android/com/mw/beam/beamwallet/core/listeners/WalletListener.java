@@ -16,6 +16,7 @@ package com.mw.beam.beamwallet.core.listeners;
 
 import com.mw.beam.beamwallet.core.entities.WalletStatus;
 import com.mw.beam.beamwallet.core.entities.Utxo;
+import com.mw.beam.beamwallet.core.entities.TxDescription;
 
 public class WalletListener
 {
@@ -24,14 +25,52 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>>>>> async status in Java, available=" + status.available/1000000 + " BEAM and " + status.available%1000000 + " GROTH, unconfirmed=" + status.unconfirmed);
 	}
 
-	static void onTxStatus(){} //beam::ChangeAction, const std::vector<beam::TxDescription>& items) {}
+	static void onTxStatus(int action, TxDescription[] tx)
+	{
+		System.out.println(">>>>>>>>>>>>>> async onTxStatus in Java");
+
+		switch(action)
+		{
+		case 0://Added: 
+			System.out.println("onTxStatus [ADDED]");
+			break;
+		case 1://Removed: 
+			System.out.println("onTxStatus [REMOVED]");
+			break;
+		case 2://Updated: 
+			System.out.println("onTxStatus [UPDATED]");
+			break;
+		case 3://Reset:
+			System.out.println("onTxStatus [RESET]");
+			break;
+		}
+
+		if(tx != null)
+		{
+			System.out.println("+-------------------------------------------------------");
+			System.out.println("| TRANSACTIONS");
+			System.out.println("+----------------------------------------------------------------------");
+			System.out.println("| date:                         | amount:       | status:");
+			System.out.println("+-------------------------------+---------------+-----------------------");
+
+			for(int i = 0; i < tx.length; i++)
+			{
+				System.out.println("| " + new java.util.Date(tx[i].createTime*1000)
+					+ "\t| " + tx[i].amount
+					+ "\t| " + tx[i].status);
+			}
+
+			System.out.println("+-------------------------------------------------------");			
+		}
+	}
+
 	static void onTxPeerUpdated(){} //const std::vector<beam::TxPeer>& peers) {}
 	static void onSyncProgressUpdated(){} //int done, int total) {}
 	static void onChangeCalculated(){} //beam::Amount change) {}
 
 	static void onAllUtxoChanged(Utxo[] utxos)
 	{
-		System.out.println(">>>>>>>>>>>>>> async utxo in Java");
+		System.out.println(">>>>>>>>>>>>>> async onAllUtxoChanged in Java");
 		
 		if(utxos != null)
 		{

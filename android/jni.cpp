@@ -74,6 +74,11 @@ namespace
 	};
 
 	//////////////
+	inline void setByteField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jbyte value)
+	{
+		env->SetByteField(obj, env->GetFieldID(clazz, name, "B"), value);
+	}
+
 	inline void setLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jlong value)
 	{
 		env->SetLongField(obj, env->GetFieldID(clazz, name, "J"), value);
@@ -331,7 +336,7 @@ namespace
 #if defined (__ANDROID__)
 			_jvm->AttachCurrentThread(&_threadEnv, NULL);
 #else
-            _jvm->AttachCurrentThread((void**)&_threadEnv, NULL);
+			_jvm->AttachCurrentThread((void**)&_threadEnv, NULL);
 #endif
 
 			LOG_DEBUG() << "run wallet...";
@@ -377,6 +382,10 @@ namespace
 		{
 			LOG_DEBUG() << "getWalletStatus()";
 			onStatus(getStatus());
+
+			onTxStatus(beam::ChangeAction::Reset, _keychain->getTxHistory());
+			// emit onTxPeerUpdated(_keychain->getPeers());
+			// emit onAdrresses(false, _keychain->getAddresses(false));
 		}
 
 		void getUtxosStatus() override 
@@ -433,7 +442,47 @@ namespace
 			_threadEnv->CallStaticVoidMethod(WalletListener, callback, walletStatus);
 		}
 		
-		void onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>& items) {}
+		void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items) 
+		{
+			LOG_DEBUG() << "onTxStatus()";
+
+			jclass WalletListener = _threadEnv->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+
+			jmethodID callback = _threadEnv->GetStaticMethodID(WalletListener, "onTxStatus", "(I[L" BEAM_JAVA_PATH "/entities/TxDescription;)V");
+			
+			jclass TxDescription = _threadEnv->FindClass(BEAM_JAVA_PATH "/entities/TxDescription");
+			jobjectArray txItems = 0;
+
+			if(!items.empty())
+			{
+				txItems = _threadEnv->NewObjectArray(static_cast<jsize>(items.size()), TxDescription, NULL);
+
+				for(int i = 0; i < items.size(); ++i)
+				{
+					const auto& item = items[i];
+
+					jobject tx = _threadEnv->AllocObject(TxDescription);
+
+					setByteArrayField(_threadEnv, 		TxDescription, tx, "id", item.m_txId);
+					setLongField(_threadEnv, 			TxDescription, tx, "amount", item.m_amount);
+					setLongField(_threadEnv, 			TxDescription, tx, "fee", item.m_fee);
+					setLongField(_threadEnv, 			TxDescription, tx, "change", item.m_change);
+					setLongField(_threadEnv, 			TxDescription, tx, "minHeight", item.m_minHeight);
+					setByteArrayField(_threadEnv, 		TxDescription, tx, "peerId", item.m_peerId);
+					setByteArrayField(_threadEnv, 		TxDescription, tx, "myId", item.m_myId);
+					setByteArrayField(_threadEnv, 		TxDescription, tx, "message", item.m_message);
+					setLongField(_threadEnv, 			TxDescription, tx, "createTime", item.m_createTime);
+					setLongField(_threadEnv, 			TxDescription, tx, "modifyTime", item.m_modifyTime);
+					setBooleanField(_threadEnv, 		TxDescription, tx, "sender", item.m_sender);
+					setIntField(_threadEnv, 			TxDescription, tx, "status", static_cast<jint>(item.m_status));
+
+					_threadEnv->SetObjectArrayElement(txItems, i, tx);
+				}				
+			}
+
+			_threadEnv->CallStaticVoidMethod(WalletListener, callback, action, txItems);
+		}
+
 		void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers) {}
 		void onSyncProgressUpdated(int done, int total) {}
 		void onChangeCalculated(beam::Amount change) {}
@@ -470,7 +519,7 @@ namespace
 						setByteArrayField(_threadEnv, Utxo, utxo, "spentTxId", *coin.m_spentTxId);
 
 					_threadEnv->SetObjectArrayElement(utxos, i, utxo);
-				}				
+				}
 			}
 
 			//////////////////////////////////
@@ -721,40 +770,6 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxosStatus)(JNIEnv *env, j
 // 	LOG_DEBUG() << "changing wallet password...";
 
 // 	getWallet(env, thiz).keychain->changePassword(JString(env, passStr).value());
-// }
-
-// JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTxHistory)(JNIEnv *env, jobject thiz)
-// {
-// 	LOG_DEBUG() << "getting transaction history...";
-
-// 	jclass TxDescription = env->FindClass(BEAM_JAVA_PATH "/entities/TxDescription");
-
-// 	auto txHistory = getWallet(env, thiz).keychain->getTxHistory();
-
-// 	jobjectArray txs = env->NewObjectArray(static_cast<jsize>(txHistory.size()), TxDescription, NULL);
-
-// 	for (int i = 0; i < txHistory.size(); ++i)
-// 	{
-// 		const auto& tx = txHistory[i];
-// 		jobject txObj = env->AllocObject(TxDescription);
-
-// 		setByteArrayField(env, TxDescription, txObj, "id", tx.m_txId);
-// 		setLongField(env, TxDescription, txObj, "amount", tx.m_amount);
-// 		setLongField(env, TxDescription, txObj, "fee", tx.m_fee);
-// 		setLongField(env, TxDescription, txObj, "change", tx.m_change);
-// 		setLongField(env, TxDescription, txObj, "minHeight", tx.m_minHeight);
-// 		setByteArrayField(env, TxDescription, txObj, "peerId", tx.m_peerId);
-// 		setByteArrayField(env, TxDescription, txObj, "myId", tx.m_myId);
-// 		setByteArrayField(env, TxDescription, txObj, "message", tx.m_message);
-// 		setLongField(env, TxDescription, txObj, "createTime", tx.m_createTime);
-// 		setLongField(env, TxDescription, txObj, "modifyTime", tx.m_modifyTime);
-// 		setBooleanField(env, TxDescription, txObj, "sender", tx.m_sender);
-// 		setIntField(env, TxDescription, txObj, "status", static_cast<jint>(tx.m_status));
-
-// 		env->SetObjectArrayElement(txs, i, txObj);
-// 	}
-
-// 	return txs;
 // }
 
 #ifdef __cplusplus

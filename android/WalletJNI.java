@@ -49,7 +49,6 @@ public class WalletJNI
 			{
 				wallet.getWalletStatus();
 				wallet.getUtxosStatus();
-				// wallet.getUtxosStatus();
 			}
 			try
 			{
@@ -57,61 +56,5 @@ public class WalletJNI
 			}
 			catch(InterruptedException e) {}
 		}
-
-		// if(wallet != null)
-		// {
-		// 	{
-		// 		SystemState state = wallet.getSystemState();
-		// 		System.out.println("system height is " + state.height);
-		// 	}
-
-		// 	{
-		// 		long available = wallet.getAvailable();
-		// 		System.out.println("available " + available/1000000 + " BEAM and " + available%1000000 + " GROTH");
-		// 	}
-
-		// 	{
-		// 		Utxo[] utxos = wallet.getUtxos();
-
-		// 		System.out.println("utxos length: " + utxos.length);
-
-		// 		System.out.println("+-------------------------------------------------------");
-		// 		System.out.println("| UTXO");
-		// 		System.out.println("+-------------------------------------------------------");
-		// 		System.out.println("| id:   | amount:       | type:");
-		// 		System.out.println("+-------+---------------+-------------------------------");
-
-		// 		for(int i = 0; i < utxos.length; i++)
-		// 		{
-		// 			System.out.println("| " + utxos[i].id 
-		// 				+ "\t| "  + utxos[i].amount
-		// 				+ "\t| "  + utxos[i].keyType);
-		// 		}
-
-		// 		System.out.println("+-------------------------------------------------------");
-		// 	}
-
-		// 	{
-		// 		TxDescription[] tx = wallet.getTxHistory();
-
-		// 		System.out.println("+-------------------------------------------------------");
-		// 		System.out.println("| TRANSACTIONS");
-		// 		System.out.println("+----------------------------------------------------------------------");
-		// 		System.out.println("| date:                         | amount:       | status:");
-		// 		System.out.println("+-------------------------------+---------------+-----------------------");
-
-		// 		for(int i = 0; i < tx.length; i++)
-		// 		{
-		// 			System.out.println("| " + new java.util.Date(tx[i].createTime*1000)
-		// 				+ "\t| " + tx[i].amount
-		// 				+ "\t| " + tx[i].status);
-		// 		}
-
-		// 		System.out.println("+-------------------------------------------------------");
-		// 	}
-
-		// 	wallet.run("176.58.98.195:8501", new WalletListenerJNI());
-		// 	wallet.closeWallet();
-		// }
 	}
 }
