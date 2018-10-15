@@ -17,12 +17,14 @@ package com.mw.beam.beamwallet.core.listeners;
 import com.mw.beam.beamwallet.core.entities.WalletStatus;
 import com.mw.beam.beamwallet.core.entities.Utxo;
 import com.mw.beam.beamwallet.core.entities.TxDescription;
+import com.mw.beam.beamwallet.core.entities.TxPeer;
 
 public class WalletListener
 {
 	static void onStatus(WalletStatus status)
 	{
 		System.out.println(">>>>>>>>>>>>>> async status in Java, available=" + status.available/1000000 + " BEAM and " + status.available%1000000 + " GROTH, unconfirmed=" + status.unconfirmed);
+		System.out.println("height is " + status.system.height);
 	}
 
 	static void onTxStatus(int action, TxDescription[] tx)
@@ -64,7 +66,16 @@ public class WalletListener
 		}
 	}
 
-	static void onTxPeerUpdated(){} //const std::vector<beam::TxPeer>& peers) {}
+	static void onTxPeerUpdated(TxPeer[] peers)
+	{
+		System.out.println(">>>>>>>>>>>>>> async onTxPeerUpdated in Java");
+
+		for(int i = 0; i < peers.length; i++)
+		{
+			System.out.println("peer.label: " + peers[i].label + " peer.address: " + peers[i].address);
+		}
+	}
+
 	static void onSyncProgressUpdated(){} //int done, int total) {}
 	static void onChangeCalculated(){} //beam::Amount change) {}
 
@@ -97,10 +108,8 @@ public class WalletListener
 	static void onGeneratedNewWalletID(){} //const beam::WalletID& walletID) {}
 	static void onChangeCurrentWalletIDs(){} //beam::WalletID senderID, beam::WalletID receiverID) {}
 
-	static void onKeychainChanged() {}
-	static void onTransactionChanged() {}
-	static void onSystemStateChanged() {}
-	static void onTxPeerChanged() {}
-	static void onAddressChanged() {}
-	static void onSyncProgress(int done, int total) {}
+	static void onTest()
+	{
+		System.out.println(">>>>>>>>>>> onTest() called");
+	}
 }
