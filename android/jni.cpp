@@ -821,6 +821,16 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(test)(JNIEnv *env, jobject thi
     getWallet(env, thiz).async->test();
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncTest)(JNIEnv *env, jobject thiz)
+{
+    LOG_DEBUG() << "syncTest()";
+
+    jclass WalletListener = env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+
+    jmethodID callback = env->GetStaticMethodID(WalletListener, "onSyncTest", "()V");
+    env->CallStaticVoidMethod(WalletListener, callback);
+}
+
 #ifdef __cplusplus
 }
 #endif

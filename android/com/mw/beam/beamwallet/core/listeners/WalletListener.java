@@ -112,4 +112,9 @@ public class WalletListener
 	{
 		System.out.println(">>>>>>>>>>> onTest() called");
 	}
+
+	static void onSyncTest()
+	{
+		System.out.println(">>>>>>>>>>> onSyncTest() called");
+	}
 }
