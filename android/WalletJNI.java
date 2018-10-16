@@ -47,9 +47,6 @@ public class WalletJNI
 
 			// call async wallet requests
 			{
-				wallet.test();
-				wallet.syncTest();
-
 				wallet.getWalletStatus();
 				wallet.getUtxosStatus();
 			}

@@ -144,8 +144,6 @@ namespace
 
 		virtual void changeWalletPassword(const beam::SecString& password) = 0;
 
-        virtual void test() = 0;
-
 		virtual ~IWalletModelAsync() {}
 	};
 
@@ -307,22 +305,34 @@ namespace
 				receiver_.changeWalletPassword(passStr);
 			});
 		}
-
-        void test() override
-        {
-            tx.send([](BridgeInterface& receiver_) mutable
-            {
-                receiver_.test();
-            });
-        }
 	};
-	
+
+	static JavaVM* JVM = NULL;
+
+	static jclass WalletListenerClass = 0;
+	static jclass WalletClass = 0;
+	static jclass WalletStatusClass = 0;
+	static jclass SystemStateClass = 0;
+	static jclass TxDescriptionClass = 0;
+	static jclass TxPeerClass = 0;
+	static jclass UtxoClass = 0;
+
+	static JNIEnv* Android_JNI_getEnv(void)
+	{
+	    JNIEnv *env;
+#if defined (__ANDROID__)
+		JVM->AttachCurrentThread(&env, NULL);
+#else
+		JVM->AttachCurrentThread((void**)&env, NULL);
+#endif
+
+		return env;
+	}
+
 	struct WalletModel : IWalletModelAsync, IWalletObserver
 	{
-		WalletModel(JNIEnv *env)
-			: _threadEnv(nullptr)
+		WalletModel()
 		{
-			env->GetJavaVM(&_jvm);
 			_startMutex = make_shared<mutex>();
 			_startCV = make_shared<condition_variable>();
 		}
@@ -342,11 +352,7 @@ namespace
 			_keychain = keychain;
 			_keystore = keystore;
 
-#if defined (__ANDROID__)
-			_jvm->AttachCurrentThread(&_threadEnv, NULL);
-#else
-			_jvm->AttachCurrentThread((void**)&_threadEnv, NULL);
-#endif
+			Android_JNI_getEnv();
 
 			LOG_DEBUG() << "run wallet...";
 
@@ -415,124 +421,113 @@ namespace
 		void emergencyReset() override {}
 		void changeWalletPassword(const beam::SecString& password) override {}
 
-        void test() override
-        {
-            jclass WalletListener = _threadEnv->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
-
-            jmethodID callback = _threadEnv->GetStaticMethodID(WalletListener, "onTest", "()V");
-            _threadEnv->CallStaticVoidMethod(WalletListener, callback);
-        }
-
 		///////////////////////////////////////////////
 		// callbacks
 		///////////////////////////////////////////////
 
 		void onStatus(const WalletStatus& status)
 		{
-			jclass WalletStatus = _threadEnv->FindClass(BEAM_JAVA_PATH "/entities/WalletStatus");
-			jobject walletStatus = _threadEnv->AllocObject(WalletStatus);
 
-			setLongField(_threadEnv, WalletStatus, walletStatus, "available", status.available);
-			setLongField(_threadEnv, WalletStatus, walletStatus, "unconfirmed", status.unconfirmed);
+			JNIEnv* env = Android_JNI_getEnv();
+
+			jobject walletStatus = env->AllocObject(WalletStatusClass);
+
+			setLongField(env, WalletStatusClass, walletStatus, "available", status.available);
+			setLongField(env, WalletStatusClass, walletStatus, "unconfirmed", status.unconfirmed);
 
 			{
-				jclass SystemState = _threadEnv->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
-				jobject systemState = _threadEnv->AllocObject(SystemState);
+				jobject systemState = env->AllocObject(SystemStateClass);
 
-				setLongField(_threadEnv, SystemState, systemState, "height", status.stateID.m_Height);
-				setByteArrayField(_threadEnv, SystemState, systemState, "hash", status.stateID.m_Hash);
+				setLongField(env, SystemStateClass, systemState, "height", status.stateID.m_Height);
+				setByteArrayField(env, SystemStateClass, systemState, "hash", status.stateID.m_Hash);
 
-                jfieldID systemStateID = _threadEnv->GetFieldID(WalletStatus, "system", "L" BEAM_JAVA_PATH "/entities/SystemState;");
-				_threadEnv->SetObjectField(walletStatus, systemStateID, systemState);
+                jfieldID systemStateID = env->GetFieldID(WalletStatusClass, "system", "L" BEAM_JAVA_PATH "/entities/SystemState;");
+				env->SetObjectField(walletStatus, systemStateID, systemState);
 			}
 
 			////////////////
 
-			jclass WalletListener = _threadEnv->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
-
-			jmethodID callback = _threadEnv->GetStaticMethodID(WalletListener, "onStatus", "(L" BEAM_JAVA_PATH "/entities/WalletStatus;)V");
-			_threadEnv->CallStaticVoidMethod(WalletListener, callback, walletStatus);
+			jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onStatus", "(L" BEAM_JAVA_PATH "/entities/WalletStatus;)V");
+			env->CallStaticVoidMethod(WalletListenerClass, callback, walletStatus);
 		}
 
 		void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items) 
 		{
 			LOG_DEBUG() << "onTxStatus()";
 
-			jclass WalletListener = _threadEnv->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+			JNIEnv* env = Android_JNI_getEnv();
 
-			jmethodID callback = _threadEnv->GetStaticMethodID(WalletListener, "onTxStatus", "(I[L" BEAM_JAVA_PATH "/entities/TxDescription;)V");
+			jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTxStatus", "(I[L" BEAM_JAVA_PATH "/entities/TxDescription;)V");
 			
-			jclass TxDescription = _threadEnv->FindClass(BEAM_JAVA_PATH "/entities/TxDescription");
 			jobjectArray txItems = 0;
 
 			if(!items.empty())
 			{
-				txItems = _threadEnv->NewObjectArray(static_cast<jsize>(items.size()), TxDescription, NULL);
+				txItems = env->NewObjectArray(static_cast<jsize>(items.size()), TxDescriptionClass, NULL);
 
 				for(int i = 0; i < items.size(); ++i)
 				{
 					const auto& item = items[i];
 
-					jobject tx = _threadEnv->AllocObject(TxDescription);
+					jobject tx = env->AllocObject(TxDescriptionClass);
 
-					setByteArrayField(_threadEnv, 		TxDescription, tx, "id", item.m_txId);
-					setLongField(_threadEnv, 			TxDescription, tx, "amount", item.m_amount);
-					setLongField(_threadEnv, 			TxDescription, tx, "fee", item.m_fee);
-					setLongField(_threadEnv, 			TxDescription, tx, "change", item.m_change);
-					setLongField(_threadEnv, 			TxDescription, tx, "minHeight", item.m_minHeight);
-					setByteArrayField(_threadEnv, 		TxDescription, tx, "peerId", item.m_peerId);
-					setByteArrayField(_threadEnv, 		TxDescription, tx, "myId", item.m_myId);
-					setByteArrayField(_threadEnv, 		TxDescription, tx, "message", item.m_message);
-					setLongField(_threadEnv, 			TxDescription, tx, "createTime", item.m_createTime);
-					setLongField(_threadEnv, 			TxDescription, tx, "modifyTime", item.m_modifyTime);
-					setBooleanField(_threadEnv, 		TxDescription, tx, "sender", item.m_sender);
-					setIntField(_threadEnv, 			TxDescription, tx, "status", static_cast<jint>(item.m_status));
+					setByteArrayField(env, 		TxDescriptionClass, tx, "id", item.m_txId);
+					setLongField(env, 			TxDescriptionClass, tx, "amount", item.m_amount);
+					setLongField(env, 			TxDescriptionClass, tx, "fee", item.m_fee);
+					setLongField(env, 			TxDescriptionClass, tx, "change", item.m_change);
+					setLongField(env, 			TxDescriptionClass, tx, "minHeight", item.m_minHeight);
+					setByteArrayField(env, 		TxDescriptionClass, tx, "peerId", item.m_peerId);
+					setByteArrayField(env, 		TxDescriptionClass, tx, "myId", item.m_myId);
+					setByteArrayField(env, 		TxDescriptionClass, tx, "message", item.m_message);
+					setLongField(env, 			TxDescriptionClass, tx, "createTime", item.m_createTime);
+					setLongField(env, 			TxDescriptionClass, tx, "modifyTime", item.m_modifyTime);
+					setBooleanField(env, 		TxDescriptionClass, tx, "sender", item.m_sender);
+					setIntField(env, 			TxDescriptionClass, tx, "status", static_cast<jint>(item.m_status));
 
-					_threadEnv->SetObjectArrayElement(txItems, i, tx);
+					env->SetObjectArrayElement(txItems, i, tx);
 				}				
 			}
 
-			_threadEnv->CallStaticVoidMethod(WalletListener, callback, action, txItems);
+			env->CallStaticVoidMethod(WalletListenerClass, callback, action, txItems);
 		}
 
 		void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers) 
 		{
 			LOG_DEBUG() << "onTxPeerUpdated()";
 
-			jclass WalletListener = _threadEnv->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+			JNIEnv* env = Android_JNI_getEnv();
 
-			jmethodID callback = _threadEnv->GetStaticMethodID(WalletListener, "onTxPeerUpdated", "([L" BEAM_JAVA_PATH "/entities/TxPeer;)V");
+			jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTxPeerUpdated", "([L" BEAM_JAVA_PATH "/entities/TxPeer;)V");
 			
-			jclass TxPeer = _threadEnv->FindClass(BEAM_JAVA_PATH "/entities/TxPeer");
 			jobjectArray peerItems = 0;
 
 			if(!peers.empty())
 			{
-				peerItems = _threadEnv->NewObjectArray(static_cast<jsize>(peers.size()), TxPeer, NULL);
+				peerItems = env->NewObjectArray(static_cast<jsize>(peers.size()), TxPeerClass, NULL);
 
 				for(int i = 0; i < peers.size(); ++i)
 				{
 					const auto& item = peers[i];
 
-					jobject tx = _threadEnv->AllocObject(TxPeer);
+					jobject tx = env->AllocObject(TxPeerClass);
 
-					setByteArrayField(_threadEnv, TxPeer, tx, "walletID", item.m_walletID);
+					setByteArrayField(env, TxPeerClass, tx, "walletID", item.m_walletID);
 
 					{
-						jfieldID fieldId = _threadEnv->GetFieldID(TxPeer, "label", "Ljava/lang/String;");
-						_threadEnv->SetObjectField(tx, fieldId, _threadEnv->NewStringUTF(item.m_label.c_str()));
+						jfieldID fieldId = env->GetFieldID(TxPeerClass, "label", "Ljava/lang/String;");
+						env->SetObjectField(tx, fieldId, env->NewStringUTF(item.m_label.c_str()));
 					}
 
 					{
-						jfieldID fieldId = _threadEnv->GetFieldID(TxPeer, "address", "Ljava/lang/String;");
-                        _threadEnv->SetObjectField(tx, fieldId, _threadEnv->NewStringUTF(item.m_address.c_str()));
+						jfieldID fieldId = env->GetFieldID(TxPeerClass, "address", "Ljava/lang/String;");
+                        env->SetObjectField(tx, fieldId, env->NewStringUTF(item.m_address.c_str()));
 					}
 
-					_threadEnv->SetObjectArrayElement(peerItems, i, tx);
+					env->SetObjectArrayElement(peerItems, i, tx);
 				}				
 			}
 
-			_threadEnv->CallStaticVoidMethod(WalletListener, callback, peerItems);			
+			env->CallStaticVoidMethod(WalletListenerClass, callback, peerItems);			
 		}
 
 		void onSyncProgressUpdated(int done, int total) {}
@@ -540,45 +535,44 @@ namespace
 
 		void onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec) 
 		{
-			jclass Utxo = _threadEnv->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
+			JNIEnv* env = Android_JNI_getEnv();
+
 			jobjectArray utxos = 0;
 
 			if(!utxosVec.empty())
 			{
-				utxos = _threadEnv->NewObjectArray(static_cast<jsize>(utxosVec.size()), Utxo, NULL);
+				utxos = env->NewObjectArray(static_cast<jsize>(utxosVec.size()), UtxoClass, NULL);
 
 				for(int i = 0; i < utxosVec.size(); ++i)
 				{
 					const auto& coin = utxosVec[i];
 
-					jobject utxo = _threadEnv->AllocObject(Utxo);
+					jobject utxo = env->AllocObject(UtxoClass);
 
-					setLongField(_threadEnv, Utxo, utxo, "id", coin.m_id);
-					setLongField(_threadEnv, Utxo, utxo, "amount", coin.m_amount);
-					setIntField(_threadEnv, Utxo, utxo, "status", coin.m_status);
-					setLongField(_threadEnv, Utxo, utxo, "createHeight", coin.m_createHeight);
-					setLongField(_threadEnv, Utxo, utxo, "maturity", coin.m_maturity);
-					setIntField(_threadEnv, Utxo, utxo, "keyType", static_cast<jint>(coin.m_key_type));
-					setLongField(_threadEnv, Utxo, utxo, "confirmHeight", coin.m_confirmHeight);
-					setByteArrayField(_threadEnv, Utxo, utxo, "confirmHash", coin.m_confirmHash);
-					setLongField(_threadEnv, Utxo, utxo, "lockHeight", coin.m_lockedHeight);
+					setLongField(env, UtxoClass, utxo, "id", coin.m_id);
+					setLongField(env, UtxoClass, utxo, "amount", coin.m_amount);
+					setIntField(env, UtxoClass, utxo, "status", coin.m_status);
+					setLongField(env, UtxoClass, utxo, "createHeight", coin.m_createHeight);
+					setLongField(env, UtxoClass, utxo, "maturity", coin.m_maturity);
+					setIntField(env, UtxoClass, utxo, "keyType", static_cast<jint>(coin.m_key_type));
+					setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
+					setByteArrayField(env, UtxoClass, utxo, "confirmHash", coin.m_confirmHash);
+					setLongField(env, UtxoClass, utxo, "lockHeight", coin.m_lockedHeight);
 
 					if(coin.m_createTxId)
-						setByteArrayField(_threadEnv, Utxo, utxo, "createTxId", *coin.m_createTxId);
+						setByteArrayField(env, UtxoClass, utxo, "createTxId", *coin.m_createTxId);
 
 					if (coin.m_spentTxId)
-						setByteArrayField(_threadEnv, Utxo, utxo, "spentTxId", *coin.m_spentTxId);
+						setByteArrayField(env, UtxoClass, utxo, "spentTxId", *coin.m_spentTxId);
 
-					_threadEnv->SetObjectArrayElement(utxos, i, utxo);
+					env->SetObjectArrayElement(utxos, i, utxo);
 				}
 			}
 
 			//////////////////////////////////
 
-			jclass WalletListener = _threadEnv->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
-
-			jmethodID callback = _threadEnv->GetStaticMethodID(WalletListener, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/Utxo;)V");
-			_threadEnv->CallStaticVoidMethod(WalletListener, callback, utxos);
+			jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/Utxo;)V");
+			env->CallStaticVoidMethod(WalletListenerClass, callback, utxos);
 		}
 
 		void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses) {}
@@ -663,8 +657,6 @@ namespace
 		
 	private:
 
-		JNIEnv* _threadEnv;
-		JavaVM* _jvm;
 		shared_ptr<thread> _thread;
 
 		IKeyChain::Ptr _keychain;
@@ -678,20 +670,18 @@ namespace
 
 	jobject regWallet(JNIEnv *env, jobject thiz)
 	{
-		wallets.push_back({ env });
+		wallets.push_back({});
 
-		jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
-		jobject walletObj = env->AllocObject(Wallet);
+		jobject walletObj = env->AllocObject(WalletClass);
 
-		setLongField(env, Wallet, walletObj, "_this", wallets.size() - 1);
+		setLongField(env, WalletClass, walletObj, "_this", wallets.size() - 1);
 
 		return walletObj;
 	}
 
 	WalletModel& getWallet(JNIEnv *env, jobject thiz)
 	{
-		jclass Wallet = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
-		jfieldID _this = env->GetFieldID(Wallet, "_this", "J");
+		jfieldID _this = env->GetFieldID(WalletClass, "_this", "J");
 		return wallets[env->GetLongField(thiz, _this)];
 	}
 
@@ -814,21 +804,51 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxosStatus)(JNIEnv *env, j
 	getWallet(env, thiz).async->getUtxosStatus();
 }
 
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(test)(JNIEnv *env, jobject thiz)
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
-    LOG_DEBUG() << "test()";
+	JNIEnv *env;
+    JVM = vm;
 
-    getWallet(env, thiz).async->test();
-}
+	JVM->GetEnv((void**) &env, JNI_VERSION_1_6);
 
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncTest)(JNIEnv *env, jobject thiz)
-{
-    LOG_DEBUG() << "syncTest()";
+	Android_JNI_getEnv();
 
-    jclass WalletListener = env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+	{
+		jclass cls = env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+		WalletListenerClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+	}
 
-    jmethodID callback = env->GetStaticMethodID(WalletListener, "onSyncTest", "()V");
-    env->CallStaticVoidMethod(WalletListener, callback);
+	{
+		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
+		WalletClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+	}
+
+	{
+		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/WalletStatus");
+		WalletStatusClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+	}
+
+	{
+		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
+		SystemStateClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+	}
+
+	{
+		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/TxDescription");
+		TxDescriptionClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+	}
+
+	{
+		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/TxPeer");
+		TxPeerClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+	}
+
+	{
+		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
+		UtxoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+	}
+
+    return JNI_VERSION_1_6;
 }
 
 #ifdef __cplusplus
