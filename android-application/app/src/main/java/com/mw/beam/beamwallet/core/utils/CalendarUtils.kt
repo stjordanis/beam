@@ -8,7 +8,7 @@ import java.util.*
  * Created by vain onnellinen on 10/4/18.
  */
 object CalendarUtils {
-    private val WALLET_TIME_FORMAT = SimpleDateFormat("dd MMM yyyy HH:mm a", AppConfig.LOCALE)
+    private val WALLET_TIME_FORMAT = SimpleDateFormat("dd MMM yyyy  |  HH:mm a", AppConfig.LOCALE)
 
     fun fromTimestamp(timestamp : Long) : String {
         val calendar = Calendar.getInstance()
