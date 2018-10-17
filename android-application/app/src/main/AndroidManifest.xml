@@ -15,7 +15,6 @@
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
 
-
         <activity
             android:name=".openWallet.OpenWalletActivity"
             android:screenOrientation="portrait">
@@ -26,10 +25,11 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".wallet.WalletFragment"
+            android:name=".utxo.UtxoActivity"
             android:screenOrientation="portrait" />
-        <activity android:name=".utxo.UtxoActivity" />
-        <activity android:name=".main.MainActivity" />
+        <activity
+            android:name=".main.MainActivity"
+            android:screenOrientation="portrait" />
 
         <meta-data
             android:name="io.fabric.ApiKey"
