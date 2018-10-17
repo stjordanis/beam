@@ -25,6 +25,7 @@
     <color name="wallet_button_text_color">@color/colorPrimaryDark</color>
     <color name="transaction_sender_color">#ffffff</color>
     <color name="transaction_data_color">#ffffff</color>
+    <color name="transaction_common_status_color">#ffffff</color>
     <color name="transactions_title_color">#ffffff</color>
     <color name="btn_drop_down_color">#8da1ad</color>
     <color name="wallet_common_text_color">#ffffff</color>

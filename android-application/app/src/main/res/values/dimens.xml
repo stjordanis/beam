@@ -23,7 +23,7 @@
     <dimen name="wallet_available_text_padding_start">12dp</dimen>
     <dimen name="wallet_available_text_padding_end">3dp</dimen>
     <dimen name="wallet_available_sum_margin_top">10dp</dimen>
-    <dimen name="wallet_available_text_icon_size">20dp</dimen>
+    <dimen name="wallet_available_text_icon_size">24dp</dimen>
     <dimen name="wallet_available_text_icon_padding_top">2dp</dimen>
     <dimen name="wallet_currency_padding">3dp</dimen>
     <dimen name="wallet_button_text_size">14sp</dimen>
@@ -37,12 +37,13 @@
     <dimen name="wallet_expandable_icon_size">20dp</dimen>
     <dimen name="transaction_item_padding">13dp</dimen>
     <dimen name="transaction_icon_padding_end">25dp</dimen>
-    <dimen name="transaction_sender_text_size">16sp</dimen>
+    <dimen name="transaction_sender_text_size">14sp</dimen>
     <dimen name="transaction_data_text_size">12sp</dimen>
     <dimen name="transaction_sum_text_size">24sp</dimen>
     <dimen name="transaction_status_text_size">11sp</dimen>
+    <dimen name="transaction_status_padding_top">4dp</dimen>
     <dimen name="transactions_title_text_size">18sp</dimen>
-    <dimen name="transactions_title_padding">10dp</dimen>
+    <dimen name="transactions_title_padding">20dp</dimen>
 
     <!--UtxoActivity-->
     <dimen name="utxo_card_title_text_size">16sp</dimen>
