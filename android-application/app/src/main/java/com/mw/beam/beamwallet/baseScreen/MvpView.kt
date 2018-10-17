@@ -9,4 +9,5 @@ interface MvpView {
     fun hideKeyboard()
     fun configNavDrawer()
     fun showSnackBar(status : AppConfig.Status)
+    fun showSnackBar(message : String)
 }

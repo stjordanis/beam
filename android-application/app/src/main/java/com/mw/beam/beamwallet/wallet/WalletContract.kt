@@ -19,7 +19,14 @@ interface WalletContract {
         fun configTxPeerUpdated(peers: Array<TxPeer>)
     }
 
-    interface Presenter : MvpPresenter<View>
+    interface Presenter : MvpPresenter<View> {
+        fun onReceivePressed()
+        fun onSendPressed()
+        fun onSearchPressed()
+        fun onFilterPressed()
+        fun onExportPressed()
+        fun onDeletePressed()
+    }
 
     interface Repository : MvpRepository {
         fun getWalletStatus(): Subject<WalletStatus>
