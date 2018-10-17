@@ -1,6 +1,7 @@
 package com.mw.beam.beamwallet.openWallet
 
 import com.mw.beam.beamwallet.baseScreen.BasePresenter
+import com.mw.beam.beamwallet.core.AppConfig
 
 /**
  * Created by vain onnellinen on 10/1/18.
@@ -22,16 +23,20 @@ class OpenWalletPresenter(currentView: OpenWalletContract.View, private val repo
 
         if (repository.isWalletInitialized()) {
             if (view != null && view!!.hasValidPass()) {
-                disposable.add(repository.openWallet(view?.getPass()).subscribe { status ->
-                    view?.showSnackBar(status)
-                })
+                if (AppConfig.Status.STATUS_OK == repository.openWallet(view?.getPass())) {
+                    view?.startMainActivity()
+                } else {
+                    view?.showSnackBar(AppConfig.Status.STATUS_ERROR)
+                }
             }
         } else {
             if (view != null && !view!!.hasErrors()) {
-                view?.showSnackBar(repository.createWallet(view?.getPass(), view?.getSeed()))
+                if (AppConfig.Status.STATUS_OK == repository.createWallet(view?.getPass(), view?.getSeed())) {
+                    view?.startMainActivity()
+                } else {
+                    view?.showSnackBar(AppConfig.Status.STATUS_ERROR)
+                }
             }
         }
-
-        view?.startMainActivity()
     }
 }
