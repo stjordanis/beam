@@ -3,7 +3,12 @@ package com.mw.beam.beamwallet.wallet
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.support.v7.view.ContextThemeWrapper
+import android.support.v7.view.menu.MenuBuilder
+import android.support.v7.view.menu.MenuPopupHelper
 import android.support.v7.widget.LinearLayoutManager
+import android.support.v7.widget.PopupMenu
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -49,6 +54,35 @@ class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
         super.onViewCreated(view, savedInstanceState)
         presenter = WalletPresenter(this, WalletRepository())
         configPresenter(presenter)
+    }
+
+    override fun configWalletStatus(walletStatus: WalletStatus) {
+        available.text = EntitiesHelper.convertToBeam(walletStatus.available).toString()
+    }
+
+    override fun configTxStatus(txStatusData: OnTxStatusData) {
+        if (txStatusData.tx != null) {
+            adapter.setData(txStatusData.tx.sortedByDescending { it.modifyTime })
+        }
+    }
+
+    override fun configTxPeerUpdated(peers: Array<TxPeer>) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    @SuppressLint("RestrictedApi")
+    override fun init() {
+        val context = context ?: return
+        adapter = TransactionsAdapter(context, mutableListOf(), object : TransactionsAdapter.OnItemClickListener {
+            override fun onItemClick(item: TxDescription) {
+            }
+        })
+
+        transactionsList.layoutManager = LinearLayoutManager(context)
+        transactionsList.adapter = adapter
+
+        btnReceive.setOnClickListener { presenter.onReceivePressed() }
+        btnSend.setOnClickListener { presenter.onSendPressed() }
 
         btnExpandAvailable.setOnClickListener {
             animateDropDownIcon(btnExpandAvailable, shouldExpandAvailable)
@@ -61,34 +95,39 @@ class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
             shouldExpandInProgress = !shouldExpandInProgress
             inProgress.visibility = if (shouldExpandInProgress) View.GONE else View.VISIBLE
         }
-    }
 
-    override fun configWalletStatus(walletStatus: WalletStatus) {
-        available.text = EntitiesHelper.convertToBeam(walletStatus.available).toString()
-    }
+        btnTransactionsMenu.setOnClickListener { view ->
+            val wrapper = ContextThemeWrapper(context, R.style.PopupMenu)
+            val transactionsMenu = PopupMenu(wrapper, view)
+            transactionsMenu.inflate(R.menu.wallet_transactions_menu)
 
-    override fun configTxStatus(txStatusData: OnTxStatusData) {
-        if (txStatusData.tx != null) {
-            adapter.setData(txStatusData.tx)
+            transactionsMenu.setOnMenuItemClickListener {
+                when (it.itemId) {
+                    R.id.menu_search -> {
+                        presenter.onSearchPressed()
+                        true
+                    }
+                    R.id.menu_filter -> {
+                        presenter.onFilterPressed()
+                        true
+                    }
+                    R.id.menu_export -> {
+                        presenter.onExportPressed()
+                        true
+                    }
+                    R.id.menu_delete -> {
+                        presenter.onDeletePressed()
+                        true
+                    }
+                    else -> true
+                }
+            }
+
+            val menuHelper = MenuPopupHelper(wrapper, transactionsMenu.menu as MenuBuilder, view)
+            menuHelper.setForceShowIcon(true)
+            menuHelper.gravity = Gravity.START
+            menuHelper.show()
         }
-    }
-
-    override fun configTxPeerUpdated(peers: Array<TxPeer>) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
-
-    override fun init() {
-        val context = context ?: return
-        adapter = TransactionsAdapter(context, arrayOf(), object : TransactionsAdapter.OnItemClickListener {
-            override fun onItemClick(item: TxDescription) {
-            }
-
-            override fun onSwipeClick(item: TxDescription) {
-
-            }
-        })
-        transactionsList.layoutManager = LinearLayoutManager(context)
-        transactionsList.adapter = adapter
     }
 
     private fun animateDropDownIcon(view: View, shouldExpand: Boolean) {

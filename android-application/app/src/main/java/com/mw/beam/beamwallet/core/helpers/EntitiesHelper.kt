@@ -43,4 +43,9 @@ object EntitiesHelper {
     fun convertToBeam(groth: Long): Long {
         return groth / 1000000
     }
+
+    fun convertToBeamWithSign(groth: Long, isSent: Boolean): String {
+        val result = convertToBeam(groth)
+        return if (isSent) "-$result" else "+$result"
+    }
 }

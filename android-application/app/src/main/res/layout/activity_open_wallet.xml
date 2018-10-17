@@ -27,6 +27,7 @@
 
         <EditText
             android:id="@+id/seed"
+            android:lines="1"
             style="@style/open_wallet_password_view_style"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -76,6 +77,7 @@
         android:paddingStart="@dimen/common_padding"
         android:paddingEnd="@dimen/common_padding"
         android:text="@string/open_wallet_btn_proceed"
+        android:textColor="@color/colorPrimary"
         android:textAllCaps="false"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
