@@ -36,6 +36,13 @@
     <string name="wallet_status_received">Received</string>
     <string name="wallet_status_sent">Sent</string>
     <string name="wallet_transactions_title">Active transactions</string>
+    <string name="wallet_transactions_receive">Receive %s</string>
+    <string name="wallet_transactions_send">Send %s</string>
+    <string name="wallet_transactions_swap">Swap %1$s to %2$s</string>
+    <string name="wallet_transactions_menu_search">Search</string>
+    <string name="wallet_transactions_menu_filter">Filter</string>
+    <string name="wallet_transactions_menu_export">Export</string>
+    <string name="wallet_transactions_menu_delete">Delete</string>
 
     <!--UtxoActivity-->
     <string name="utxo_height">Height</string>
