@@ -48,8 +48,8 @@
     <android.support.v7.widget.CardView
         android:id="@+id/availableLayout"
         style="@style/wallet_card_style"
-        android:animateLayoutChanges="true"
         android:layout_marginTop="@dimen/wallet_available_margin_top"
+        android:animateLayoutChanges="true"
         app:cardCornerRadius="@dimen/wallet_card_corner_radius"
         app:layout_constraintTop_toBottomOf="@id/btnReceive">
 
@@ -110,10 +110,10 @@
                 android:layout_width="@dimen/wallet_available_text_icon_size"
                 android:layout_height="@dimen/wallet_available_text_icon_size"
                 android:contentDescription="@null"
-                android:paddingTop="@dimen/wallet_available_text_icon_padding_top"
                 app:layout_constraintBottom_toBottomOf="@id/available"
                 app:layout_constraintStart_toEndOf="@id/available"
                 app:layout_constraintTop_toTopOf="@id/available"
+                app:layout_constraintVertical_bias="1"
                 app:srcCompat="@drawable/beam_common" />
 
             <android.support.constraint.Group
@@ -192,6 +192,18 @@
         android:textSize="@dimen/transactions_title_text_size"
         android:textStyle="bold"
         app:layout_constraintTop_toBottomOf="@id/inProgressLayout" />
+
+    <ImageView
+        android:id="@+id/btnTransactionsMenu"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:contentDescription="@null"
+        android:paddingStart="@dimen/common_padding"
+        android:paddingEnd="@dimen/common_padding"
+        app:layout_constraintBottom_toBottomOf="@id/transactionsTitle"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/transactionsTitle"
+        app:srcCompat="@drawable/ic_more" />
 
     <android.support.v7.widget.RecyclerView
         android:id="@+id/transactionsList"
