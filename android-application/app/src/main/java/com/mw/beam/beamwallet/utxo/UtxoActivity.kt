@@ -4,7 +4,6 @@ import android.os.Bundle
 import com.mw.beam.beamwallet.R
 import com.mw.beam.beamwallet.baseScreen.BaseActivity
 import com.mw.beam.beamwallet.core.entities.Wallet
-import kotlinx.android.synthetic.main.activity_utxo.*
 
 /**
  * Created by vain onnellinen on 10/2/18.
@@ -21,7 +20,7 @@ class UtxoActivity : BaseActivity<UtxoPresenter>(), UtxoContract.View {
     }
 
     override fun configData(wallet: Wallet) {
-        height.text = wallet.getSystemState().height.toString()
-        hash.text = wallet.getSystemState().hash.toString()
+       // height.text = wallet.getSystemState().height.toString()
+      //  hash.text = wallet.getSystemState().hash.toString()
     }
 }

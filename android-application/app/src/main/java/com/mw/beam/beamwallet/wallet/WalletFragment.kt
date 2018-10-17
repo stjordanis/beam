@@ -1,5 +1,6 @@
 package com.mw.beam.beamwallet.wallet
 
+import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.support.v7.widget.LinearLayoutManager
@@ -8,9 +9,13 @@ import android.view.View
 import android.view.ViewGroup
 import com.mw.beam.beamwallet.R
 import com.mw.beam.beamwallet.baseScreen.BaseFragment
+import com.mw.beam.beamwallet.core.entities.OnTxStatusData
 import com.mw.beam.beamwallet.core.entities.TxDescription
+import com.mw.beam.beamwallet.core.entities.TxPeer
+import com.mw.beam.beamwallet.core.entities.WalletStatus
 import com.mw.beam.beamwallet.core.helpers.EntitiesHelper
 import kotlinx.android.synthetic.main.fragment_wallet.*
+
 
 /**
  * Created by vain onnellinen on 10/1/18.
@@ -18,6 +23,8 @@ import kotlinx.android.synthetic.main.fragment_wallet.*
 class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
     private lateinit var presenter: WalletPresenter
     private lateinit var adapter: TransactionsAdapter
+    private var shouldExpandAvailable = false
+    private var shouldExpandInProgress = false
 
     companion object {
         fun newInstance(): WalletFragment {
@@ -42,14 +49,32 @@ class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
         super.onViewCreated(view, savedInstanceState)
         presenter = WalletPresenter(this, WalletRepository())
         configPresenter(presenter)
+
+        btnExpandAvailable.setOnClickListener {
+            animateDropDownIcon(btnExpandAvailable, shouldExpandAvailable)
+            shouldExpandAvailable = !shouldExpandAvailable
+            availableGroup.visibility = if (shouldExpandAvailable) View.GONE else View.VISIBLE
+        }
+
+        btnExpandInProgress.setOnClickListener {
+            animateDropDownIcon(btnExpandInProgress, shouldExpandInProgress)
+            shouldExpandInProgress = !shouldExpandInProgress
+            inProgress.visibility = if (shouldExpandInProgress) View.GONE else View.VISIBLE
+        }
     }
 
-    override fun configTxHistory(txHistory: Array<TxDescription>) {
-        adapter.setData(txHistory)
+    override fun configWalletStatus(walletStatus: WalletStatus) {
+        available.text = EntitiesHelper.convertToBeam(walletStatus.available).toString()
     }
 
-    override fun configAvailable(availableSum: Long) {
-        available.text = EntitiesHelper.convertToBeam(availableSum).toString()
+    override fun configTxStatus(txStatusData: OnTxStatusData) {
+        if (txStatusData.tx != null) {
+            adapter.setData(txStatusData.tx)
+        }
+    }
+
+    override fun configTxPeerUpdated(peers: Array<TxPeer>) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 
     override fun init() {
@@ -64,5 +89,13 @@ class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
         })
         transactionsList.layoutManager = LinearLayoutManager(context)
         transactionsList.adapter = adapter
+    }
+
+    private fun animateDropDownIcon(view: View, shouldExpand: Boolean) {
+        val angleFrom = if (shouldExpand) 180f else 360f
+        val angleTo = if (shouldExpand) 360f else 180f
+        val anim = ObjectAnimator.ofFloat(view, "rotation", angleFrom, angleTo)
+        anim.duration = 500
+        anim.start()
     }
 }
