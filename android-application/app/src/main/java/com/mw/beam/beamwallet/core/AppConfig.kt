@@ -7,6 +7,7 @@ import java.util.*
  */
 object AppConfig {
     var DB_PATH = ""
+    var NODE_ADDRESS = "176.58.98.195:8501"
     var LOCALE : Locale = Locale.US
 
     enum class Status(val value : Int) {

@@ -1,67 +1,183 @@
 <?xml version="1.0" encoding="utf-8"?>
 <android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <android.support.v7.widget.CardView
-        android:id="@+id/availableLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="@dimen/common_margin"
-        android:background="@color/colorPrimary"
-        app:cardCornerRadius="@dimen/wallet_card_corner_radius"
-        app:layout_constraintEnd_toStartOf="@id/hash"
+    <LinearLayout
+        android:id="@+id/btnReceive"
+        style="@style/wallet_button_layout_style"
+        android:background="@drawable/wallet_button_receive"
+        app:layout_constraintEnd_toStartOf="@id/btnSend"
         app:layout_constraintStart_toStartOf="parent">
 
-        <LinearLayout
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@null"
+            android:paddingEnd="@dimen/wallet_button_items_padding"
+            app:srcCompat="@drawable/ic_btn_receive"
+            tools:ignore="RtlSymmetry" />
+
+        <TextView
+            style="@style/wallet_button_text_style"
+            android:text="@string/wallet_btn_receive" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/btnSend"
+        style="@style/wallet_button_layout_style"
+        android:background="@drawable/wallet_button_send"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/btnReceive">
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@null"
+            android:paddingEnd="@dimen/wallet_button_items_padding"
+            app:srcCompat="@drawable/ic_btn_send"
+            tools:ignore="RtlSymmetry" />
+
+        <TextView
+            style="@style/wallet_button_text_style"
+            android:text="@string/wallet_btn_send" />
+    </LinearLayout>
+
+    <android.support.v7.widget.CardView
+        android:id="@+id/availableLayout"
+        style="@style/wallet_card_style"
+        android:animateLayoutChanges="true"
+        android:layout_marginTop="@dimen/wallet_available_margin_top"
+        app:cardCornerRadius="@dimen/wallet_card_corner_radius"
+        app:layout_constraintTop_toBottomOf="@id/btnReceive">
+
+        <android.support.constraint.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:animateLayoutChanges="true"
             android:background="@color/colorPrimary"
-            android:orientation="vertical"
-            android:padding="@dimen/common_padding">
+            android:padding="@dimen/wallet_card_padding">
 
             <TextView
+                android:id="@+id/availableTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@color/colorPrimary"
+                android:paddingEnd="@dimen/wallet_expandable_icon_padding"
                 android:text="@string/wallet_available"
                 android:textColor="@color/wallet_card_title_color"
                 android:textSize="@dimen/wallet_card_title_text_size"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                tools:ignore="RtlSymmetry" />
+
+            <View
+                android:id="@+id/btnExpandAvailable"
+                android:layout_width="@dimen/wallet_expandable_icon_size"
+                android:layout_height="@dimen/wallet_expandable_icon_size"
+                android:background="@drawable/btn_drop_down"
+                android:contentDescription="@null"
+                app:layout_constraintBottom_toBottomOf="@id/availableTitle"
+                app:layout_constraintStart_toEndOf="@id/availableTitle"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <ImageView
+                android:id="@+id/icAvailableCurrency"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_beam"
+                app:layout_constraintBottom_toBottomOf="@id/available"
+                app:layout_constraintTop_toTopOf="@id/available" />
 
             <TextView
                 android:id="@+id/available"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/wallet_available_sum_margin_top"
                 android:background="@color/colorPrimary"
-                android:fontFamily="sans-serif-light"
-                android:textColor="@color/colorAccent"
-                android:textSize="@dimen/wallet_available_text_size" />
-        </LinearLayout>
+                android:fontFamily="sans-serif"
+                android:paddingStart="@dimen/wallet_available_text_padding_start"
+                android:paddingEnd="@dimen/wallet_available_text_padding_end"
+                android:textColor="@color/wallet_common_text_color"
+                android:textSize="@dimen/wallet_available_text_size"
+                app:layout_constraintStart_toEndOf="@id/icAvailableCurrency"
+                app:layout_constraintTop_toBottomOf="@id/availableTitle" />
+
+            <ImageView
+                android:id="@+id/icAvailableTextCurrency"
+                android:layout_width="@dimen/wallet_available_text_icon_size"
+                android:layout_height="@dimen/wallet_available_text_icon_size"
+                android:contentDescription="@null"
+                android:paddingTop="@dimen/wallet_available_text_icon_padding_top"
+                app:layout_constraintBottom_toBottomOf="@id/available"
+                app:layout_constraintStart_toEndOf="@id/available"
+                app:layout_constraintTop_toTopOf="@id/available"
+                app:srcCompat="@drawable/beam_common" />
+
+            <android.support.constraint.Group
+                android:id="@+id/availableGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:constraint_referenced_ids="icAvailableCurrency, available, icAvailableTextCurrency" />
+        </android.support.constraint.ConstraintLayout>
     </android.support.v7.widget.CardView>
 
-    <Button
-        android:id="@+id/btnReceive"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="22dp"
-        android:background="@color/received_color"
-        android:text="@string/wallet_btn_receive"
-        app:layout_constraintEnd_toStartOf="@id/btnSend"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/availableLayout" />
+    <android.support.v7.widget.CardView
+        android:id="@+id/inProgressLayout"
+        style="@style/wallet_card_style"
+        android:layout_marginTop="@dimen/wallet_in_progress_margin_top"
+        android:animateLayoutChanges="true"
+        app:cardCornerRadius="@dimen/wallet_card_corner_radius"
+        app:layout_constraintTop_toBottomOf="@id/availableLayout">
 
-    <Button
-        android:id="@+id/btnSend"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="22dp"
-        android:background="@color/sent_color"
-        android:text="@string/wallet_btn_send"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/btnReceive"
-        app:layout_constraintTop_toBottomOf="@id/availableLayout" />
+        <android.support.constraint.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:animateLayoutChanges="true"
+            android:background="@color/colorPrimary"
+            android:padding="@dimen/wallet_card_padding">
+
+            <TextView
+                android:id="@+id/inProgressTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@color/colorPrimary"
+                android:paddingEnd="@dimen/wallet_expandable_icon_padding"
+                android:text="@string/wallet_in_progress"
+                android:textColor="@color/wallet_card_title_color"
+                android:textSize="@dimen/wallet_card_title_text_size"
+                android:textStyle="bold"
+                tools:ignore="RtlSymmetry" />
+
+            <View
+                android:id="@+id/btnExpandInProgress"
+                android:layout_width="@dimen/wallet_expandable_icon_size"
+                android:layout_height="@dimen/wallet_expandable_icon_size"
+                android:background="@drawable/btn_drop_down"
+                android:contentDescription="@null"
+                app:layout_constraintBottom_toBottomOf="@id/inProgressTitle"
+                app:layout_constraintStart_toEndOf="@id/inProgressTitle"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/inProgress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@color/colorPrimary"
+                android:fontFamily="sans-serif"
+                android:textColor="@color/colorAccent"
+                android:textSize="@dimen/wallet_available_text_size"
+                app:layout_constraintTop_toBottomOf="@id/inProgressTitle" />
+
+            <android.support.constraint.Group
+                android:id="@+id/inProgressGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:constraint_referenced_ids="inProgress" />
+        </android.support.constraint.ConstraintLayout>
+    </android.support.v7.widget.CardView>
 
     <TextView
         android:id="@+id/transactionsTitle"
@@ -75,11 +191,12 @@
         android:textColor="@color/transactions_title_color"
         android:textSize="@dimen/transactions_title_text_size"
         android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/btnReceive" />
+        app:layout_constraintTop_toBottomOf="@id/inProgressLayout" />
 
     <android.support.v7.widget.RecyclerView
         android:id="@+id/transactionsList"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@id/transactionsTitle" />
 </android.support.constraint.ConstraintLayout>

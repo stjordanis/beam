@@ -11,7 +11,7 @@ object Api {
         System.loadLibrary("wallet-jni")
     }
 
-    external fun createWallet(dbPath: String, pass: String, seed: String): Wallet
-    external fun openWallet(dbPath: String, pass: String): Wallet
+    external fun createWallet(nodeAddr: String, dbPath: String, pass: String, seed: String): Wallet
+    external fun openWallet(nodeAddr: String, dbPath: String, pass: String): Wallet
     external fun isWalletInitialized(dbPath: String): Boolean
 }

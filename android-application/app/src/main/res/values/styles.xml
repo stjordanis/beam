@@ -30,4 +30,30 @@
         <item name="android:layout_marginBottom">@dimen/open_wallet_password_margin</item>
         <item name="android:textColorHint">@color/password_text_color</item>
     </style>
+
+    <!-- WalletFragment -->
+    <style name="wallet_button_text_style">
+        <item name="android:textColor">@color/wallet_button_text_color</item>
+        <item name="android:fontFamily">@font/wallet_btn_font</item>
+        <item name="android:textSize">@dimen/wallet_button_text_size</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">wrap_content</item>
+    </style>
+
+    <style name="wallet_button_layout_style">
+        <item name="android:layout_height">@dimen/wallet_button_height</item>
+        <item name="android:layout_width">@dimen/wallet_button_width</item>
+        <item name="android:layout_marginTop">@dimen/wallet_button_margin_top</item>
+        <item name="android:gravity">center</item>
+        <item name="android:orientation">horizontal</item>
+    </style>
+
+    <style name="wallet_card_style">
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_marginStart">@dimen/common_margin</item>
+        <item name="android:layout_marginEnd">@dimen/common_margin</item>
+        <item name="android:background">@color/colorPrimary</item>
+    </style>
 </resources>
