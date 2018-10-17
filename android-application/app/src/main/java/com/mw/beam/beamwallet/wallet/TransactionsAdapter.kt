@@ -18,12 +18,15 @@ import kotlinx.android.synthetic.main.item_transaction.*
  */
 class TransactionsAdapter(private val context: Context, private var data: Array<TxDescription>, private val clickListener: OnItemClickListener) :
         RecyclerView.Adapter<TransactionsAdapter.ViewHolder>() {
-    private val receivedResId = R.drawable.ic_received
+    private val beamResId = R.drawable.ic_beam
+    private val sentCurrencyResId = R.drawable.beam_sent
+    private val receivedCurrencyResId = R.drawable.beam_received
     private val receivedColor = ContextCompat.getColor(context, R.color.received_color)
     private val receivedText = context.getString(R.string.wallet_status_received)
-    private val sentResId = R.drawable.ic_sent
     private val sentColor = ContextCompat.getColor(context, R.color.sent_color)
     private val sentText = context.getString(R.string.wallet_status_sent)
+    private val multiplyColor = ContextCompat.getColor(context, R.color.wallet_adapter_multiply_color)
+    private val notMultiplyColor = ContextCompat.getColor(context, R.color.wallet_adapter_not_multiply_color)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = ViewHolder(LayoutInflater.from(context).inflate(R.layout.item_transaction, parent, false))
 
@@ -33,22 +36,25 @@ class TransactionsAdapter(private val context: Context, private var data: Array<
         holder.apply {
             when (EntitiesHelper.TxSender.fromValue(transaction.sender)) {
                 EntitiesHelper.TxSender.RECEIVED -> {
-                    icon.setImageResource(receivedResId)
                     sum.setTextColor(receivedColor)
                     status.setTextColor(receivedColor)
                     status.text = receivedText
+                    currency.setImageResource(receivedCurrencyResId)
                 }
                 EntitiesHelper.TxSender.SENT -> {
-                    icon.setImageResource(sentResId)
                     sum.setTextColor(sentColor)
                     status.setTextColor(sentColor)
                     status.text = sentText
+                    currency.setImageResource(sentCurrencyResId)
                 }
             }
 
-            date.text = CalendarUtils.fromTimestamp(transaction.modifyTime)
+            itemView.setBackgroundColor(if (position % 2 == 0) multiplyColor else notMultiplyColor)
+            icon.setImageResource(beamResId)
+            date.text = CalendarUtils.fromTimestamp(transaction.modifyTime * 1000)
             sum.text = EntitiesHelper.convertToBeam(transaction.amount).toString()
             message.visibility = if (transaction.message == null) View.GONE else View.VISIBLE
+
             if (transaction.message != null) {
                 message.text = String(transaction.message)
             }
