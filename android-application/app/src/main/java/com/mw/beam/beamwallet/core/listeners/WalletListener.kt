@@ -1,36 +1,65 @@
 package com.mw.beam.beamwallet.core.listeners
 
-import io.reactivex.subjects.PublishSubject
+import android.os.Handler
+import android.os.Looper
+import com.mw.beam.beamwallet.core.entities.*
+import com.mw.beam.beamwallet.core.utils.LogUtils
+import io.reactivex.subjects.BehaviorSubject
 import io.reactivex.subjects.Subject
 
 
 /**
  * Created by vain onnellinen on 10/4/18.
  */
+@Suppress("RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
 object WalletListener {
+    private var uiHandler = Handler(Looper.getMainLooper())
     private val DUMMY_OBJECT = Any()
-    var subOnKeychainChanged: Subject<Any> = PublishSubject.create<Any>().toSerialized()
-    var subOnTransactionChanged: Subject<Any> = PublishSubject.create<Any>().toSerialized()
-    var subOnSystemStateChanged: Subject<Any> = PublishSubject.create<Any>().toSerialized()
-    var subOnTxPeerChanged: Subject<Any> = PublishSubject.create<Any>().toSerialized()
-    var subOnAddressChanged: Subject<Any> = PublishSubject.create<Any>().toSerialized()
-    var subOnSyncProgress: Subject<Any> = PublishSubject.create<Any>().toSerialized()
+
+    var subOnStatus: Subject<WalletStatus> = BehaviorSubject.create<WalletStatus>().toSerialized()
+    var subOnTxStatus: Subject<OnTxStatusData> = BehaviorSubject.create<OnTxStatusData>().toSerialized()
+    var subOnTxPeerUpdated: Subject<Array<TxPeer>?> = BehaviorSubject.create<Array<TxPeer>?>().toSerialized()
+    var subOnSyncProgressUpdated: Subject<Any> = BehaviorSubject.create<Any>().toSerialized()
+    var subOnChangeCalculated: Subject<Any> = BehaviorSubject.create<Any>().toSerialized()
+    var subOnAllUtxoChanged: Subject<Array<Utxo>> = BehaviorSubject.create<Array<Utxo>>().toSerialized()
+    var subOnAddresses: Subject<Any> = BehaviorSubject.create<Any>().toSerialized()
+    var subOnGeneratedNewWalletID: Subject<Any> = BehaviorSubject.create<Any>().toSerialized()
+    var subOnChangeCurrentWalletIDs: Subject<Any> = BehaviorSubject.create<Any>().toSerialized()
 
     @JvmStatic
-    fun onKeychainChanged() = subOnKeychainChanged.onNext(DUMMY_OBJECT)
+    fun onStatus(status: WalletStatus) = returnResult(subOnStatus, status, object {}.javaClass.enclosingMethod.name)
 
     @JvmStatic
-    fun onTransactionChanged() = subOnTransactionChanged.onNext(DUMMY_OBJECT)
+    fun onTxStatus(action: Int, tx: Array<TxDescription>?) = returnResult(subOnTxStatus, OnTxStatusData(action, tx), object {}.javaClass.enclosingMethod.name)
 
     @JvmStatic
-    fun onSystemStateChanged() = subOnSystemStateChanged.onNext(DUMMY_OBJECT)
+    fun onTxPeerUpdated(peers: Array<TxPeer>?) = returnResult(subOnTxPeerUpdated, peers, object {}.javaClass.enclosingMethod.name)
 
     @JvmStatic
-    fun onTxPeerChanged() = subOnTxPeerChanged.onNext(DUMMY_OBJECT)
+    fun onSyncProgressUpdated() = returnResult(subOnSyncProgressUpdated, DUMMY_OBJECT, object {}.javaClass.enclosingMethod.name)
 
     @JvmStatic
-    fun onAddressChanged() = subOnAddressChanged.onNext(DUMMY_OBJECT)
+    fun onChangeCalculated() = returnResult(subOnChangeCalculated, DUMMY_OBJECT, object {}.javaClass.enclosingMethod.name)
 
     @JvmStatic
-    fun onSyncProgress(done: Int, total: Int) = subOnSyncProgress.onNext(DUMMY_OBJECT)
+    fun onAllUtxoChanged(utxos: Array<Utxo>) = returnResult(subOnAllUtxoChanged, utxos, object {}.javaClass.enclosingMethod.name)
+
+    @JvmStatic
+    fun onAddresses() = returnResult(subOnAddresses, DUMMY_OBJECT, object {}.javaClass.enclosingMethod.name)
+
+    fun onGeneratedNewWalletID() = returnResult(subOnGeneratedNewWalletID, DUMMY_OBJECT, object {}.javaClass.enclosingMethod.name)
+
+    @JvmStatic
+    fun onChangeCurrentWalletIDs() = returnResult(subOnChangeCurrentWalletIDs, DUMMY_OBJECT, object {}.javaClass.enclosingMethod.name)
+
+    private fun <T> returnResult(subject: Subject<T>, result: T, responseName: String) {
+        uiHandler.post {
+            try {
+                subject.onNext(result)
+                LogUtils.logResponse(result, responseName)
+            } catch (e: NullPointerException) {
+                LogUtils.logErrorResponse(e, responseName)
+            }
+        }
+    }
 }

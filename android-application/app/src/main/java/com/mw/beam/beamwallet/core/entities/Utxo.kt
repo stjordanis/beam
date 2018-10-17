@@ -13,4 +13,4 @@ data class Utxo(val id: Long,
                 val confirmHash: ByteArray,
                 val lockHeight: Long,
                 val createTxId: ByteArray,
-                val spendTxId: ByteArray)
+                val spentTxId: ByteArray)

@@ -16,7 +16,7 @@ class App : Application() {
     companion object {
         lateinit var self: App
         //TODO move into correct place
-        var wallet: Wallet = Wallet(-1)
+        var wallet: Wallet? = null
     }
 
     override fun onCreate() {
