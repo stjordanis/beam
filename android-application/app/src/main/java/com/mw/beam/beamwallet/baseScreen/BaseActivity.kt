@@ -89,11 +89,17 @@ abstract class BaseActivity<T : BasePresenter<out MvpView>> : AppCompatActivity(
     }
 
     override fun showSnackBar(status: AppConfig.Status) {
-        val snackBar = Snackbar.make(findViewById(android.R.id.content),
+        showSnackBar(
                 when (status) {
                     AppConfig.Status.STATUS_OK -> getString(R.string.common_successful)
                     AppConfig.Status.STATUS_ERROR -> getString(R.string.common_error)
-                }, Snackbar.LENGTH_LONG)
+                }
+        )
+    }
+
+    override fun showSnackBar(message: String) {
+        val snackBar = Snackbar.make(findViewById(android.R.id.content),
+                message, Snackbar.LENGTH_LONG)
         snackBar.view.setBackgroundColor(ContextCompat.getColor(this, R.color.snack_bar_color))
         snackBar.view.findViewById<TextView>(android.support.design.R.id.snackbar_text).setTextColor(ContextCompat.getColor(this, R.color.colorAccent))
         snackBar.show()

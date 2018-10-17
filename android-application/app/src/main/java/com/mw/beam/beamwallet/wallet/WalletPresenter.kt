@@ -19,6 +19,30 @@ class WalletPresenter(currentView: WalletContract.View, private val repository: 
         initSubscriptions()
     }
 
+    override fun onReceivePressed() {
+        toDo()
+    }
+
+    override fun onSendPressed() {
+        toDo()
+    }
+
+    override fun onSearchPressed() {
+        toDo()
+    }
+
+    override fun onFilterPressed() {
+        toDo()
+    }
+
+    override fun onExportPressed() {
+        toDo()
+    }
+
+    override fun onDeletePressed() {
+        toDo()
+    }
+
     private fun initSubscriptions() {
         walletStatusSubscription = repository.getWalletStatus().subscribe {
             view?.configWalletStatus(it)
@@ -37,5 +61,9 @@ class WalletPresenter(currentView: WalletContract.View, private val repository: 
 
     override fun getSubscriptions(): Array<Disposable>? {
         return arrayOf(walletStatusSubscription, txStatusSubscription, txPeerUpdatedSubscription)
+    }
+
+    private fun toDo() {
+        view?.showSnackBar("Coming soon...")
     }
 }

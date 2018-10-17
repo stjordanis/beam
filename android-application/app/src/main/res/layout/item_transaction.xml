@@ -64,6 +64,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:fontFamily="sans-serif"
+        android:gravity="center"
         android:paddingStart="@dimen/wallet_currency_padding"
         android:paddingEnd="@dimen/wallet_currency_padding"
         android:textSize="@dimen/transaction_sum_text_size"
@@ -72,20 +73,25 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
-        android:paddingTop="@dimen/wallet_available_text_icon_padding_top"
         android:id="@+id/currency"
-        android:layout_width="20dp"
-        android:layout_height="20dp"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
         android:contentDescription="@null"
+        app:layout_constraintBottom_toBottomOf="@id/sum"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/sum" />
+        app:layout_constraintTop_toTopOf="@id/sum"
+        app:layout_constraintVertical_bias="1" />
 
     <TextView
         android:id="@+id/status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:fontFamily="sans-serif"
+        android:paddingStart="@dimen/wallet_currency_padding"
+        android:paddingTop="@dimen/transaction_status_padding_top"
+        android:paddingEnd="@dimen/wallet_currency_padding"
         android:textSize="@dimen/transaction_status_text_size"
+        android:textStyle="italic"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/sum" />
