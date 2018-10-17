@@ -68,19 +68,20 @@ abstract class BaseActivity<T : BasePresenter<out MvpView>> : AppCompatActivity(
         drawerLayout.addDrawerListener(drawerToggle)
         drawerToggle.syncState()
         navView.itemIconTintList = getColorStateList(R.color.menu_selector)
+
         navView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
-                R.id.nav_dashboard -> LogUtils.log("dashboard")
                 R.id.nav_wallet -> showFragment(WalletFragment.newInstance(), WalletFragment.getFragmentTag(), null, true)
                 R.id.nav_address_book -> LogUtils.log("address_book")
                 R.id.nav_utxo -> LogUtils.log("utxo")
-                R.id.nav_blockchain_info -> LogUtils.log("blockchain_info")
+                R.id.nav_dashboard -> LogUtils.log("dashboard")
                 R.id.nav_notifications -> LogUtils.log("notifications")
                 R.id.nav_help -> LogUtils.log("help")
                 R.id.nav_settings -> LogUtils.log("settings")
             }
             true
         }
+
         navView.apply {
             setCheckedItem(R.id.nav_wallet)
             menu.performIdentifierAction(R.id.nav_wallet, 0)
