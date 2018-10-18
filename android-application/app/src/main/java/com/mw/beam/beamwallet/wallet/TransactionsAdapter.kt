@@ -32,7 +32,11 @@ class TransactionsAdapter(private val context: Context, private var data: List<T
     private val sendText = context.getString(R.string.wallet_transactions_send)
     private val swapText = context.getString(R.string.wallet_transactions_swap)
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = ViewHolder(LayoutInflater.from(context).inflate(R.layout.item_transaction, parent, false))
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = ViewHolder(LayoutInflater.from(context).inflate(R.layout.item_transaction, parent, false)).apply {
+        this.containerView.setOnClickListener {
+            clickListener.onItemClick(data[adapterPosition])
+        }
+    }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val transaction = data[position]
