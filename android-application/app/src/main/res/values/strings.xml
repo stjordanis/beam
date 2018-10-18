@@ -2,7 +2,6 @@
     <string name="app_name">Beam Wallet</string>
     <string name="common_successful">Done!</string>
     <string name="common_error">Ooops, something went wrong…</string>
-    <string name="common_title">Wallet</string>
     <string name="common_status_online">online</string>
     <string name="common_drawer_open">open</string>
     <string name="common_drawer_close">close</string>
@@ -29,6 +28,7 @@
     <string name="open_wallet_pass_not_match_error">Passwords don\'t match</string>
 
     <!--WalletFragment-->
+    <string name="wallet_title">Wallet</string>
     <string name="wallet_available">Available</string>
     <string name="wallet_in_progress">In progress</string>
     <string name="wallet_btn_receive">receive</string>
@@ -47,4 +47,7 @@
     <!--UtxoActivity-->
     <string name="utxo_height">Height</string>
     <string name="utxo_hash">Hash</string>
+
+    <!--TransactionDetailsScreen-->
+    <string name="transaction_details_title">Transaction details</string>
 </resources>
