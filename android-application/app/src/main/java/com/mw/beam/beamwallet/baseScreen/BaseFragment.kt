@@ -33,7 +33,6 @@ abstract class BaseFragment<T : BasePresenter<out MvpView>> : Fragment(), MvpVie
 
     override fun onDestroy() {
         presenter.detachView()
-
         super.onDestroy()
     }
 
@@ -41,8 +40,6 @@ abstract class BaseFragment<T : BasePresenter<out MvpView>> : Fragment(), MvpVie
         val imm = activity?.getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(activity?.findViewById<View>(android.R.id.content)?.windowToken, 0)
     }
-
-    override fun configNavDrawer() {}
 
     override fun showSnackBar(status: AppConfig.Status) {
         showSnackBar(
@@ -60,5 +57,9 @@ abstract class BaseFragment<T : BasePresenter<out MvpView>> : Fragment(), MvpVie
         snackBar.view.setBackgroundColor(ContextCompat.getColor(context, R.color.snack_bar_color))
         snackBar.view.findViewById<TextView>(android.support.design.R.id.snackbar_text).setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
         snackBar.show()
+    }
+
+    protected fun setTitle(title : String) {
+        activity?.findViewById<View>(R.id.toolbarLayout)?.findViewById<TextView>(R.id.toolbarTitle)?.text = title
     }
 }
