@@ -28,7 +28,7 @@ import kotlinx.android.synthetic.main.fragment_wallet.*
 class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
     private lateinit var presenter: WalletPresenter
     private lateinit var adapter: TransactionsAdapter
-    private var shouldExpandAvailable = false
+    private var shouldExpandAvailable = false //TODO where should it be?
     private var shouldExpandInProgress = false
 
     companion object {
@@ -75,8 +75,11 @@ class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
         val context = context ?: return
         adapter = TransactionsAdapter(context, mutableListOf(), object : TransactionsAdapter.OnItemClickListener {
             override fun onItemClick(item: TxDescription) {
+                (activity as TransactionDetailsHandler).onShowTransactionDetails(item)
             }
         })
+
+        setTitle(getString(R.string.wallet_title))
 
         transactionsList.layoutManager = LinearLayoutManager(context)
         transactionsList.adapter = adapter
@@ -136,5 +139,9 @@ class WalletFragment : BaseFragment<WalletPresenter>(), WalletContract.View {
         val anim = ObjectAnimator.ofFloat(view, "rotation", angleFrom, angleTo)
         anim.duration = 500
         anim.start()
+    }
+
+    interface TransactionDetailsHandler {
+        fun onShowTransactionDetails(item: TxDescription)
     }
 }
