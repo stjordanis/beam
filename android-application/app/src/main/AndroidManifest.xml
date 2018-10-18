@@ -30,6 +30,9 @@
         <activity
             android:name=".main.MainActivity"
             android:screenOrientation="portrait" />
+        <activity android:name=".transactionDetailsActivity.TransactionDetailsActivity"
+            android:screenOrientation="portrait"
+            android:label="@string/transaction_details_title"/>
 
         <meta-data
             android:name="io.fabric.ApiKey"
