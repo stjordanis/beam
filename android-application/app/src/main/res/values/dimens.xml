@@ -48,4 +48,10 @@
     <!--UtxoActivity-->
     <dimen name="utxo_card_title_text_size">16sp</dimen>
     <dimen name="utxo_card_corner_radius">10dp</dimen>
+
+    <!--TransactionDetails-->
+    <dimen name="transaction_details_text_size">14sp</dimen>
+    <dimen name="transaction_details_title_padding_top">30dp</dimen>
+    <dimen name="transaction_details_title_padding_bottom">22dp</dimen>
+    <dimen name="transaction_details_padding">20dp</dimen>
 </resources>
