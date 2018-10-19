@@ -4,6 +4,7 @@
     <color name="colorPrimaryDark">#032e49</color>
     <color name="colorAccent">#00f6d2</color>
     <color name="colorAccentPicked">#01c4a7</color>
+    <color name="common_text_color">#ffffff</color>
     <color name="snack_bar_color">#0a4b66</color>
     <color name="status_bar_color">#33000000</color>
     <color name="toolbar_title_color">#ffffff</color>
@@ -31,4 +32,8 @@
     <color name="wallet_common_text_color">#ffffff</color>
     <color name="wallet_adapter_multiply_color">#0e3850</color>
     <color name="wallet_adapter_not_multiply_color">@color/colorPrimary</color>
+
+    <!--TransactionDetails-->
+    <color name="transaction_details_background">#0e3850</color>
+    <color name="transaction_details_subtitle_color">#8da1ad</color>
 </resources>
