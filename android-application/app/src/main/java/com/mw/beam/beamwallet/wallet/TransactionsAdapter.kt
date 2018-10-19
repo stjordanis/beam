@@ -61,13 +61,15 @@ class TransactionsAdapter(private val context: Context, private var data: List<T
 
             if (transaction.statusEnum == EntitiesHelper.TxStatus.Failed
                     || transaction.statusEnum == EntitiesHelper.TxStatus.InProgress
-                    || transaction.statusEnum == EntitiesHelper.TxStatus.Cancelled) status.setTextColor(commonStatusColor)
+                    || transaction.statusEnum == EntitiesHelper.TxStatus.Cancelled) {
+                status.setTextColor(commonStatusColor)
+                status.text = transaction.statusEnum.name.toLowerCase() //TODO make resources when all statuses will be stable
+            }
 
             itemView.setBackgroundColor(if (position % 2 == 0) multiplyColor else notMultiplyColor)
             icon.setImageResource(beamResId)
             date.text = CalendarUtils.fromTimestamp(transaction.modifyTime * 1000)
             sum.text = EntitiesHelper.convertToBeamWithSign(transaction.amount, transaction.sender)
-            status.text = transaction.statusEnum.name.toLowerCase()
         }
     }
 
