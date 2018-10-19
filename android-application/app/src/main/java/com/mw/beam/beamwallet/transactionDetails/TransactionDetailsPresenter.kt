@@ -8,4 +8,8 @@ import com.mw.beam.beamwallet.baseScreen.BasePresenter
 class TransactionDetailsPresenter(currentView: TransactionDetailsContract.View, private val repository: TransactionDetailsContract.Repository)
     : BasePresenter<TransactionDetailsContract.View>(currentView),
         TransactionDetailsContract.Presenter {
+
+    override fun viewIsReady() {
+        view?.init(view?.getTransactionDetails() ?: return)
+    }
 }
