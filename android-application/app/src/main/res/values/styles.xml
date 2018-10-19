@@ -61,4 +61,33 @@
         <item name="android:layout_marginEnd">@dimen/common_margin</item>
         <item name="android:background">@color/colorPrimary</item>
     </style>
+
+    <!-- TransactionDetails -->
+    <style name="transaction_details_title">
+        <item name="android:textColor">@color/common_text_color</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">@dimen/transaction_details_text_size</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="transaction_details_sub_title">
+        <item name="android:textColor">@color/transaction_details_subtitle_color</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">@dimen/transaction_details_text_size</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:paddingEnd">@dimen/transaction_details_padding</item>
+        <item name="android:paddingBottom">@dimen/transaction_details_padding</item>
+    </style>
+
+    <style name="transaction_details_value">
+        <item name="android:textColor">@color/common_text_color</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">@dimen/transaction_details_text_size</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:paddingBottom">@dimen/transaction_details_padding</item>
+    </style>
 </resources>
