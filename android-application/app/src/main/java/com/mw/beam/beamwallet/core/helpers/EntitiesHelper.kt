@@ -40,12 +40,25 @@ object EntitiesHelper {
         }
     }
 
+    fun convertToBeamAsFloatString(groth: Long): String {
+        return String.format("%.10f", groth.toFloat() / 1000000f)
+    }
+
     fun convertToBeam(groth: Long): Long {
-        return groth / 1000000
+        return groth / 1000000L
     }
 
     fun convertToBeamWithSign(groth: Long, isSent: Boolean): String {
         val result = convertToBeam(groth)
         return if (isSent) "-$result" else "+$result"
+    }
+
+    fun bytesToHex(bytes: ByteArray): String {
+        val result = StringBuilder()
+        for (b in bytes) {
+            val st = String.format("%02X", b)
+            result.append(st)
+        }
+        return result.toString().toLowerCase()
     }
 }
