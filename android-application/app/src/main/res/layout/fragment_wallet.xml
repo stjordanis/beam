@@ -5,45 +5,28 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <LinearLayout
+    <com.mw.beam.beamwallet.core.views.BeamButton
         android:id="@+id/btnReceive"
-        style="@style/wallet_button_layout_style"
-        android:background="@drawable/wallet_button_receive"
+        android:layout_width="@dimen/wallet_button_width"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/wallet_button_margin_top"
+        app:button_icon="@drawable/ic_btn_receive"
+        app:button_state_list="@color/receive_selector"
+        app:button_text="@string/wallet_btn_receive"
         app:layout_constraintEnd_toStartOf="@id/btnSend"
-        app:layout_constraintStart_toStartOf="parent">
+        app:layout_constraintStart_toStartOf="parent" />
 
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:contentDescription="@null"
-            android:paddingEnd="@dimen/wallet_button_items_padding"
-            app:srcCompat="@drawable/ic_btn_receive"
-            tools:ignore="RtlSymmetry" />
-
-        <TextView
-            style="@style/wallet_button_text_style"
-            android:text="@string/wallet_btn_receive" />
-    </LinearLayout>
-
-    <LinearLayout
+    <com.mw.beam.beamwallet.core.views.BeamButton
         android:id="@+id/btnSend"
-        style="@style/wallet_button_layout_style"
-        android:background="@drawable/wallet_button_send"
+        android:layout_width="@dimen/wallet_button_width"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/wallet_button_margin_top"
+        app:button_icon="@drawable/ic_btn_send"
+        app:button_state_list="@color/send_selector"
+        app:button_text="@string/wallet_btn_send"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/btnReceive">
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:contentDescription="@null"
-            android:paddingEnd="@dimen/wallet_button_items_padding"
-            app:srcCompat="@drawable/ic_btn_send"
-            tools:ignore="RtlSymmetry" />
-
-        <TextView
-            style="@style/wallet_button_text_style"
-            android:text="@string/wallet_btn_send" />
-    </LinearLayout>
+        app:layout_constraintHorizontal_weight="0.5"
+        app:layout_constraintStart_toEndOf="@id/btnReceive" />
 
     <android.support.v7.widget.CardView
         android:id="@+id/availableLayout"

@@ -72,7 +72,7 @@
         android:id="@+id/btnProceed"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@drawable/button_proceed"
+        android:background="@drawable/button_common"
         android:gravity="center"
         android:paddingStart="@dimen/common_padding"
         android:paddingEnd="@dimen/common_padding"
