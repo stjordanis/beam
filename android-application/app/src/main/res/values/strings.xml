@@ -1,10 +1,28 @@
 <resources>
     <string name="app_name">Beam Wallet</string>
+    <string name="common_beam">Beam</string>
+    <string name="common_logo_text">Scalable confidential cryptocurrency</string>
     <string name="common_successful">Done!</string>
     <string name="common_error">Ooops, something went wrong…</string>
     <string name="common_status_online">online</string>
     <string name="common_drawer_open">open</string>
     <string name="common_drawer_close">close</string>
+
+    <!--WelcomeActivity-->
+    <string name="welcome_create_wallet">create new wallet</string>
+    <string name="welcome_restore">restore wallet from blockchain</string>
+    <string name="welcome_generate_recovery_phrase">generate recovery phrase</string>
+    <string name="welcome_proceed_to_wallet">proceed to your wallet</string>
+    <string name="welcome_title">Create new wallet</string>
+    <string name="welcome_description">Create new wallet with generating recovery \n phrase. If you ever lose your device, you will need \n this phrase to recover your wallet!</string>
+    <string name="welcome_passwords_description">Create password to access your wallet</string>
+    <string name="welcome_no_see">Do not let anyone see your \n recovery phrase</string>
+    <string name="welcome_no_type">Never type your recovery \n phrase into password \n managers or elsewhere</string>
+    <string name="welcome_copy">Make at least 2 copies of the \n phrase in case of emergency</string>
+    <string name="welcome_pass_medium">Medium strength password (add at least one capital letter and one small letter)</string>
+    <string name="welcome_pass_not_much">Passwords do not match</string>
+    <string name="welcome_pass_title">Enter password</string>
+    <string name="welcome_confirm_pass_title">Confirm password</string>
 
     <!--NavigationDrawer-->
     <string name="nav_dashboard">dashboard</string>
