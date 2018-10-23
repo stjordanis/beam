@@ -17,6 +17,19 @@
 
         <activity
             android:name=".openWallet.OpenWalletActivity"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".utxo.UtxoActivity"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".main.MainActivity"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".transactionDetailsActivity.TransactionDetailsActivity"
+            android:label="@string/transaction_details_title"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".welcomeScreen.WelcomeActivity"
             android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,15 +37,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".utxo.UtxoActivity"
-            android:screenOrientation="portrait" />
-        <activity
-            android:name=".main.MainActivity"
-            android:screenOrientation="portrait" />
-        <activity android:name=".transactionDetailsActivity.TransactionDetailsActivity"
-            android:screenOrientation="portrait"
-            android:label="@string/transaction_details_title"/>
 
         <meta-data
             android:name="io.fabric.ApiKey"
