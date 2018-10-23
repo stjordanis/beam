@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="BeamButton">
+        <attr name="button_text" format="integer" />
+        <attr name="button_icon" format="integer" />
+        <attr name="button_text_color" format="integer" />
+        <attr name="button_state_list" format="integer" />
+    </declare-styleable>
+</resources>
