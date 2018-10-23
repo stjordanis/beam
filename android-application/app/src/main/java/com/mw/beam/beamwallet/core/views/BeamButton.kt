@@ -13,10 +13,34 @@ import kotlinx.android.synthetic.main.common_button.view.*
  * Created by vain onnellinen on 10/22/18.
  */
 class BeamButton : LinearLayout {
-    private var iconResId: Int = Integer.MIN_VALUE
-    private var textResId: Int = Integer.MIN_VALUE
-    private var textColorResId: Int = Integer.MIN_VALUE
-    private var stateListResId: Int = Integer.MIN_VALUE
+    var iconResId: Int = Integer.MIN_VALUE
+        set(value) {
+            field = value
+            if (field != Integer.MIN_VALUE) {
+                icon.setImageResource(field)
+            }
+        }
+    var textResId: Int = Integer.MIN_VALUE
+        set(value) {
+            field = value
+            if (field != Integer.MIN_VALUE) {
+                text.text = context.getString(field)
+            }
+        }
+    var textColorResId: Int = Integer.MIN_VALUE
+        set(value) {
+            field = value
+            if (field != Integer.MIN_VALUE) {
+                text.setTextColor(ContextCompat.getColor(context, field))
+            }
+        }
+    var stateListResId: Int = Integer.MIN_VALUE
+        set(value) {
+            field = value
+            if (field != Integer.MIN_VALUE) {
+                DrawableCompat.setTintList(this.background, ContextCompat.getColorStateList(context, field))
+            }
+        }
 
     constructor(context: Context, attrs: AttributeSet, defStyle: Int) : super(context, attrs, defStyle) {
         init(context, attrs)
@@ -48,22 +72,6 @@ class BeamButton : LinearLayout {
             textResId = a.getResourceId(R.styleable.BeamButton_button_text, Integer.MIN_VALUE)
             textColorResId = a.getResourceId(R.styleable.BeamButton_button_text_color, Integer.MIN_VALUE)
             stateListResId = a.getResourceId(R.styleable.BeamButton_button_state_list, Integer.MIN_VALUE)
-
-            if (iconResId != Integer.MIN_VALUE) {
-                icon.setImageResource(iconResId)
-            }
-
-            if (textResId != Integer.MIN_VALUE) {
-                text.text = context.getString(textResId)
-            }
-
-            if (textColorResId != Integer.MIN_VALUE) {
-                text.setTextColor(ContextCompat.getColor(context, textColorResId))
-            }
-
-            if (stateListResId != Integer.MIN_VALUE) {
-                DrawableCompat.setTintList(this.background, ContextCompat.getColorStateList(context, stateListResId))
-            }
         }
     }
 }
