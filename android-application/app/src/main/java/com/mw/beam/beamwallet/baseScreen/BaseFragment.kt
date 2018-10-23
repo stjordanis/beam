@@ -1,20 +1,28 @@
 package com.mw.beam.beamwallet.baseScreen
 
+import android.annotation.SuppressLint
 import android.app.Activity
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.support.design.widget.Snackbar
 import android.support.v4.app.Fragment
 import android.support.v4.content.ContextCompat
+import android.support.v7.app.AlertDialog
+import android.view.LayoutInflater
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.TextView
 import com.mw.beam.beamwallet.R
 import com.mw.beam.beamwallet.core.AppConfig
+import com.mw.beam.beamwallet.core.views.BeamButton
+
 
 /**
  * Created by vain onnellinen on 10/4/18.
  */
 abstract class BaseFragment<T : BasePresenter<out MvpView>> : Fragment(), MvpView {
     private lateinit var presenter: T
+    private var alert: AlertDialog? = null
 
     fun configPresenter(presenter: T) {
         this.presenter = presenter
@@ -32,6 +40,11 @@ abstract class BaseFragment<T : BasePresenter<out MvpView>> : Fragment(), MvpVie
     }
 
     override fun onDestroy() {
+        if (alert != null) {
+            alert?.dismiss()
+            alert = null
+        }
+
         presenter.detachView()
         super.onDestroy()
     }
@@ -59,7 +72,25 @@ abstract class BaseFragment<T : BasePresenter<out MvpView>> : Fragment(), MvpVie
         snackBar.show()
     }
 
-    protected fun setTitle(title : String) {
+    protected fun setTitle(title: String) {
         activity?.findViewById<View>(R.id.toolbarLayout)?.findViewById<TextView>(R.id.toolbarTitle)?.text = title
+    }
+
+    @SuppressLint("InflateParams")
+    override fun showAlert(message: String, btnTextResId: Int, btnIconResId: Int): AlertDialog? {
+        val context = context ?: return null
+        val view = LayoutInflater.from(context).inflate(R.layout.common_alert_dialog, null)
+        val alertText = view.findViewById<TextView>(R.id.alertText)
+        val button = view.findViewById<BeamButton>(R.id.button)
+
+        alertText.text = message
+        button.textResId = btnTextResId
+        button.iconResId = btnIconResId
+
+        val dialog = AlertDialog.Builder(context).setView(view).show()
+        dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        alert = dialog
+
+        return alert
     }
 }
