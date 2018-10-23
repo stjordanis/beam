@@ -3,12 +3,14 @@
     <dimen name="common_padding">16dp</dimen>
     <dimen name="common_margin">5dp</dimen>
     <dimen name="common_button_margin">53dp</dimen>
+    <dimen name="common_alert_dialog_margin">20dp</dimen>
     <dimen name="toolbar_title_text_size">18sp</dimen>
     <dimen name="toolbar_status_text_size">12sp</dimen>
     <dimen name="toolbar_padding_bottom">2dp</dimen>
     <dimen name="toolbar_padding_end">30dp</dimen>
     <dimen name="toolbar_padding_for_status">5dp</dimen>
     <dimen name="navigation_width">304dp</dimen>
+    <dimen name="alert_dialog_button_padding">40dp</dimen>
 
     <!--WelcomeActivity-->
     <dimen name="welcome_button_text_padding_start">14dp</dimen>
@@ -20,6 +22,11 @@
     <dimen name="welcome_logo_height">142dp</dimen>
     <dimen name="welcome_logo_text_margin_top">20dp</dimen>
     <dimen name="welcome_description_text_size">12sp</dimen>
+    <dimen name="welcome_passwords_padding">44dp</dimen>
+    <dimen name="welcome_passwords_title_padding_top">25dp</dimen>
+    <dimen name="welcome_passwords_description_padding_top">14dp</dimen>
+    <dimen name="welcome_passwords_button_margin_bottom">41dp</dimen>
+    <dimen name="welcome_passwords_button_margin_start_end">9dp</dimen>
 
     <!--OpenWalletActivity-->
     <dimen name="open_wallet_password_margin">32dp</dimen>
