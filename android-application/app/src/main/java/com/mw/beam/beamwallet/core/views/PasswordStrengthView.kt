@@ -9,7 +9,7 @@ import kotlinx.android.synthetic.main.password_progress.view.*
 /**
  * Created by vain onnellinen on 10/23/18.
  */
-class PasswordProgress : ConstraintLayout {
+class PasswordStrengthView : ConstraintLayout {
     var strength: Strength = Strength.EMPTY
         set(value) {
             field = value
