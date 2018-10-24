@@ -34,7 +34,7 @@ class OpenWalletRepository : BaseRepository(), OpenWalletContract.Repository {
         var result = AppConfig.Status.STATUS_ERROR
 
         if (!pass.isNullOrBlank()) {
-            setWallet(Api.openWallet(AppConfig.NODE_ADDRESS, AppConfig.DB_PATH, pass!!))
+          //  setWallet(Api.openWallet(AppConfig.NODE_ADDRESS, AppConfig.DB_PATH, pass!!))
             result = AppConfig.Status.STATUS_OK
         }
 

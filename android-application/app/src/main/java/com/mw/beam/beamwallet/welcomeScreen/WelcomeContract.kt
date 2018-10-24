@@ -9,14 +9,17 @@ import com.mw.beam.beamwallet.baseScreen.MvpView
  */
 interface WelcomeContract {
     interface View : MvpView {
-        fun showMainFragment()
+        fun showWelcomeMainFragment()
         fun showDescriptionFragment()
         fun showPasswordsFragment()
+        fun showMainActivity()
     }
 
     interface Presenter : MvpPresenter<View> {
         fun onCreateWallet()
         fun onGeneratePhrase()
+        fun onOpenWallet()
+        fun onChangeWallet()
     }
 
     interface Repository : MvpRepository

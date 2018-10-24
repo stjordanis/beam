@@ -6,4 +6,8 @@
         <attr name="button_text_color" format="integer" />
         <attr name="button_state_list" format="integer" />
     </declare-styleable>
+
+    <declare-styleable name="PasswordProgress">
+        <attr name="strength" format="integer" />
+    </declare-styleable>
 </resources>

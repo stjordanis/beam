@@ -77,7 +77,7 @@ abstract class BaseFragment<T : BasePresenter<out MvpView>> : Fragment(), MvpVie
     }
 
     @SuppressLint("InflateParams")
-    override fun showAlert(message: String, btnTextResId: Int, btnIconResId: Int): AlertDialog? {
+    override fun showAlert(message: String, btnTextResId: Int, btnIconResId: Int, onClick: () -> Unit): AlertDialog? {
         val context = context ?: return null
         val view = LayoutInflater.from(context).inflate(R.layout.common_alert_dialog, null)
         val alertText = view.findViewById<TextView>(R.id.alertText)
@@ -86,6 +86,10 @@ abstract class BaseFragment<T : BasePresenter<out MvpView>> : Fragment(), MvpVie
         alertText.text = message
         button.textResId = btnTextResId
         button.iconResId = btnIconResId
+        button.setOnClickListener {
+            onClick.invoke()
+            alert?.dismiss()
+        }
 
         val dialog = AlertDialog.Builder(context).setView(view).show()
         dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
