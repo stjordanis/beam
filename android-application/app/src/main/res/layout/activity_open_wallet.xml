@@ -28,7 +28,7 @@
         <EditText
             android:id="@+id/seed"
             android:lines="1"
-            style="@style/open_wallet_password_view_style"
+            style="@style/welcome_password_view_style"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/open_wallet_seed_hint"
@@ -45,7 +45,7 @@
 
         <EditText
             android:id="@+id/pass"
-            style="@style/open_wallet_password_view_style"
+            style="@style/welcome_password_view_style"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/open_wallet_password_hint"
@@ -61,7 +61,7 @@
 
         <EditText
             android:id="@+id/confirmPass"
-            style="@style/open_wallet_password_view_style"
+            style="@style/welcome_password_view_style"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/open_wallet_confirm_password_hint"
