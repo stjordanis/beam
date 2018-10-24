@@ -1,6 +1,7 @@
 package com.mw.beam.beamwallet.welcomeScreen.welcomeMain
 
 import com.mw.beam.beamwallet.baseScreen.BasePresenter
+import com.mw.beam.beamwallet.core.AppConfig
 
 /**
  * Created by vain onnellinen on 10/19/18.
@@ -9,11 +10,35 @@ class WelcomeMainPresenter(currentView: WelcomeMainContract.View, private val re
     : BasePresenter<WelcomeMainContract.View>(currentView),
         WelcomeMainContract.Presenter {
 
+    override fun viewIsReady() {
+        view?.configScreen(repository.isWalletInitialized())
+    }
+
     override fun onCreateWallet() {
         view?.createWallet()
     }
 
+    override fun onOpenWallet() {
+        view?.hideKeyboard()
+
+        if (view != null && view!!.hasValidPass()) {
+            if (AppConfig.Status.STATUS_OK == repository.openWallet(view?.getPass())) {
+                view?.openWallet()
+            } else {
+                view?.showSnackBar(AppConfig.Status.STATUS_ERROR)
+            }
+        }
+    }
+
+    override fun onChangeWallet() {
+        view?.showChangeAlert()
+    }
+
+    override fun onChangeConfirm() {
+        view?.configScreen(false)
+    }
+
     override fun onRestoreWallet() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        view?.showSnackBar("Coming soon...")
     }
 }

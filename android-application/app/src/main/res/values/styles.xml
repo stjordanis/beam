@@ -44,7 +44,7 @@
     </style>
 
     <!-- OpenWalletActivity -->
-    <style name="open_wallet_password_view_style">
+    <style name="welcome_password_view_style">
         <item name="android:textColor">@color/password_text_color</item>
         <item name="android:textColorHint">@color/password_text_color</item>
         <item name="android:inputType">textPassword</item>

@@ -72,6 +72,12 @@ class MainActivity : BaseActivity<MainPresenter>(), MainContract.View, WalletFra
             return
         }
 
+        if (supportFragmentManager.backStackEntryCount == 1) {
+            presenter.onClose()
+            finish()
+            return
+        }
+
         super.onBackPressed()
     }
 

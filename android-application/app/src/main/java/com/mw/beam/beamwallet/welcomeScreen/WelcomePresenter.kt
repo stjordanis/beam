@@ -10,7 +10,7 @@ class WelcomePresenter(currentView: WelcomeContract.View, private val repository
         WelcomeContract.Presenter {
 
     override fun viewIsReady() {
-        view?.showMainFragment()
+        view?.showWelcomeMainFragment()
     }
 
     override fun onCreateWallet() {
@@ -20,5 +20,13 @@ class WelcomePresenter(currentView: WelcomeContract.View, private val repository
     override fun onGeneratePhrase() {
         //TODO change to appropriate screen when implemented
         view?.showPasswordsFragment()
+    }
+
+    override fun onOpenWallet() {
+        view?.showMainActivity()
+    }
+
+    override fun onChangeWallet() {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 }
