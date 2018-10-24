@@ -11,6 +11,9 @@
     <!--WelcomeActivity-->
     <string name="welcome_create_wallet">create new wallet</string>
     <string name="welcome_restore">restore wallet from blockchain</string>
+    <string name="welcome_show">show my wallet</string>
+    <string name="welcome_login_to_another">login to another wallet</string>
+    <string name="welcome_change">change wallet</string>
     <string name="welcome_generate_recovery_phrase">generate recovery phrase</string>
     <string name="welcome_proceed_to_wallet">proceed to your wallet</string>
     <string name="welcome_title">Create new wallet</string>
@@ -23,6 +26,7 @@
     <string name="welcome_pass_not_much">Passwords do not match</string>
     <string name="welcome_pass_title">Enter password</string>
     <string name="welcome_confirm_pass_title">Confirm password</string>
+    <string name="welcome_change_alert">If you will choose another wallet, all unsaved transaction history for the current wallet will be lost</string>
 
     <!--NavigationDrawer-->
     <string name="nav_dashboard">dashboard</string>

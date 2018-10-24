@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -8,12 +9,12 @@
         android:id="@+id/logo"
         android:layout_width="@dimen/welcome_logo_width"
         android:layout_height="@dimen/welcome_logo_height"
+        android:layout_marginTop="@dimen/welcome_logo_margin_top"
         android:contentDescription="@null"
         app:layout_constraintBottom_toTopOf="@id/logoText"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_chainStyle="packed"
         app:srcCompat="@drawable/logo" />
 
     <TextView
@@ -24,28 +25,74 @@
         android:fontFamily="@font/proxima_regular"
         android:text="@string/common_logo_text"
         android:textColor="@color/logo_text_color"
-        app:layout_constraintBottom_toTopOf="@id/btnCreate"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/logo" />
 
+    <TextView
+        android:id="@+id/passTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/welcome_main_margin_side"
+        android:layout_marginEnd="@dimen/welcome_main_margin_side"
+        android:fontFamily="sans-serif"
+        android:paddingBottom="@dimen/welcome_password_title_padding_bottom"
+        android:text="@string/welcome_pass_title"
+        android:textSize="@dimen/welcome_passwords_title_text_size"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/pass"
+        app:layout_constraintTop_toBottomOf="@id/logoText"
+        app:layout_constraintVertical_chainStyle="packed" />
+
+    <EditText
+        android:id="@+id/pass"
+        style="@style/welcome_password_view_style"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/welcome_main_margin_side"
+        android:layout_marginEnd="@dimen/welcome_main_margin_side"
+        android:inputType="textPassword"
+        app:layout_constraintBottom_toTopOf="@id/btnOpen"
+        app:layout_constraintTop_toBottomOf="@id/passTitle"
+        tools:ignore="Autofill,LabelFor" />
+
     <com.mw.beam.beamwallet.core.views.BeamButton
         android:id="@+id/btnCreate"
         style="@style/common_button_style"
-        android:layout_marginTop="@dimen/welcome_button_create_margin_top"
         app:button_icon="@drawable/ic_btn_create"
         app:button_text="@string/welcome_create_wallet"
         app:layout_constraintBottom_toTopOf="@id/btnRestore"
-        app:layout_constraintTop_toBottomOf="@id/logoText" />
+        app:layout_constraintTop_toBottomOf="@id/logoText"
+        app:layout_constraintVertical_chainStyle="packed" />
 
     <com.mw.beam.beamwallet.core.views.BeamButton
         android:id="@+id/btnRestore"
         style="@style/common_button_style"
-        android:layout_marginTop="@dimen/welcome_button_restore_margin_top"
+        android:layout_marginTop="@dimen/welcome_button_margin_top"
         app:button_icon="@drawable/ic_btn_restore"
         app:button_state_list="@color/restore_selector"
         app:button_text="@string/welcome_restore"
         app:button_text_color="@color/common_text_color"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@id/btnCreate" />
+
+    <com.mw.beam.beamwallet.core.views.BeamButton
+        android:id="@+id/btnOpen"
+        style="@style/common_button_style"
+        android:layout_marginTop="@dimen/welcome_button_margin_top"
+        app:button_icon="@drawable/ic_btn_show"
+        app:button_text="@string/welcome_show"
+        app:layout_constraintBottom_toTopOf="@id/btnChange"
+        app:layout_constraintTop_toBottomOf="@id/pass" />
+
+    <com.mw.beam.beamwallet.core.views.BeamButton
+        android:id="@+id/btnChange"
+        style="@style/common_button_style"
+        android:layout_marginTop="@dimen/welcome_button_margin_top"
+        app:button_icon="@drawable/ic_btn_change"
+        app:button_state_list="@color/restore_selector"
+        app:button_text="@string/welcome_login_to_another"
+        app:button_text_color="@color/common_text_color"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btnOpen" />
 </android.support.constraint.ConstraintLayout>

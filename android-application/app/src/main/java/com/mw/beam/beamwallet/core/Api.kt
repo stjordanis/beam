@@ -12,6 +12,6 @@ object Api {
     }
 
     external fun createWallet(nodeAddr: String, dbPath: String, pass: String, seed: String): Wallet
-    external fun openWallet(nodeAddr: String, dbPath: String, pass: String): Wallet
+    external fun openWallet(nodeAddr: String, dbPath: String, pass: String): Wallet?
     external fun isWalletInitialized(dbPath: String): Boolean
 }

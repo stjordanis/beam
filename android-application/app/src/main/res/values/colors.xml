@@ -19,10 +19,14 @@
     <color name="list_item_background">@color/colorPrimary</color>
     <color name="logo_text_color">#49bcec</color>
     <color name="ic_menu_color">#80929D</color>
+    <color name="pass_progress_empty">@color/colorPrimary</color>
+    <color name="pass_progress_weak">@color/common_error_color</color>
+    <color name="pass_progress_medium">#f4ce4a</color>
+    <color name="pass_progress_strong">@color/colorAccent</color>
 
     <!--OpenWalletActivity-->
     <color name="password_text_color">#ffffff</color>
-    <color name="password_underline_color">#84a5b2</color>
+    <color name="password_underline_color">@color/colorPrimary</color>
 
     <!--WalletFragment-->
     <color name="wallet_card_title_color">#ffffff</color>
