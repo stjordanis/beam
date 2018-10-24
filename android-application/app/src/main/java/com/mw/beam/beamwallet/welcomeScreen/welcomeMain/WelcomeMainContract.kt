@@ -3,6 +3,7 @@ package com.mw.beam.beamwallet.welcomeScreen.welcomeMain
 import com.mw.beam.beamwallet.baseScreen.MvpPresenter
 import com.mw.beam.beamwallet.baseScreen.MvpRepository
 import com.mw.beam.beamwallet.baseScreen.MvpView
+import com.mw.beam.beamwallet.core.AppConfig
 
 /**
  * Created by vain onnellinen on 10/19/18.
@@ -10,12 +11,23 @@ import com.mw.beam.beamwallet.baseScreen.MvpView
 interface WelcomeMainContract {
     interface View : MvpView {
         fun createWallet()
+        fun configScreen(isWalletInitialized: Boolean)
+        fun hasValidPass(): Boolean
+        fun getPass(): String
+        fun openWallet()
+        fun showChangeAlert()
     }
 
     interface Presenter : MvpPresenter<View> {
         fun onCreateWallet()
         fun onRestoreWallet()
+        fun onOpenWallet()
+        fun onChangeWallet()
+        fun onChangeConfirm()
     }
 
-    interface Repository : MvpRepository
+    interface Repository : MvpRepository {
+        fun isWalletInitialized(): Boolean
+        fun openWallet(pass: String?): AppConfig.Status
+    }
 }

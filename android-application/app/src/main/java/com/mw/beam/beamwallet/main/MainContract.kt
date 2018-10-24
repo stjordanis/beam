@@ -13,8 +13,13 @@ interface MainContract {
         fun showTransactionDetails(item: TxDescription)
         fun configNavDrawer()
     }
+
     interface Presenter : MvpPresenter<View> {
         fun onShowTransactionDetails(item: TxDescription)
+        fun onClose()
     }
-    interface Repository : MvpRepository
+
+    interface Repository : MvpRepository {
+        fun closeWallet()
+    }
 }

@@ -14,6 +14,10 @@ class MainPresenter(currentView: MainContract.View, private val repository: Main
         view?.configNavDrawer()
     }
 
+    override fun onClose() {
+        repository.closeWallet()
+    }
+
     override fun onShowTransactionDetails(item: TxDescription) {
         view?.showTransactionDetails(item)
     }

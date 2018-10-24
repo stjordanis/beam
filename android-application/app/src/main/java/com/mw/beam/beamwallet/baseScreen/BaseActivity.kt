@@ -78,7 +78,7 @@ abstract class BaseActivity<T : BasePresenter<out MvpView>> : AppCompatActivity(
     }
 
     @SuppressLint("InflateParams")
-    override fun showAlert(message: String, btnTextResId: Int, btnIconResId: Int): AlertDialog? {
+    override fun showAlert(message: String, btnTextResId: Int, btnIconResId: Int, onClick: () -> Unit): AlertDialog? {
         val context = baseContext
         val view = LayoutInflater.from(context).inflate(R.layout.common_alert_dialog, null)
         val alertText = view.findViewById<TextView>(R.id.alertText)
@@ -87,6 +87,10 @@ abstract class BaseActivity<T : BasePresenter<out MvpView>> : AppCompatActivity(
         alertText.text = message
         button.textResId = btnTextResId
         button.iconResId = btnIconResId
+        button.setOnClickListener {
+            onClick.invoke()
+            alert?.dismiss()
+        }
 
         val dialog = AlertDialog.Builder(context).setView(view).show()
         dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
