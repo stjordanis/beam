@@ -24,6 +24,7 @@
     <dimen name="welcome_logo_text_margin_top">20dp</dimen>
     <dimen name="welcome_description_text_size">12sp</dimen>
     <dimen name="welcome_passwords_padding">44dp</dimen>
+    <dimen name="welcome_passwords_text_size">18sp</dimen>
     <dimen name="welcome_passwords_title_padding_top">25dp</dimen>
     <dimen name="welcome_passwords_title_text_size">18sp</dimen>
     <dimen name="welcome_passwords_info_text_size">12sp</dimen>
@@ -31,7 +32,8 @@
     <dimen name="welcome_passwords_button_margin_bottom">41dp</dimen>
     <dimen name="welcome_passwords_button_margin_start_end">9dp</dimen>
     <dimen name="welcome_passwords_progress_item_margin">8dp</dimen>
-    <dimen name="welcome_password_title_padding_bottom">13dp</dimen>
+    <dimen name="welcome_passwords_items_offset">9dp</dimen>
+    <dimen name="welcome_password_title_padding_bottom">14dp</dimen>
     <dimen name="welcome_main_margin_side">53dp</dimen>
 
     <!--OpenWalletActivity-->

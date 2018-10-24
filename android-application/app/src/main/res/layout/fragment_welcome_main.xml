@@ -51,7 +51,6 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/welcome_main_margin_side"
         android:layout_marginEnd="@dimen/welcome_main_margin_side"
-        android:inputType="textPassword"
         app:layout_constraintBottom_toTopOf="@id/btnOpen"
         app:layout_constraintTop_toBottomOf="@id/passTitle"
         tools:ignore="Autofill,LabelFor" />
