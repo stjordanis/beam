@@ -46,13 +46,51 @@ class WelcomeMainFragment : BaseFragment<WelcomeMainPresenter>(), WelcomeMainCon
         btnRestore.setOnClickListener {
             presenter.onRestoreWallet()
         }
+
+        btnOpen.setOnClickListener {
+            presenter.onOpenWallet()
+        }
+
+        btnChange.setOnClickListener {
+            presenter.onChangeWallet()
+        }
     }
 
-    override fun createWallet() {
-        (activity as OnCreateWallet).createWallet()
+    override fun configScreen(isWalletInitialized: Boolean) {
+        btnCreate.visibility = if (isWalletInitialized) View.GONE else View.VISIBLE
+        btnRestore.visibility = if (isWalletInitialized) View.GONE else View.VISIBLE
+        btnOpen.visibility = if (isWalletInitialized) View.VISIBLE else View.GONE
+        btnChange.visibility = if (isWalletInitialized) View.VISIBLE else View.GONE
+        passTitle.visibility = if (isWalletInitialized) View.VISIBLE else View.GONE
+        pass.visibility = if (isWalletInitialized) View.VISIBLE else View.GONE
     }
 
-    interface OnCreateWallet {
+    override fun hasValidPass(): Boolean {
+        var hasErrors = false
+        pass.error = null
+
+        if (pass.text.isNullOrBlank()) {
+            pass.error = getString(R.string.open_wallet_no_text_error)
+            hasErrors = true
+        }
+
+
+        return !hasErrors
+    }
+
+    override fun getPass(): String = pass.text.trim().toString()
+    override fun createWallet() = (activity as WelcomeMainHandler).createWallet()
+
+    override fun openWallet() {
+        (activity as WelcomeMainHandler).openWallet()
+    }
+
+    override fun showChangeAlert() {
+        showAlert(getString(R.string.welcome_change_alert), R.string.welcome_change, R.drawable.ic_btn_change_dark) { presenter.onChangeConfirm() }
+    }
+
+    interface WelcomeMainHandler {
         fun createWallet()
+        fun openWallet()
     }
 }
