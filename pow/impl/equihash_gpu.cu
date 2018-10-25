@@ -19,9 +19,6 @@
 #include "compat/endian.h"
 
 #include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
 
 #include <vector>
 
@@ -231,13 +228,15 @@ struct equi {
     proof *sols;
     u32 nsols;
     u32 nthreads;
-    equi(const u32 n_threads) {
+    equi(const u32 n_threads) 
+        : nsols(0)
+    {
         nthreads = n_threads;
     }
-    void setheadernonce(const uint8_t *header, int len, const uint8_t* nonce, int nlen) {
-        //setheader(&blake_ctx, header, len, nonce, nlen);
-        nsols = 0;
-    }
+    //void setheadernonce(const uint8_t *header, int len, const uint8_t* nonce, int nlen) {
+    //    //setheader(&blake_ctx, header, len, nonce, nlen);
+    //    nsols = 0;
+    //}
     __device__ u32 getnslots0(const u32 bid) {
         u32 &nslot = nslots[0][bid];
         const u32 n = min(nslot, NSLOTS);
@@ -954,12 +953,13 @@ static void compress_solution(const uint32_t* sol, uint8_t* csol)
 
 struct GpuContext
 {
-    GpuContext()
+    GpuContext(const blake2b_state& state)
         : threadsperblock(64)/// TODO: get it somewhere
         , totalblocks(20 * 7)/// TODO: get it somewhere
         , device_id(0)
     {
         eq = new equi(threadsperblock * totalblocks);
+        eq->blake_ctx = state;
 
         // TODO: ugly code, must be rewrited
         {
@@ -995,13 +995,15 @@ struct GpuContext
         delete eq;
     }
 
-    bool solve()
+    bool solve(const EquihashGpu::IsValid& valid, const EquihashGpu::Cancel& cancel)
     {
         checkCudaErrors(cudaSetDevice(device_id));
         checkCudaErrors(cudaMemcpy(device_eq, eq, sizeof(equi), cudaMemcpyHostToDevice));
 
         digitH << <totalblocks, threadsperblock >> > (device_eq);
-        //if (cancelf()) return;
+
+        if (cancel()) return true;
+
 #if BUCKBITS == 16 && RESTBITS == 4 && defined XINTREE && defined(UNROLL)
         digit_1 << <totalblocks, threadsperblock >> > (device_eq);
         if (cancelf()) return;
@@ -1024,7 +1026,8 @@ struct GpuContext
                 : digitE << <totalblocks, threadsperblock >> > (device_eq, r);
         }
 #endif
-        //if (cancelf()) return;
+        if (cancel()) return true;
+
         digitK << <totalblocks, threadsperblock >> > (device_eq);
 
         checkCudaErrors(cudaMemcpy(eq, device_eq, sizeof(equi), cudaMemcpyDeviceToHost));
@@ -1041,10 +1044,11 @@ struct GpuContext
 
             compress_solution(&index_vector[0], &compressedSol[0]);
 
-            //solutionf(index_vector, compressedSol, DIGITBITS, nullptr);
-            //if (cancelf()) return;
+            if (valid(compressedSol))
+                return true;
+
+            if (cancel()) return true;
         }
-        //hashdonef();
 
         return true;
     }
@@ -1062,6 +1066,7 @@ struct GpuContext
 };
 
 }
+
 void EquihashGpu::initState(blake2b_state& state)
 {
     uint32_t le_N = htole32(WN);
@@ -1085,9 +1090,7 @@ void EquihashGpu::initState(blake2b_state& state)
     memcpy(&param.personal, personalization, BLAKE2B_PERSONALBYTES);
 }
 
-bool EquihashGpu::solve(const blake2b_state& state)
+bool EquihashGpu::solve(const blake2b_state& state, const IsValid& valid, const Cancel& cancel)
 {
-    GpuContext context;
-
-    return context.solve();
+    return GpuContext(state).solve(valid, cancel);
 }

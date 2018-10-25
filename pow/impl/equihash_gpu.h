@@ -15,10 +15,20 @@
 #pragma once
 
 #include "blake/sse/blake2.h"
+#include "utility/common.h"
+
+#include <functional>
 
 class EquihashGpu
 {
 public:
+
     void initState(blake2b_state& state);
-    bool solve(const blake2b_state& state);
+
+    using IsValid = std::function<bool(const beam::ByteBuffer&)>;
+    using Cancel = std::function<bool()>;
+
+    bool solve(const blake2b_state& state
+        , const IsValid& valid
+        , const Cancel& cancel);
 };

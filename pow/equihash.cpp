@@ -49,34 +49,26 @@ namespace beam
     {
         Helper hlp;
 
-        //std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
-        //	{
-        //		if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
-        //			return false;
-        //		assert(solution.size() == m_Indices.size());
-        //        std::copy(solution.begin(), solution.end(), m_Indices.begin());
-        //        return true;
-        //    };
+        std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
+        	{
+        		if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
+        			return false;
+        		assert(solution.size() == m_Indices.size());
+                std::copy(solution.begin(), solution.end(), m_Indices.begin());
+                return true;
+            };
 
 
-        //std::function<bool(EhSolverCancelCheck)> fnCancelInternal = [fnCancel](EhSolverCancelCheck pos) {
-        //    return fnCancel(false);
-        //};
+        std::function<bool()> fnCancelInternal = [fnCancel]() {
+            return fnCancel(false);
+        };
 
         while (true)
         {
         	hlp.Reset(pInput, nSizeInput, m_Nonce);
 
-            if (hlp.m_equihash.solve(hlp.m_Blake))
+            if (hlp.m_equihash.solve(hlp.m_Blake, fnValid, fnCancelInternal))
                 break;
-        	//try {
-
-        	//	if (hlp.m_Eh.OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
-        	//		break;
-
-        	//} catch (const EhSolverCancelledException&) {
-        	//	return false;
-        	//}
 
         	if (fnCancel(true))
         		return false; // retry not allowed
