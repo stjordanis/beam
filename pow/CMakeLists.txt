@@ -7,7 +7,8 @@ endif()
 
 if(BEAM_USE_GPU)
     set(POW_SRC
-        equihash_gpu.cpp)
+        equihash.cpp
+        impl/equihash_gpu.cpp)
 else()
 
     include_directories(impl)
