@@ -205,7 +205,7 @@ int blake2b_update( blake2b_state *S, const uint8_t *in, uint64_t inlen )
     else // inlen <= fill
     {
       memcpy( S->buf + left, in, inlen );
-      S->buflen += inlen; // not enough to compress
+      S->buflen += (uint8_t)inlen; // not enough to compress
       in += inlen;
       inlen = 0;
     }
@@ -306,10 +306,10 @@ int blake2b_long(uint8_t *out, const void *in, const uint32_t outlen, const uint
 	blake2b_state blake_state;
 	if (outlen <= BLAKE2B_OUTBYTES)
 	{
-		blake2b_init(&blake_state, outlen);
+		blake2b_init(&blake_state, (uint8_t)outlen);
 		blake2b_update(&blake_state, (const uint8_t*)&outlen, sizeof(uint32_t));
 		blake2b_update(&blake_state, (const uint8_t *)in, inlen);
-		blake2b_final(&blake_state, out, outlen);
+		blake2b_final(&blake_state, out, (uint8_t)outlen);
 	}
 	else
 	{
@@ -331,7 +331,7 @@ int blake2b_long(uint8_t *out, const void *in, const uint32_t outlen, const uint
 			toproduce -= BLAKE2B_OUTBYTES / 2;
 		}
 		memcpy(in_buffer, out_buffer, BLAKE2B_OUTBYTES);
-		blake2b(out_buffer, in_buffer, NULL, toproduce, BLAKE2B_OUTBYTES, 0);
+		blake2b(out_buffer, in_buffer, NULL, (uint8_t)toproduce, BLAKE2B_OUTBYTES, 0);
 		memcpy(out, out_buffer, toproduce);
 		
 	}

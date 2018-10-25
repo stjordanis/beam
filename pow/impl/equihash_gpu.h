@@ -20,4 +20,5 @@ class EquihashGpu
 {
 public:
     void initState(blake2b_state& state);
+    bool solve(const blake2b_state& state);
 };

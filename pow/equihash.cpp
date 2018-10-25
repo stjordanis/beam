@@ -47,40 +47,42 @@ namespace beam
 
     bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
     {
-        //Helper hlp;
+        Helper hlp;
 
         //std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
         //	{
         //		if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
         //			return false;
         //		assert(solution.size() == m_Indices.size());
-     //           std::copy(solution.begin(), solution.end(), m_Indices.begin());
-     //           return true;
-     //       };
+        //        std::copy(solution.begin(), solution.end(), m_Indices.begin());
+        //        return true;
+        //    };
 
 
-     //   std::function<bool(EhSolverCancelCheck)> fnCancelInternal = [fnCancel](EhSolverCancelCheck pos) {
-     //       return fnCancel(false);
-     //   };
+        //std::function<bool(EhSolverCancelCheck)> fnCancelInternal = [fnCancel](EhSolverCancelCheck pos) {
+        //    return fnCancel(false);
+        //};
 
-     //   while (true)
-     //   {
-        //	hlp.Reset(pInput, nSizeInput, m_Nonce);
+        while (true)
+        {
+        	hlp.Reset(pInput, nSizeInput, m_Nonce);
 
-        //	try {
+            if (hlp.m_equihash.solve(hlp.m_Blake))
+                break;
+        	//try {
 
-        //		if (hlp.m_Eh.OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
-        //			break;
+        	//	if (hlp.m_Eh.OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
+        	//		break;
 
-        //	} catch (const EhSolverCancelledException&) {
-        //		return false;
-        //	}
+        	//} catch (const EhSolverCancelledException&) {
+        	//	return false;
+        	//}
 
-        //	if (fnCancel(true))
-        //		return false; // retry not allowed
+        	if (fnCancel(true))
+        		return false; // retry not allowed
 
-     //       m_Nonce.Inc();
-     //   }
+            m_Nonce.Inc();
+        }
 
         return true;
     }
@@ -92,7 +94,7 @@ namespace beam
 
         std::vector<uint8_t> v(m_Indices.begin(), m_Indices.end());
         return
-            //hlp.m_Eh.IsValidSolution(hlp.m_Blake, v) &&
+            //hlp.m_equihash.IsValidSolution(hlp.m_Blake, v) &&
             hlp.TestDifficulty(&m_Indices.front(), (uint32_t)m_Indices.size(), m_Difficulty);
     }
 
