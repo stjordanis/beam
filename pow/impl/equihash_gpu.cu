@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Equihash CUDA solver
+// Copyright (c) 2016 John Tromp
+
 #include "equihash_gpu.h"
 #include "compat/endian.h"
 
@@ -20,8 +23,13 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include <vector>
+
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+
+namespace 
+{
 
 typedef uint32_t u32;
 typedef unsigned char uchar;
@@ -923,37 +931,41 @@ __global__ void digitK(equi *eq) {
     }
 }
 
-void EquihashGpu::initState(blake2b_state& state)
+static void compress_solution(const uint32_t* sol, uint8_t* csol)
 {
-    uint32_t le_N = htole32(WN);
-    uint32_t le_K = htole32(WK);
+    uint8_t b;
 
-    unsigned char personalization[BLAKE2B_PERSONALBYTES] = {};
-    memcpy(personalization, "ZcashPoW", 8);
-    memcpy(personalization + 8, &le_N, 4);
-    memcpy(personalization + 12, &le_K, 4);
-
-    const uint8_t outlen = (512 / WN)*WN / 8;
-
-    // nvcc doesn't support static_assert
-//    static_assert(!((!outlen) || (outlen > BLAKE2B_OUTBYTES)));
-
-    blake2b_param param = { 0 };
-    param.digest_length = outlen;
-    param.fanout = 1;
-    param.depth = 1;
-
-    memcpy(&param.personal, personalization, BLAKE2B_PERSONALBYTES);
+    for (int i = 0, j = 0, bits_left = DIGITBITS + 1;
+        j < COMPRESSED_SOL_SIZE; csol[j++] = b) {
+        if (bits_left >= 8) {
+            // Read next 8 bits, stay at same sol index
+            b = sol[i] >> (bits_left -= 8);
+        }
+        else { // less than 8 bits to read
+       // Read remaining bits and shift left to make space for next sol index
+            b = sol[i];
+            b <<= (8 - bits_left); // may also set b=0 if bits_left was 0, which is fine
+            // Go to next sol index and read remaining bits
+            bits_left += DIGITBITS + 1 - 8;
+            b |= sol[++i] >> bits_left;
+        }
+    }
 }
 
 struct GpuContext
 {
     GpuContext()
         : threadsperblock(64)/// TODO: get it somewhere
-        , totalblocks(20*7)/// TODO: get it somewhere
+        , totalblocks(20 * 7)/// TODO: get it somewhere
         , device_id(0)
     {
         eq = new equi(threadsperblock * totalblocks);
+
+        // TODO: ugly code, must be rewrited
+        {
+            sol_memory = malloc(sizeof(proof) * MAXSOLS + 4096);
+            solutions = (uint32_t*)(((long long)sol_memory + 4095) & -4096);
+        }
 
         checkCudaErrors(cudaSetDevice(device_id));
         checkCudaErrors(cudaDeviceReset());
@@ -979,13 +991,62 @@ struct GpuContext
     {
         checkCudaErrors(cudaSetDevice(device_id));
         checkCudaErrors(cudaDeviceReset());
-        //free(sol_memory);
+        free(sol_memory);
         delete eq;
     }
 
     bool solve()
     {
-        return false;
+        checkCudaErrors(cudaSetDevice(device_id));
+        checkCudaErrors(cudaMemcpy(device_eq, eq, sizeof(equi), cudaMemcpyHostToDevice));
+
+        digitH << <totalblocks, threadsperblock >> > (device_eq);
+        //if (cancelf()) return;
+#if BUCKBITS == 16 && RESTBITS == 4 && defined XINTREE && defined(UNROLL)
+        digit_1 << <totalblocks, threadsperblock >> > (device_eq);
+        if (cancelf()) return;
+        digit2 << <totalblocks, threadsperblock >> > (device_eq);
+        if (cancelf()) return;
+        digit3 << <totalblocks, threadsperblock >> > (device_eq);
+        if (cancelf()) return;
+        digit4 << <totalblocks, threadsperblock >> > (device_eq);
+        if (cancelf()) return;
+        digit5 << <totalblocks, threadsperblock >> > (device_eq);
+        if (cancelf()) return;
+        digit6 << <totalblocks, threadsperblock >> > (device_eq);
+        if (cancelf()) return;
+        digit7 << <totalblocks, threadsperblock >> > (device_eq);
+        if (cancelf()) return;
+        digit8 << <totalblocks, threadsperblock >> > (device_eq);
+#else
+        for (u32 r = 1; r < WK; r++) {
+            r & 1 ? digitO << <totalblocks, threadsperblock >> > (device_eq, r)
+                : digitE << <totalblocks, threadsperblock >> > (device_eq, r);
+        }
+#endif
+        //if (cancelf()) return;
+        digitK << <totalblocks, threadsperblock >> > (device_eq);
+
+        checkCudaErrors(cudaMemcpy(eq, device_eq, sizeof(equi), cudaMemcpyDeviceToHost));
+        checkCudaErrors(cudaMemcpy(solutions, eq->sols, MAXSOLS * sizeof(proof), cudaMemcpyDeviceToHost));
+
+        for (unsigned s = 0; (s < eq->nsols) && (s < MAXSOLS); s++)
+        {
+            std::vector<uint32_t> index_vector(PROOFSIZE);
+            for (u32 i = 0; i < PROOFSIZE; i++) {
+                index_vector[i] = *(solutions + s * PROOFSIZE + i);
+            }
+
+            std::vector<uint8_t> compressedSol(COMPRESSED_SOL_SIZE);
+
+            compress_solution(&index_vector[0], &compressedSol[0]);
+
+            //solutionf(index_vector, compressedSol, DIGITBITS, nullptr);
+            //if (cancelf()) return;
+        }
+        //hashdonef();
+
+        return true;
     }
 
     int threadsperblock;
@@ -995,7 +1056,34 @@ struct GpuContext
     uint32_t* heap1;
     equi* eq;
     equi* device_eq;
+
+    void* sol_memory;
+    uint32_t* solutions;
 };
+
+}
+void EquihashGpu::initState(blake2b_state& state)
+{
+    uint32_t le_N = htole32(WN);
+    uint32_t le_K = htole32(WK);
+
+    unsigned char personalization[BLAKE2B_PERSONALBYTES] = {};
+    memcpy(personalization, "ZcashPoW", 8);
+    memcpy(personalization + 8, &le_N, 4);
+    memcpy(personalization + 12, &le_K, 4);
+
+    const uint8_t outlen = (512 / WN)*WN / 8;
+
+    // nvcc doesn't support static_assert
+//    static_assert(!((!outlen) || (outlen > BLAKE2B_OUTBYTES)));
+
+    blake2b_param param = { 0 };
+    param.digest_length = outlen;
+    param.fanout = 1;
+    param.depth = 1;
+
+    memcpy(&param.personal, personalization, BLAKE2B_PERSONALBYTES);
+}
 
 bool EquihashGpu::solve(const blake2b_state& state)
 {
