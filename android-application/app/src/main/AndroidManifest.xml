@@ -16,9 +16,6 @@
         tools:ignore="GoogleAppIndexingWarning">
 
         <activity
-            android:name=".openWallet.OpenWalletActivity"
-            android:screenOrientation="portrait" />
-        <activity
             android:name=".utxo.UtxoActivity"
             android:screenOrientation="portrait" />
         <activity
