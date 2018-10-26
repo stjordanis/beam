@@ -85,6 +85,8 @@ class WelcomePasswordsFragment : BaseFragment<WelcomePasswordsPresenter>(), Welc
         }
     }
 
+    override fun getPass(): String = pass.text.trim().toString()
+
     override fun hasErrors(): Boolean {
         val context = context ?: return false
         var hasErrors = false
@@ -132,6 +134,10 @@ class WelcomePasswordsFragment : BaseFragment<WelcomePasswordsPresenter>(), Welc
         }
     }
 
+    override fun proceedToWallet() {
+        (activity as WelcomePasswordsHandler).proceedToWallet()
+    }
+
     override fun changePassVisibility(shouldShow: Boolean) {
         confirmPass.inputType = if (shouldShow) InputType.TYPE_CLASS_TEXT else InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         confirmPass.setSelection(confirmPass.text.length)
@@ -152,5 +158,9 @@ class WelcomePasswordsFragment : BaseFragment<WelcomePasswordsPresenter>(), Welc
         mediumStrongPass = getString(R.string.welcome_pass_medium_strong)
         strongPass = getString(R.string.welcome_pass_strong)
         veryStrongPass = getString(R.string.welcome_pass_very_strong)
+    }
+
+    interface WelcomePasswordsHandler {
+        fun proceedToWallet()
     }
 }

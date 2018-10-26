@@ -45,10 +45,10 @@ class WelcomeDescriptionFragment  : BaseFragment<WelcomeDescriptionPresenter>(),
     }
 
     override fun generatePhrase() {
-        (activity as OnGeneratePhrase).generatePhrase()
+        (activity as GeneratePhraseHandler).generatePhrase()
     }
 
-    interface OnGeneratePhrase {
+    interface GeneratePhraseHandler {
         fun generatePhrase()
     }
 }

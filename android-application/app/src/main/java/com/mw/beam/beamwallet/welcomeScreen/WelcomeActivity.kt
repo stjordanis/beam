@@ -12,7 +12,10 @@ import com.mw.beam.beamwallet.welcomeScreen.welcomePasswords.WelcomePasswordsFra
 /**
  * Created by vain onnellinen on 10/19/18.
  */
-class WelcomeActivity : BaseActivity<WelcomePresenter>(), WelcomeContract.View, WelcomeMainFragment.WelcomeMainHandler, WelcomeDescriptionFragment.OnGeneratePhrase {
+class WelcomeActivity : BaseActivity<WelcomePresenter>(),
+        WelcomeContract.View, WelcomeMainFragment.WelcomeMainHandler,
+        WelcomeDescriptionFragment.GeneratePhraseHandler,
+        WelcomePasswordsFragment.WelcomePasswordsHandler {
     private lateinit var presenter: WelcomePresenter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,6 +39,7 @@ class WelcomeActivity : BaseActivity<WelcomePresenter>(), WelcomeContract.View, 
     }
 
     override fun showMainActivity() {
+        finish()
         startActivity(Intent(this, MainActivity::class.java))
     }
 
@@ -48,6 +52,10 @@ class WelcomeActivity : BaseActivity<WelcomePresenter>(), WelcomeContract.View, 
     }
 
     override fun openWallet() {
+        presenter.onOpenWallet()
+    }
+
+    override fun proceedToWallet() {
         presenter.onOpenWallet()
     }
 }
