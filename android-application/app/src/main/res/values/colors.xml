@@ -6,19 +6,20 @@
     <color name="colorAccentPicked">#01c4a7</color>
     <color name="common_text_color">#ffffff</color>
     <color name="common_error_color">#ff625c</color>
+    <color name="common_subheader_dark_color">#8da1ad</color>
     <color name="snack_bar_color">#0a4b66</color>
     <color name="alert_dialog_color">#0a4b66</color>
     <color name="status_bar_color">#33000000</color>
-    <color name="toolbar_title_color">#ffffff</color>
+    <color name="toolbar_title_color">@color/common_text_color</color>
     <color name="toolbar_status_color">#8da1ad</color>
     <color name="navigation_drawer_color">#02253c</color>
     <color name="received_color">#0bccf7</color>
     <color name="received_color_picked">#0ab1d6</color>
     <color name="sent_color">#da68f5</color>
     <color name="sent_color_picked">#be5cd6</color>
-    <color name="list_item_background">@color/colorPrimary</color>
     <color name="logo_text_color">#49bcec</color>
     <color name="ic_menu_color">#80929D</color>
+
     <color name="pass_progress_empty">@color/colorPrimary</color>
     <color name="pass_progress_weak">@color/common_error_color</color>
     <color name="pass_progress_medium">#f4ce4a</color>
@@ -29,18 +30,11 @@
     <color name="password_underline_color">@color/colorPrimary</color>
 
     <!--WalletFragment-->
-    <color name="wallet_card_title_color">#ffffff</color>
-    <color name="wallet_button_text_color">@color/colorPrimaryDark</color>
-    <color name="transaction_sender_color">#ffffff</color>
-    <color name="transaction_data_color">#ffffff</color>
-    <color name="transaction_common_status_color">#ffffff</color>
-    <color name="transactions_title_color">#ffffff</color>
+    <color name="transaction_common_status_color">@color/common_text_color</color>
     <color name="btn_drop_down_color">#8da1ad</color>
-    <color name="wallet_common_text_color">#ffffff</color>
     <color name="wallet_adapter_multiply_color">#0e3850</color>
     <color name="wallet_adapter_not_multiply_color">@color/colorPrimary</color>
 
     <!--TransactionDetails-->
     <color name="transaction_details_background">#0e3850</color>
-    <color name="transaction_details_subtitle_color">#8da1ad</color>
 </resources>
