@@ -1,8 +1,17 @@
 set (CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR};${CMAKE_MODULE_PATH}")
 
-set(BEAM_USE_GPU TRUE)
-if(BEAM_POW_TYPE MATCHES "GPU")
-    set(BEAM_USE_GPU TRUE)
+include_directories(impl)
+
+set(POW_SRC
+    equihash.cpp
+    impl/crypto/equihash_impl.cpp
+    impl/arith_uint256.cpp
+    impl/uint256.cpp
+    impl/utilstrencodings.cpp
+)
+
+if(UNIX)
+    set_source_files_properties(impl/crypto/equihash_impl.cpp PROPERTIES COMPILE_FLAGS -O2)
 endif()
 
 if(BEAM_USE_GPU)
@@ -15,33 +24,17 @@ if(BEAM_USE_GPU)
 
     set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};; -gencode arch=compute_30,code=sm_30; -gencode arch=compute_35,code=sm_35; -gencode arch=compute_50,code=sm_50; -gencode arch=compute_52,code=sm_52; -gencode arch=compute_61,code=sm_61)
 
-    set(POW_SRC
+    set(POW_SRC ${POW_SRC}
         equihash.cpp
         impl/equihash_gpu.cu)
 
     CUDA_ADD_LIBRARY(pow STATIC ${POW_SRC})
 
-    target_compile_definitions(pow PRIVATE BEAM_USE_GPU)
 else()
-
-    include_directories(impl)
-
-    set(POW_SRC
-        equihash.cpp
-        impl/crypto/equihash_impl.cpp
-        impl/arith_uint256.cpp
-        impl/uint256.cpp
-        impl/utilstrencodings.cpp
-    )
-
-    if(UNIX)
-        set_source_files_properties(impl/crypto/equihash_impl.cpp PROPERTIES COMPILE_FLAGS -O2)
-    endif()
-
     add_library(pow STATIC ${POW_SRC})
-
-    target_compile_definitions(pow PRIVATE ENABLE_MINING)
 endif()
+
+target_compile_definitions(pow PRIVATE ENABLE_MINING)
 
 add_dependencies(pow crypto)
 target_link_libraries(pow crypto)

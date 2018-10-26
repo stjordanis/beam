@@ -69,8 +69,18 @@ endfunction()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(BEAM_USE_GPU TRUE)
+if(BEAM_POW_TYPE MATCHES "GPU")
+    set(BEAM_USE_GPU TRUE)
+endif()
+
 set(BEAM_USE_AVX FALSE)
 if (BEAM_CPU_ARCH MATCHES "avx")
+    set(BEAM_USE_AVX TRUE)
+endif()
+
+if(BEAM_USE_GPU)
+    add_definitions(-DBEAM_USE_GPU)
     set(BEAM_USE_AVX TRUE)
 endif()
 

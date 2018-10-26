@@ -12,95 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#if defined (BEAM_USE_GPU)
-
-#include "core/block_crypt.h"
-#include <utility>
-
-#include "impl/equihash_gpu.h"
-
-namespace beam
-{
-
-    struct Block::PoW::Helper
-    {
-        blake2b_state m_Blake;
-        EquihashGpu m_equihash;
-
-        void Reset(const void* pInput, uint32_t nSizeInput, const NonceType& nonce)
-        {
-            m_equihash.initState(m_Blake);
-
-            // H(I||...
-            blake2b_update(&m_Blake, (uint8_t*)pInput, nSizeInput);
-            blake2b_update(&m_Blake, nonce.m_pData, nonce.nBytes);
-        }
-
-        bool TestDifficulty(const uint8_t* pSol, uint32_t nSol, Difficulty d) const
-        {
-            ECC::Hash::Value hv;
-            ECC::Hash::Processor() << Blob(pSol, nSol) >> hv;
-
-            return d.IsTargetReached(hv);
-        }
-    };
-
-    bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
-    {
-        Helper hlp;
-
-        std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
-        	{
-        		if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
-        			return false;
-        		assert(solution.size() == m_Indices.size());
-                std::copy(solution.begin(), solution.end(), m_Indices.begin());
-                return true;
-            };
-
-
-        std::function<bool()> fnCancelInternal = [fnCancel]() {
-            return fnCancel(false);
-        };
-
-        while (true)
-        {
-        	hlp.Reset(pInput, nSizeInput, m_Nonce);
-
-            if (hlp.m_equihash.solve(hlp.m_Blake, fnValid, fnCancelInternal))
-                break;
-
-        	if (fnCancel(true))
-        		return false; // retry not allowed
-
-            m_Nonce.Inc();
-        }
-
-        return true;
-    }
-
-    bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput) const
-    {
-        Helper hlp;
-        hlp.Reset(pInput, nSizeInput, m_Nonce);
-
-        std::vector<uint8_t> v(m_Indices.begin(), m_Indices.end());
-        return
-            //hlp.m_equihash.IsValidSolution(hlp.m_Blake, v) &&
-            hlp.TestDifficulty(&m_Indices.front(), (uint32_t)m_Indices.size(), m_Difficulty);
-    }
-
-} // namespace beam
-
-
-
-#else
-
 #include "core/block_crypt.h"
 #include "impl/crypto/equihash.h"
 #include "impl/uint256.h"
 #include "impl/arith_uint256.h"
 #include <utility>
+
+#if defined (BEAM_USE_GPU)
+#include "impl/equihash_gpu.h"
+#endif
 
 namespace beam
 {
@@ -119,7 +39,7 @@ struct Block::PoW::Helper
 		blake2b_update(&m_Blake, nonce.m_pData, nonce.nBytes);
 	}
 
-	bool TestDifficulty(const uint8_t* pSol, uint32_t nSol, Difficulty d) const
+	static bool TestDifficulty(const uint8_t* pSol, uint32_t nSol, Difficulty d)
 	{
 		ECC::Hash::Value hv;
 		ECC::Hash::Processor() << Blob(pSol, nSol) >> hv;
@@ -128,13 +48,52 @@ struct Block::PoW::Helper
 	}
 };
 
+#if defined (BEAM_USE_GPU)
+
+    bool Block::PoW::SolveGPU(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
+    {
+        EquihashGpu gpu;
+
+        std::function<bool(const beam::ByteBuffer&)> fnValid = [this](const beam::ByteBuffer& solution)
+            {
+        	    if (!Helper::TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
+        		    return false;
+        	    assert(solution.size() == m_Indices.size());
+                std::copy(solution.begin(), solution.end(), m_Indices.begin());
+                return true;
+            };
+
+
+        std::function<bool()> fnCancelInternal = [fnCancel]() {
+            return fnCancel(false);
+        };
+
+        while (true)
+        {
+            Helper hlp;
+            hlp.Reset(pInput, nSizeInput, m_Nonce);
+
+            if (gpu.solve(hlp.m_Blake, fnValid, fnCancelInternal))
+                break;
+
+            if (fnCancel(true))
+        	    return false; // retry not allowed
+
+            m_Nonce.Inc();
+        }
+
+        return true;
+    }
+
+#endif
+
 bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
 {
 	Helper hlp;
 
 	std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
 		{
-			if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
+			if (!Helper::TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
 				return false;
 			assert(solution.size() == m_Indices.size());
             std::copy(solution.begin(), solution.end(), m_Indices.begin());
@@ -181,4 +140,4 @@ bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput) const
 
 } // namespace beam
 
-#endif
+//#endif

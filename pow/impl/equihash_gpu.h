@@ -23,8 +23,6 @@ class EquihashGpu
 {
 public:
 
-    void initState(blake2b_state& state);
-
     using IsValid = std::function<bool(const beam::ByteBuffer&)>;
     using Cancel = std::function<bool()>;
 

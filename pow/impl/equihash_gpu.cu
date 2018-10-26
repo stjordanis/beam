@@ -60,8 +60,8 @@ typedef uint64_t u64;
 #define checkCudaErrors(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true) {
     if (code != cudaSuccess) {
-        //fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-        //if (abort) exit(code);
+        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
     }
 }
 
@@ -1050,7 +1050,7 @@ struct GpuContext
             if (cancel()) return true;
         }
 
-        return true;
+        return false;
     }
 
     int threadsperblock;
@@ -1065,29 +1065,6 @@ struct GpuContext
     uint32_t* solutions;
 };
 
-}
-
-void EquihashGpu::initState(blake2b_state& state)
-{
-    uint32_t le_N = htole32(WN);
-    uint32_t le_K = htole32(WK);
-
-    unsigned char personalization[BLAKE2B_PERSONALBYTES] = {};
-    memcpy(personalization, "ZcashPoW", 8);
-    memcpy(personalization + 8, &le_N, 4);
-    memcpy(personalization + 12, &le_K, 4);
-
-    const uint8_t outlen = (512 / WN)*WN / 8;
-
-    // nvcc doesn't support static_assert
-//    static_assert(!((!outlen) || (outlen > BLAKE2B_OUTBYTES)));
-
-    blake2b_param param = { 0 };
-    param.digest_length = outlen;
-    param.fanout = 1;
-    param.depth = 1;
-
-    memcpy(&param.personal, personalization, BLAKE2B_PERSONALBYTES);
 }
 
 bool EquihashGpu::solve(const blake2b_state& state, const IsValid& valid, const Cancel& cancel)
