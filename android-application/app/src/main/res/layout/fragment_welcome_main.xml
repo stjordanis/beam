@@ -32,7 +32,7 @@
 
     <TextView
         android:id="@+id/passTitle"
-        style="@style/common_password_title_style"
+        style="@style/welcome_password_title_style"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/welcome_main_margin_side"

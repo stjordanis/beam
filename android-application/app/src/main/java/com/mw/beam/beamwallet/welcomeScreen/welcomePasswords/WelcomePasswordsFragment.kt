@@ -95,7 +95,7 @@ class WelcomePasswordsFragment : BaseFragment<WelcomePasswordsPresenter>(), Welc
         confirmPass.setTextColor(ContextCompat.getColor(context, R.color.common_text_color))
 
         if (pass.text.isNullOrBlank()) {
-            pass.error = getString(R.string.open_wallet_no_pass_error)
+            pass.error = getString(R.string.welcome_pass_empty_error)
             hasErrors = true
         }
 
@@ -107,7 +107,7 @@ class WelcomePasswordsFragment : BaseFragment<WelcomePasswordsPresenter>(), Welc
         }
 
         if (confirmPass.text.isNullOrBlank()) {
-            passMatchError.text = getString(R.string.open_wallet_no_pass_error)
+            passMatchError.text = getString(R.string.welcome_pass_empty_error)
             hasErrors = true
         }
 
