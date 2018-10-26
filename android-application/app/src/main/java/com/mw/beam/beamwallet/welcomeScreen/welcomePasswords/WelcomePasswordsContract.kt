@@ -10,12 +10,18 @@ import com.mw.beam.beamwallet.core.views.PasswordStrengthView
  */
 interface WelcomePasswordsContract {
     interface View : MvpView {
+        fun init()
         fun hasErrors() : Boolean
         fun setStrengthLevel(strength : PasswordStrengthView.Strength)
+        fun clearErrors()
+        fun changePassVisibility(shouldShow : Boolean)
     }
 
     interface Presenter : MvpPresenter<View> {
         fun onPassChanged(pass : String?)
+        fun onConfirmPassChanged()
+        fun onProceed()
+        fun onChangePassVisibility(shouldShow : Boolean)
     }
 
     interface Repository : MvpRepository

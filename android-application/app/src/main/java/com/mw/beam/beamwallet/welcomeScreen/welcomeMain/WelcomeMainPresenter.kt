@@ -25,9 +25,13 @@ class WelcomeMainPresenter(currentView: WelcomeMainContract.View, private val re
             if (AppConfig.Status.STATUS_OK == repository.openWallet(view?.getPass())) {
                 view?.openWallet()
             } else {
-                view?.showSnackBar(AppConfig.Status.STATUS_ERROR)
+                view?.showOpenWalletError()
             }
         }
+    }
+
+    override fun onPassChanged() {
+        view?.clearError()
     }
 
     override fun onChangeWallet() {

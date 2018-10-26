@@ -16,6 +16,8 @@ interface WelcomeMainContract {
         fun getPass(): String
         fun openWallet()
         fun showChangeAlert()
+        fun showOpenWalletError()
+        fun clearError()
     }
 
     interface Presenter : MvpPresenter<View> {
@@ -24,6 +26,7 @@ interface WelcomeMainContract {
         fun onOpenWallet()
         fun onChangeWallet()
         fun onChangeConfirm()
+        fun onPassChanged()
     }
 
     interface Repository : MvpRepository {

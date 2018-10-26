@@ -8,6 +8,16 @@
     <string name="common_drawer_open">open</string>
     <string name="common_drawer_close">close</string>
 
+    <!--NavigationDrawer-->
+    <string name="nav_dashboard">dashboard</string>
+    <string name="nav_wallet">wallet</string>
+    <string name="nav_address_book">address book</string>
+    <string name="nav_utxo">utxo</string>
+    <string name="nav_blockchain_info">blockchain info</string>
+    <string name="nav_notifications">notifications</string>
+    <string name="nav_help">help</string>
+    <string name="nav_settings">settings</string>
+
     <!--WelcomeActivity-->
     <string name="welcome_create_wallet">create new wallet</string>
     <string name="welcome_restore">restore wallet from blockchain</string>
@@ -19,24 +29,22 @@
     <string name="welcome_title">Create new wallet</string>
     <string name="welcome_description">Create new wallet with generating recovery \n phrase. If you ever lose your device, you will need \n this phrase to recover your wallet!</string>
     <string name="welcome_passwords_description">Create password to access your wallet</string>
+    <string name="welcome_passwords_not_match">Passwords do not match</string>
     <string name="welcome_no_see">Do not let anyone see your \n recovery phrase</string>
     <string name="welcome_no_type">Never type your recovery \n phrase into password \n managers or elsewhere</string>
     <string name="welcome_copy">Make at least 2 copies of the \n phrase in case of emergency</string>
-    <string name="welcome_pass_medium">Medium strength password (add at least one capital letter and one small letter)</string>
+    <string name="welcome_pass_empty">Add at least one symbol</string>
+    <string name="welcome_pass_very_weak">Very weak password</string>
+    <string name="welcome_pass_weak">Weak password</string>
+    <string name="welcome_pass_medium">Medium strength password</string>
+    <string name="welcome_pass_medium_strong">Medium strength password</string>
+    <string name="welcome_pass_strong">Very strong password</string>
+    <string name="welcome_pass_very_strong">Medium strength password (add at least one capital letter and one small letter)</string>
     <string name="welcome_pass_not_much">Passwords do not match</string>
+    <string name="welcome_pass_wrong">Wrong password</string>
     <string name="welcome_pass_title">Enter password</string>
     <string name="welcome_confirm_pass_title">Confirm password</string>
     <string name="welcome_change_alert">If you will choose another wallet, all unsaved transaction history for the current wallet will be lost</string>
-
-    <!--NavigationDrawer-->
-    <string name="nav_dashboard">dashboard</string>
-    <string name="nav_wallet">wallet</string>
-    <string name="nav_address_book">address book</string>
-    <string name="nav_utxo">utxo</string>
-    <string name="nav_blockchain_info">blockchain info</string>
-    <string name="nav_notifications">notifications</string>
-    <string name="nav_help">help</string>
-    <string name="nav_settings">settings</string>
 
     <!--OpenWalletActivity-->
     <string name="open_wallet_password_hint">Enter password</string>
@@ -46,8 +54,7 @@
     <string name="open_wallet_title_open">Open wallet</string>
     <string name="open_wallet_btn_proceed">proceed to your wallet</string>
 
-    <string name="open_wallet_no_text_error">Field should not be empty</string>
-    <string name="open_wallet_pass_not_match_error">Passwords don\'t match</string>
+    <string name="open_wallet_no_pass_error">Password should not be empty</string>
 
     <!--WalletFragment-->
     <string name="wallet_title">Wallet</string>
