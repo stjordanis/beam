@@ -91,7 +91,7 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fn
 {
 	Helper hlp;
 
-	std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
+	std::function<bool(const beam::ByteBuffer&)> fnValid = [this](const beam::ByteBuffer& solution)
 		{
 			if (!Helper::TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
 				return false;
