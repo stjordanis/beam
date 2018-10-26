@@ -3,6 +3,7 @@ package com.mw.beam.beamwallet.welcomeScreen.welcomePasswords
 import com.mw.beam.beamwallet.baseScreen.MvpPresenter
 import com.mw.beam.beamwallet.baseScreen.MvpRepository
 import com.mw.beam.beamwallet.baseScreen.MvpView
+import com.mw.beam.beamwallet.core.AppConfig
 import com.mw.beam.beamwallet.core.views.PasswordStrengthView
 
 /**
@@ -15,6 +16,8 @@ interface WelcomePasswordsContract {
         fun setStrengthLevel(strength : PasswordStrengthView.Strength)
         fun clearErrors()
         fun changePassVisibility(shouldShow : Boolean)
+        fun getPass(): String
+        fun proceedToWallet()
     }
 
     interface Presenter : MvpPresenter<View> {
@@ -24,5 +27,7 @@ interface WelcomePasswordsContract {
         fun onChangePassVisibility(shouldShow : Boolean)
     }
 
-    interface Repository : MvpRepository
+    interface Repository : MvpRepository {
+        fun createWallet(pass: String?): AppConfig.Status
+    }
 }
