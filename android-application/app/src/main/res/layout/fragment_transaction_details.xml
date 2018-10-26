@@ -30,7 +30,7 @@
         <TextView
             android:id="@+id/startAddress"
             style="@style/transaction_details_value"
-            app:layout_constraintStart_toEndOf="@id/barrier"
+            app:layout_constraintStart_toEndOf="@id/titlesBarrier"
             app:layout_constraintTop_toBottomOf="@id/generalInfoTitle" />
 
         <TextView
@@ -42,20 +42,8 @@
         <TextView
             android:id="@+id/endAddress"
             style="@style/transaction_details_value"
-            app:layout_constraintStart_toEndOf="@id/barrier"
+            app:layout_constraintStart_toEndOf="@id/titlesBarrier"
             app:layout_constraintTop_toBottomOf="@id/startAddress" />
-
-        <!--<TextView-->
-        <!--android:id="@+id/currenciesAmountTitle"-->
-        <!--style="@style/transaction_details_sub_title"-->
-        <!--android:text="@string/transaction_details_current_amount"-->
-        <!--app:layout_constraintTop_toBottomOf="@id/endAddress" />-->
-
-        <!--<TextView-->
-        <!--android:id="@+id/currenciesAmount"-->
-        <!--style="@style/transaction_details_value"-->
-        <!--app:layout_constraintStart_toEndOf="@id/barrier"-->
-        <!--app:layout_constraintTop_toBottomOf="@id/endAddress" />-->
 
         <TextView
             android:id="@+id/transactionFeeTitle"
@@ -66,7 +54,7 @@
         <TextView
             android:id="@+id/transactionFee"
             style="@style/transaction_details_value"
-            app:layout_constraintStart_toEndOf="@id/barrier"
+            app:layout_constraintStart_toEndOf="@id/titlesBarrier"
             app:layout_constraintTop_toBottomOf="@id/endAddress" />
 
         <TextView
@@ -77,25 +65,18 @@
             app:layout_constraintTop_toBottomOf="@id/transactionFee" />
 
         <TextView
-            android:visibility="gone"
             android:id="@+id/comment"
             style="@style/transaction_details_value"
-            app:layout_constraintStart_toEndOf="@id/barrier"
+            android:visibility="gone"
+            app:layout_constraintStart_toEndOf="@id/titlesBarrier"
             app:layout_constraintTop_toBottomOf="@id/transactionFee" />
 
         <android.support.constraint.Barrier
-            android:id="@+id/barrier"
+            android:id="@+id/titlesBarrier"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:barrierDirection="end"
             app:constraint_referenced_ids="startAddressTitle, endAddressTitle, transactionFeeTitle, commentTitle" />
-
-        <!--<TextView-->
-            <!--style="@style/transaction_details_title"-->
-            <!--android:paddingTop="@dimen/transaction_details_title_padding_top"-->
-            <!--android:paddingBottom="@dimen/transaction_details_title_padding_bottom"-->
-            <!--android:text="@string/transaction_details_transaction_history"-->
-            <!--app:layout_constraintTop_toBottomOf="@id/comment" />-->
     </android.support.constraint.ConstraintLayout>
 
 </android.support.constraint.ConstraintLayout>

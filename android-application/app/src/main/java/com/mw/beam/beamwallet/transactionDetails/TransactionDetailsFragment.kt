@@ -102,7 +102,7 @@ class TransactionDetailsFragment : BaseFragment<TransactionDetailsPresenter>(), 
             endAddress.text = EntitiesHelper.bytesToHex(txDescription.myId)
         }
 
-        transactionFee.text = EntitiesHelper.convertToBeamAsFloatString(txDescription.fee).toString()
+        transactionFee.text = EntitiesHelper.convertToBeamAsFloatString(txDescription.fee)
         if (txDescription.message != null && txDescription.message.isNotEmpty()) {
             comment.text = String(txDescription.message)
             commentTitle.visibility = View.VISIBLE

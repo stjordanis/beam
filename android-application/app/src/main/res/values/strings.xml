@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">Beam Wallet</string>
-    <string name="common_beam">Beam</string>
     <string name="common_logo_text">Scalable confidential cryptocurrency</string>
     <string name="common_successful">Done!</string>
     <string name="common_error">Ooops, something went wrong…</string>
@@ -13,7 +12,6 @@
     <string name="nav_wallet">wallet</string>
     <string name="nav_address_book">address book</string>
     <string name="nav_utxo">utxo</string>
-    <string name="nav_blockchain_info">blockchain info</string>
     <string name="nav_notifications">notifications</string>
     <string name="nav_help">help</string>
     <string name="nav_settings">settings</string>
@@ -41,20 +39,11 @@
     <string name="welcome_pass_strong">Very strong password</string>
     <string name="welcome_pass_very_strong">Medium strength password (add at least one capital letter and one small letter)</string>
     <string name="welcome_pass_not_much">Passwords do not match</string>
+    <string name="welcome_pass_empty_error">Password should not be empty</string>
     <string name="welcome_pass_wrong">Wrong password</string>
     <string name="welcome_pass_title">Enter password</string>
     <string name="welcome_confirm_pass_title">Confirm password</string>
     <string name="welcome_change_alert">If you will choose another wallet, all unsaved transaction history for the current wallet will be lost</string>
-
-    <!--OpenWalletActivity-->
-    <string name="open_wallet_password_hint">Enter password</string>
-    <string name="open_wallet_confirm_password_hint">Confirm password</string>
-    <string name="open_wallet_seed_hint">Enter seed</string>
-    <string name="open_wallet_title_create">Create new wallet</string>
-    <string name="open_wallet_title_open">Open wallet</string>
-    <string name="open_wallet_btn_proceed">proceed to your wallet</string>
-
-    <string name="open_wallet_no_pass_error">Password should not be empty</string>
 
     <!--WalletFragment-->
     <string name="wallet_title">Wallet</string>
