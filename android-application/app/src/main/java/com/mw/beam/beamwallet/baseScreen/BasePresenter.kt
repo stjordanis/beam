@@ -7,7 +7,7 @@ import io.reactivex.disposables.Disposable
  * Created by vain onnellinen on 10/1/18.
  */
 abstract class BasePresenter<T : MvpView>(var view: T?) : MvpPresenter<T> {
-    protected val disposable = CompositeDisposable()
+    private val disposable = CompositeDisposable()
 
     override fun detachView() {
         view = null
