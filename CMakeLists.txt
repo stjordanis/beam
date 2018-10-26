@@ -84,6 +84,10 @@ if(BEAM_USE_GPU)
     set(BEAM_USE_AVX TRUE)
 endif()
 
+if(BEAM_USE_AVX)
+    add_definitions(-DBEAM_USE_AVX)
+endif()
+
 set(BEAM_QT_UI_WALLET TRUE)
 if (BEAM_NO_QT_UI_WALLET)
     set(BEAM_QT_UI_WALLET FALSE)    
@@ -165,6 +169,9 @@ if(UNIX OR WIN32)
     set(UV_INTERNAL ON)
     add_definitions(-DUV_INTERNAL)
 endif()
+
+include_directories($ENV{BOOST_ROOT}/include)
+link_directories($ENV{BOOST_ROOT}/lib)
 
 if(ANDROID)
     include_directories($ENV{BOOST_ROOT_ANDROID}/include/boost-1_68)
