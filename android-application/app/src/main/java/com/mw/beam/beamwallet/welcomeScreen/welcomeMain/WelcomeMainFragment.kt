@@ -2,11 +2,14 @@ package com.mw.beam.beamwallet.welcomeScreen.welcomeMain
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.support.v4.content.ContextCompat
+import android.text.Editable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.mw.beam.beamwallet.R
 import com.mw.beam.beamwallet.baseScreen.BaseFragment
+import com.mw.beam.beamwallet.core.watchers.TextWatcher
 import kotlinx.android.synthetic.main.fragment_welcome_main.*
 
 /**
@@ -54,6 +57,12 @@ class WelcomeMainFragment : BaseFragment<WelcomeMainPresenter>(), WelcomeMainCon
         btnChange.setOnClickListener {
             presenter.onChangeWallet()
         }
+
+        pass.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(p0: Editable?) {
+                clearError()
+            }
+        })
     }
 
     override fun configScreen(isWalletInitialized: Boolean) {
@@ -66,16 +75,25 @@ class WelcomeMainFragment : BaseFragment<WelcomeMainPresenter>(), WelcomeMainCon
     }
 
     override fun hasValidPass(): Boolean {
+        val context = context ?: return false
         var hasErrors = false
-        pass.error = null
+        passError.visibility = View.INVISIBLE
+        pass.setTextColor(ContextCompat.getColor(context, R.color.common_text_color))
 
         if (pass.text.isNullOrBlank()) {
-            pass.error = getString(R.string.open_wallet_no_text_error)
+            passError.text = getString(R.string.open_wallet_no_pass_error)
+            passError.visibility = View.VISIBLE
+            pass.setTextColor(ContextCompat.getColor(context, R.color.common_error_color))
             hasErrors = true
         }
 
-
         return !hasErrors
+    }
+
+    override fun clearError() {
+        val context = context ?: return
+        passError.visibility = View.INVISIBLE
+        pass.setTextColor(ContextCompat.getColor(context, R.color.common_text_color))
     }
 
     override fun getPass(): String = pass.text.trim().toString()
@@ -83,6 +101,13 @@ class WelcomeMainFragment : BaseFragment<WelcomeMainPresenter>(), WelcomeMainCon
 
     override fun openWallet() {
         (activity as WelcomeMainHandler).openWallet()
+    }
+
+    override fun showOpenWalletError() {
+        val context = context ?: return
+        pass.setTextColor(ContextCompat.getColor(context, R.color.common_error_color))
+        passError.text = getString(R.string.welcome_pass_wrong)
+        passError.visibility = View.VISIBLE
     }
 
     override fun showChangeAlert() {

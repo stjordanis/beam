@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@drawable/initial_background">
 
     <ImageView
         android:id="@+id/logo"
@@ -31,15 +32,12 @@
 
     <TextView
         android:id="@+id/passTitle"
+        style="@style/common_password_title_style"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/welcome_main_margin_side"
         android:layout_marginEnd="@dimen/welcome_main_margin_side"
-        android:fontFamily="sans-serif"
-        android:paddingBottom="@dimen/welcome_password_title_padding_bottom"
         android:text="@string/welcome_pass_title"
-        android:textSize="@dimen/welcome_passwords_title_text_size"
-        android:textStyle="bold"
         app:layout_constraintBottom_toTopOf="@id/pass"
         app:layout_constraintTop_toBottomOf="@id/logoText"
         app:layout_constraintVertical_chainStyle="packed" />
@@ -51,9 +49,24 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/welcome_main_margin_side"
         android:layout_marginEnd="@dimen/welcome_main_margin_side"
-        app:layout_constraintBottom_toTopOf="@id/btnOpen"
+        app:layout_constraintBottom_toTopOf="@id/passError"
         app:layout_constraintTop_toBottomOf="@id/passTitle"
         tools:ignore="Autofill,LabelFor" />
+
+    <TextView
+        android:id="@+id/passError"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/welcome_main_margin_side"
+        android:layout_marginEnd="@dimen/welcome_main_margin_side"
+        android:fontFamily="sans-serif-light"
+        android:paddingTop="@dimen/welcome_passwords_items_offset"
+        android:text="@string/welcome_pass_not_much"
+        android:textColor="@color/common_error_color"
+        android:textSize="@dimen/welcome_passwords_info_text_size"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toTopOf="@id/btnOpen"
+        app:layout_constraintTop_toBottomOf="@id/pass" />
 
     <com.mw.beam.beamwallet.core.views.BeamButton
         android:id="@+id/btnCreate"
@@ -82,7 +95,7 @@
         app:button_icon="@drawable/ic_btn_show"
         app:button_text="@string/welcome_show"
         app:layout_constraintBottom_toTopOf="@id/btnChange"
-        app:layout_constraintTop_toBottomOf="@id/pass" />
+        app:layout_constraintTop_toBottomOf="@id/passError" />
 
     <com.mw.beam.beamwallet.core.views.BeamButton
         android:id="@+id/btnChange"

@@ -9,8 +9,11 @@
         android:id="@+id/alertText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:fontFamily="sans-serif"
         android:gravity="center"
-        android:paddingBottom="@dimen/alert_dialog_button_padding" />
+        android:paddingBottom="@dimen/alert_dialog_button_padding"
+        android:textColor="@color/common_text_color"
+        android:textSize="@dimen/common_alert_dialog_text_size" />
 
     <com.mw.beam.beamwallet.core.views.BeamButton
         android:id="@+id/button"

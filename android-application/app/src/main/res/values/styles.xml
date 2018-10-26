@@ -43,6 +43,14 @@
         <item name="android:textSize">@dimen/welcome_description_text_size</item>
     </style>
 
+    <style name="common_password_title_style">
+        <item name=" android:fontFamily">sans-serif</item>
+        <item name="android:paddingBottom">@dimen/welcome_password_title_padding_bottom</item>
+        <item name="android:textColor">@color/common_text_color</item>
+        <item name="android:textSize">@dimen/welcome_passwords_title_text_size</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
     <!-- OpenWalletActivity -->
     <style name="welcome_password_view_style">
         <item name="android:textColor">@color/password_text_color</item>
@@ -51,6 +59,7 @@
         <item name="android:textColorHint">@color/password_text_color</item>
         <item name="android:inputType">textPassword</item>
         <item name="android:background">@drawable/edit_text_underline</item>
+        <item name="android:letterSpacing">@dimen/welcome_password_dots_space</item>
     </style>
 
     <style name="open_wallet_text_input_layout_hint" parent="@android:style/TextAppearance">
