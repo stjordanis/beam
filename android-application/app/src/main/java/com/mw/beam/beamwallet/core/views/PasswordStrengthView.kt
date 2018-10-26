@@ -4,7 +4,7 @@ import android.content.Context
 import android.support.constraint.ConstraintLayout
 import android.util.AttributeSet
 import com.mw.beam.beamwallet.R
-import kotlinx.android.synthetic.main.password_progress.view.*
+import kotlinx.android.synthetic.main.password_strength.view.*
 
 /**
  * Created by vain onnellinen on 10/23/18.
@@ -29,16 +29,16 @@ class PasswordStrengthView : ConstraintLayout {
     }
 
     private fun init(context: Context, attrs: AttributeSet?) {
-        ConstraintLayout.inflate(context, R.layout.password_progress, this)
+        ConstraintLayout.inflate(context, R.layout.password_strength, this)
 
         if (attrs != null) {
             val a = context.theme.obtainStyledAttributes(
                     attrs,
-                    R.styleable.PasswordProgress,
+                    R.styleable.PasswordStrengthView,
                     0, 0
             )
 
-            strength = Strength.fromValue(a.getResourceId(R.styleable.PasswordProgress_strength, 0))
+            strength = Strength.fromValue(a.getResourceId(R.styleable.PasswordStrengthView_strength, 0))
         }
     }
 
