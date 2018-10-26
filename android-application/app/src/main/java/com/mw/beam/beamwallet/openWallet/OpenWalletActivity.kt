@@ -33,22 +33,22 @@ class OpenWalletActivity : BaseActivity<OpenWalletPresenter>(), OpenWalletContra
         confirmPass.error = null
 
         if (seed.text.isNullOrBlank()) {
-            seed.error = getString(R.string.open_wallet_no_text_error)
+            seed.error = getString(R.string.open_wallet_no_pass_error)
             hasErrors = true
         }
 
         if (pass.text.isNullOrBlank()) {
-            pass.error = getString(R.string.open_wallet_no_text_error)
+            pass.error = getString(R.string.open_wallet_no_pass_error)
             hasErrors = true
         }
 
         if (!pass.text.isNullOrBlank() && pass.text.toString() != confirmPass.text.toString()) {
-            confirmPass.error = getString(R.string.open_wallet_pass_not_match_error)
+            confirmPass.error = getString(R.string.welcome_passwords_not_match)
             hasErrors = true
         }
 
         if (confirmPass.text.isNullOrBlank()) {
-            confirmPass.error = getString(R.string.open_wallet_no_text_error)
+            confirmPass.error = getString(R.string.open_wallet_no_pass_error)
             hasErrors = true
         }
 
