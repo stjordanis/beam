@@ -15,9 +15,6 @@ interface TransactionDetailsActivityContract {
         fun init()
     }
 
-    interface Presenter : MvpPresenter<View> {
-    }
-
-    interface Repository : MvpRepository {
-    }
+    interface Presenter : MvpPresenter<View>
+    interface Repository : MvpRepository
 }

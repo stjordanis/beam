@@ -81,7 +81,7 @@ class WelcomeMainFragment : BaseFragment<WelcomeMainPresenter>(), WelcomeMainCon
         pass.setTextColor(ContextCompat.getColor(context, R.color.common_text_color))
 
         if (pass.text.isNullOrBlank()) {
-            passError.text = getString(R.string.open_wallet_no_pass_error)
+            passError.text = getString(R.string.welcome_pass_empty_error)
             passError.visibility = View.VISIBLE
             pass.setTextColor(ContextCompat.getColor(context, R.color.common_error_color))
             hasErrors = true
