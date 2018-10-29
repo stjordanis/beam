@@ -24,7 +24,7 @@ before_install:
   - sudo apt-get install cuda
 
 script:
-  - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_NO_QT_UI_WALLET=On -DBEAM_USE_GPU=On . && make beam-node -j4;
+  - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_NO_QT_UI_WALLET=On -DBEAM_USE_GPU=On .
 
 # TODO: version detection should be in one place
 before_script:
@@ -33,8 +33,9 @@ before_script:
 after_success:
   # deploy using ftp server
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
-  - tar -cvzf beam-node-gpu-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam-node beam-node.cfg
-  - curl --retry 3 --ftp-create-dirs -T beam-node-gpu-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T pow/CMakeFiles/pow.dir/impl/pow_generated_equihash_gpu.cu.o.Release.cmake $BUILDS_SERVER_PATH/
+  # - tar -cvzf beam-node-gpu-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam-node beam-node.cfg
+  # - curl --retry 3 --ftp-create-dirs -T beam-node-gpu-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
 
 notifications:
   email:
