@@ -14,17 +14,18 @@ addons:
       - curl
 before_install:
   - export TZ=Etc/GMT-3
-  - eval "CC=gcc-7 && CXX=g++-7 && BUILD_TYPE=Release && OS_FOLDER=linux"
-  - wget https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh
+  - eval "CC=gcc-7 && CXX=g++-7"
+  - wget https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh -q
   - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
-  - wget -O cuda-repo-ubuntu1404-10-0-local-10.0.130-410.48_1.0-1_amd64.deb https://developer.nvidia.com/compute/cuda/10.0/Prod/local_installers/cuda-repo-ubuntu1404-10-0-local-10.0.130-410.48_1.0-1_amd64
+  - wget -O cuda-repo-ubuntu1404-10-0-local-10.0.130-410.48_1.0-1_amd64.deb https://developer.nvidia.com/compute/cuda/10.0/Prod/local_installers/cuda-repo-ubuntu1404-10-0-local-10.0.130-410.48_1.0-1_amd64 -q
   - sudo dpkg -i cuda-repo-ubuntu1404-10-0-local-10.0.130-410.48_1.0-1_amd64.deb
   - sudo apt-key add /var/cuda-repo-10-0-local-10.0.130-410.48/7fa2af80.pub  
   - sudo apt-get update
   - sudo apt-get install cuda
+env: BUILD_TYPE=Release OS_FOLDER=linux
 
 script:
-  - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_NO_QT_UI_WALLET=On -DBEAM_USE_GPU=On .
+  - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_NO_QT_UI_WALLET=On -DBEAM_USE_GPU=On . && make equihash_test -j4;
 
 # TODO: version detection should be in one place
 before_script:
@@ -33,9 +34,8 @@ before_script:
 after_success:
   # deploy using ftp server
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
-  - curl --retry 3 --ftp-create-dirs -T pow/CMakeFiles/pow.dir/impl/pow_generated_equihash_gpu.cu.o.Release.cmake $BUILDS_SERVER_PATH/
-  # - tar -cvzf beam-node-gpu-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam-node beam-node.cfg
-  # - curl --retry 3 --ftp-create-dirs -T beam-node-gpu-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - tar -cvzf beam-node-gpu-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam-node beam-node.cfg
+  - curl --retry 3 --ftp-create-dirs -T beam-node-gpu-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
 
 notifications:
   email:
