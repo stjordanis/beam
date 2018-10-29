@@ -837,7 +837,12 @@ namespace beam
 	{
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
-		return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
+
+#if defined(BEAM_USE_GPU)
+		return m_PoW.SolveGPU(hv.m_pData, hv.nBytes, fnCancel);
+#else
+        return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
+#endif
 	}
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const Input& inp, const Input::Proof& p) const
