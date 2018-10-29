@@ -3,7 +3,7 @@ language: cpp
 git:
   depth: false
 
-- os: linux
+os: linux
   addons:
     apt:
       sources:
