@@ -205,11 +205,11 @@ void TestPoints()
 	Point p_, p2_;
 
 	p_.m_X = Zero; // should be zero-point
-	p_.m_Y = true;
+	p_.m_Y = 1;
 	verify_test(!p0.Import(p_));
 	verify_test(p0 == Zero);
 
-	p_.m_Y = false;
+	p_.m_Y = 0;
 	verify_test(p0.Import(p_));
 	verify_test(p0 == Zero);
 
@@ -219,7 +219,7 @@ void TestPoints()
 	for (int i = 0; i < 1000; i++)
 	{
 		SetRandom(p_.m_X);
-		p_.m_Y = 0 != (1 & i);
+		p_.m_Y = (1 & i);
 
 		while (!p0.Import(p_))
 		{
@@ -819,7 +819,7 @@ void TestTransaction()
 	tm.AddInput(1, 740);
 	tm.CreateTxKernel(tm.m_Trans.m_vKernelsOutput, fee2, lstNested);
 
-	tm.m_Trans.Sort();
+	tm.m_Trans.Normalize();
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
@@ -871,7 +871,7 @@ void TestTransactionKernelConsuming()
 	}
 
 	t.m_Offset = kOffs;
-	t.Sort();
+	t.Normalize();
 
 	beam::TxBase::Context ctx;
 	verify_test(t.IsValid(ctx));
@@ -954,6 +954,25 @@ void TestKdf()
 		pk0 += pk1;
 		verify_test(pk0 == Zero);
 	}
+
+	beam::KeyString ks1;
+	SetRandom(ks1.m_hvSecret.V);
+	ks1.m_sMeta = "hello, World!";
+
+	ks1.Export(skdf);
+	HKdf skdf2;
+	ks1.m_sMeta.clear();
+	verify_test(ks1.Import(skdf2));
+	verify_test((skdf2.m_Secret.V == skdf.m_Secret.V) && (skdf2.m_kCoFactor == skdf.m_kCoFactor));
+
+	ks1.Export(pkdf);
+	HKdfPub pkdf2;
+	verify_test(ks1.Import(pkdf2));
+	verify_test(pkdf2.m_Secret.V == pkdf.m_Secret.V);
+
+	pkdf2.m_Pk = -pkdf2.m_Pk;
+	pkdf2.m_Pk += pkdf.m_Pk;
+	verify_test(pkdf2.m_Pk == Zero);
 }
 
 void TestBbs()
@@ -1238,7 +1257,7 @@ void RunBenchmark()
 	Point::Native p0, p1;
 
 	Point p_;
-	p_.m_Y = false;
+	p_.m_Y = 0;
 
 	SetRandom(p_.m_X);
 	while (!p0.Import(p_))
@@ -1367,7 +1386,7 @@ void RunBenchmark()
 
 		Point p2;
 		p2.m_X = Zero;
-		p2.m_Y = false;
+		p2.m_Y = 0;
 
 		while (!p0.Import(p2))
 			p2.m_X.Inc();
