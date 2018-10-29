@@ -16,7 +16,7 @@
 // Copyright (c) 2016 John Tromp
 
 #include "equihash_gpu.h"
-#include "compat/endian.h"
+#include "crypto/common.h"
 
 #include <string.h>
 
