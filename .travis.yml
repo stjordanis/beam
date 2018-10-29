@@ -14,7 +14,7 @@ addons:
       - curl
 before_install:
   - export TZ=Etc/GMT-3
-  - eval "CC=gcc-7 && CXX=g++-7"
+  - eval "CC=gcc-7 && CXX=g++-7 && BUILD_TYPE=Release && OS_FOLDER=linux"
   - wget https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh
   - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
   - wget -O cuda-repo-ubuntu1404-10-0-local-10.0.130-410.48_1.0-1_amd64.deb https://developer.nvidia.com/compute/cuda/10.0/Prod/local_installers/cuda-repo-ubuntu1404-10-0-local-10.0.130-410.48_1.0-1_amd64
@@ -22,7 +22,6 @@ before_install:
   - sudo apt-key add /var/cuda-repo-10-0-local-10.0.130-410.48/7fa2af80.pub  
   - sudo apt-get update
   - sudo apt-get install cuda
-env: BUILD_TYPE=Release OS_FOLDER=linux
 
 script:
   - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_NO_QT_UI_WALLET=On -DBEAM_USE_GPU=On . && make beam-node -j4;
