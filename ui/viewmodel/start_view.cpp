@@ -123,10 +123,12 @@ bool RecoveryPhraseItem::isCorrect() const
 {
     return m_userInput == m_phrase;
 }
+
 const QString& RecoveryPhraseItem::getValue() const
 {
     return m_userInput;
 }
+
 void RecoveryPhraseItem::setValue(const QString& value)
 {
     if (m_userInput != value)
@@ -173,6 +175,7 @@ void StartViewModel::setIsRecoveryMode(bool value)
     if (value != m_isRecoveryMode)
     {
         m_isRecoveryMode = value;
+        m_recoveryPhrases.clear();
         emit isRecoveryModeChanged();
     }
 }
@@ -316,6 +319,14 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
     {
 
     }
+}
+
+void StartViewModel::resetPhrases()
+{
+    m_recoveryPhrases.clear();
+    m_generatedPhrases.clear();
+    m_checkPhrases.clear();
+    emit recoveryPhrasesChanged();
 }
 
 bool StartViewModel::createWallet(const QString& pass)
