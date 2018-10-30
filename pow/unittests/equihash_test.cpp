@@ -30,7 +30,7 @@ int main()
         if (!pow.IsValid(pInput, sizeof(pInput)))
 		    return -1;
     }
-#endif
+#else
 
     {
         pow.Solve(pInput, sizeof(pInput));
@@ -38,6 +38,8 @@ int main()
         if (!pow.IsValid(pInput, sizeof(pInput)))
             return -1;
     }
+
+#endif
 
     std::cout << "Solution is correct\n";
     return 0;
