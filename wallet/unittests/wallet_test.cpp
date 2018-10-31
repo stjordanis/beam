@@ -151,8 +151,13 @@ namespace
 
         bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) override
         {
-            auto p = m_params.emplace(paramID, blob);
-            return p.second;
+            if (paramID < wallet::TxParameterID::PrivateFirstParam)
+            {
+                auto p = m_params.emplace(paramID, blob);
+                return p.second;
+            }
+            m_params[paramID] = blob;
+            return true;
         }
         bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override
         {
@@ -1530,6 +1535,9 @@ int main()
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
+
+	Rules::get().FakePoW = true;
+	Rules::get().UpdateChecksum();
 
     TestSplitKey();
     TestP2PWalletNegotiationST();

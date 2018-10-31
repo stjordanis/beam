@@ -484,10 +484,16 @@ namespace beam
 
 				bool IsSane() const;
 				bool IsValidPoW() const;
+				bool IsValid() const { return IsSane() && IsValidPoW(); }
 				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 
 				// the most robust proof verification - verifies the whole proof structure
 				bool IsValidProofState(const ID&, const Merkle::HardProof&) const;
+
+				int cmp(const Full&) const;
+				COMPARISON_VIA_CMP
+
+				bool IsNext(const Full& sNext) const;
 
 			private:
 				void get_HashInternal(Merkle::Hash&, bool bTotal) const;
@@ -720,7 +726,7 @@ namespace beam
 
 		void Reset();
 		void Create(ISource&, const SystemState::Full& sRoot);
-		bool IsValid(Block::SystemState::Full* pTip = NULL) const;
+		bool IsValid(SystemState::Full* pTip = NULL) const;
 		bool Crop(); // according to current bound
 		bool Crop(const ChainWorkProof& src);
 		bool IsEmpty() const { return m_Heading.m_vElements.empty(); }
@@ -739,7 +745,7 @@ namespace beam
 
 	private:
 		struct Sampler;
-		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, Block::SystemState::Full* pTip) const;
+		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, SystemState::Full* pTip) const;
 		void ZeroInit();
 	};
 

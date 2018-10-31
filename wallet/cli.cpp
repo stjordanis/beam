@@ -294,7 +294,10 @@ int main_impl(int argc, char* argv[])
                         {
                             auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
                             newAddress(keychain, label, bbsKeysPath, pass);
-                            return 0;
+
+                            if (!vm.count(cli::LISTEN)) {
+                                return 0;
+                            }
                         }
 
                         LOG_INFO() << "wallet sucessfully opened...";
@@ -424,7 +427,7 @@ int main_impl(int argc, char* argv[])
                             fee = static_cast<ECC::Amount>(signedFee);
                         }
 
-                        bool is_server = command == cli::LISTEN;
+                        bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
 
                         IKeyStore::Ptr keystore = createKeyStore(bbsKeysPath, pass);
 

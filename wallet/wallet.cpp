@@ -273,7 +273,7 @@ namespace beam
 
     bool Wallet::get_tip(Block::SystemState::Full& state) const
     {
-        if (m_newState.IsSane())
+        if (m_newState.IsValid())
         {
             state = m_newState;
             return true;
@@ -384,15 +384,6 @@ namespace beam
         m_keyChain->rollbackConfirmedUtxo(0);
     }
 
-    void Wallet::emergencyReset()
-    {
-        LOG_INFO() << "System state has been reset manually!";
-        resetSystemState();
-        m_keyChain->clear();
-        m_network->close_node_connection();
-        m_network->connect_node();
-    }
-
     void Wallet::updateTransaction(const TxID& txID)
     {
         auto f = [&]()
@@ -455,6 +446,7 @@ namespace beam
             }
             else if (coin.m_status == Coin::Unconfirmed && coin.isReward())
             {
+                LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << coin.m_amount << " Height: " << coin.m_createHeight;
                 m_keyChain->remove(coin);
             }
         }
@@ -692,9 +684,9 @@ namespace beam
         vector<Coin> unconfirmedUtxo;
         m_keyChain->visit([&unconfirmedUtxo, this](const Coin& c)->bool
         {
-            if (c.m_status == Coin::Unconfirmed 
-                && c.m_createTxId.is_initialized()
-                && m_transactions.find(*c.m_createTxId) == m_transactions.end())
+            if (c.m_status == Coin::Unconfirmed
+                && ((c.m_createTxId.is_initialized()
+                && (m_transactions.find(*c.m_createTxId) == m_transactions.end())) || c.isReward()))
             {
                 unconfirmedUtxo.push_back(c);
             }
@@ -845,6 +837,8 @@ namespace beam
             // we return only active transactions
             return BaseTransaction::Ptr();
         }
+        auto address = m_keyChain->getAddress(myID);
+        ByteBuffer message(address->m_label.begin(), address->m_label.end());
         auto t = constructTransaction(msg.m_txId, msg.m_Type);
 
         t->SetParameter(TxParameterID::TransactionType, msg.m_Type);
@@ -853,6 +847,7 @@ namespace beam
         t->SetParameter(TxParameterID::PeerID, msg.m_from);
         t->SetParameter(TxParameterID::IsInitiator, false);
         t->SetParameter(TxParameterID::Status, TxStatus::Pending);
+        t->SetParameter(TxParameterID::Message, message);
 
         m_transactions.emplace(msg.m_txId, t);
         return t;
