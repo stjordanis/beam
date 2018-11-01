@@ -112,6 +112,5 @@ class TransactionDetailsFragment : BaseFragment<TransactionDetailsPresenter>(), 
     }
 
     private fun configTransactionHistory(txDescription: TxDescription) {
-        txDescription
     }
 }

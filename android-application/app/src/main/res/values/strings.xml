@@ -23,9 +23,12 @@
     <string name="welcome_login_to_another">login to another wallet</string>
     <string name="welcome_change">change wallet</string>
     <string name="welcome_generate_recovery_phrase">generate recovery phrase</string>
+    <string name="welcome_next">next</string>
+    <string name="welcome_copy_to_clipboard">copy to clipboard</string>
     <string name="welcome_proceed_to_wallet">proceed to your wallet</string>
     <string name="welcome_title">Create new wallet</string>
     <string name="welcome_description">Create new wallet with generating recovery \n phrase. If you ever lose your device, you will need \n this phrase to recover your wallet!</string>
+    <string name="welcome_phrases_description">This set of 24 words allows you to recover your wallet from the blockchain. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</string>
     <string name="welcome_passwords_description">Create password to access your wallet</string>
     <string name="welcome_passwords_not_match">Passwords do not match</string>
     <string name="welcome_no_see">Do not let anyone see your \n recovery phrase</string>
