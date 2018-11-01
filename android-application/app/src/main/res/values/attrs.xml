@@ -10,4 +10,11 @@
     <declare-styleable name="PasswordStrengthView">
         <attr name="strength" format="integer" />
     </declare-styleable>
+
+    <declare-styleable name="BeamPhrase">
+        <attr name="phrase" format="string" />
+        <attr name="number" format="integer" />
+        <attr name="number_text_color" format="integer" />
+        <attr name="number_background" format="integer" />
+    </declare-styleable>
 </resources>
