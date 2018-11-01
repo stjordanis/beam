@@ -18,12 +18,15 @@ class WelcomePresenter(currentView: WelcomeContract.View, private val repository
     }
 
     override fun onGeneratePhrase() {
-        //TODO change to appropriate screen when implemented
-        view?.showPasswordsFragment()
+        view?.showPhrasesFragment()
     }
 
     override fun onOpenWallet() {
         view?.showMainActivity()
+    }
+
+    override fun onProceedToPasswords() {
+        view?.showPasswordsFragment()
     }
 
     override fun onChangeWallet() {

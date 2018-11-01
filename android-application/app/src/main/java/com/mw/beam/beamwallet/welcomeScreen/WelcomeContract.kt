@@ -12,6 +12,7 @@ interface WelcomeContract {
         fun showWelcomeMainFragment()
         fun showDescriptionFragment()
         fun showPasswordsFragment()
+        fun showPhrasesFragment()
         fun showMainActivity()
     }
 
@@ -20,6 +21,7 @@ interface WelcomeContract {
         fun onGeneratePhrase()
         fun onOpenWallet()
         fun onChangeWallet()
+        fun onProceedToPasswords()
     }
 
     interface Repository : MvpRepository
