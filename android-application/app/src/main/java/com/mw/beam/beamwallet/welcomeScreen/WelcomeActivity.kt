@@ -8,6 +8,7 @@ import com.mw.beam.beamwallet.main.MainActivity
 import com.mw.beam.beamwallet.welcomeScreen.welcomeDescription.WelcomeDescriptionFragment
 import com.mw.beam.beamwallet.welcomeScreen.welcomeMain.WelcomeMainFragment
 import com.mw.beam.beamwallet.welcomeScreen.welcomePasswords.WelcomePasswordsFragment
+import com.mw.beam.beamwallet.welcomeScreen.welcomePhrases.WelcomePhrasesFragment
 
 /**
  * Created by vain onnellinen on 10/19/18.
@@ -15,7 +16,8 @@ import com.mw.beam.beamwallet.welcomeScreen.welcomePasswords.WelcomePasswordsFra
 class WelcomeActivity : BaseActivity<WelcomePresenter>(),
         WelcomeContract.View, WelcomeMainFragment.WelcomeMainHandler,
         WelcomeDescriptionFragment.GeneratePhraseHandler,
-        WelcomePasswordsFragment.WelcomePasswordsHandler {
+        WelcomePasswordsFragment.WelcomePasswordsHandler,
+        WelcomePhrasesFragment.WelcomePhrasesHandler {
     private lateinit var presenter: WelcomePresenter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,6 +40,10 @@ class WelcomeActivity : BaseActivity<WelcomePresenter>(),
         showFragment(WelcomePasswordsFragment.newInstance(), WelcomePasswordsFragment.getFragmentTag(), null, false)
     }
 
+    override fun showPhrasesFragment() {
+        showFragment(WelcomePhrasesFragment.newInstance(), WelcomePhrasesFragment.getFragmentTag(), null, false)
+    }
+
     override fun showMainActivity() {
         finish()
         startActivity(Intent(this, MainActivity::class.java))
@@ -57,5 +63,9 @@ class WelcomeActivity : BaseActivity<WelcomePresenter>(),
 
     override fun proceedToWallet() {
         presenter.onOpenWallet()
+    }
+
+    override fun proceedToPasswords() {
+        presenter.onProceedToPasswords()
     }
 }

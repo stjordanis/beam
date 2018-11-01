@@ -5,4 +5,4 @@ import com.mw.beam.beamwallet.baseScreen.BaseRepository
 /**
  * Created by vain onnellinen on 10/22/18.
  */
-class WelcomeDescriptionRepository :BaseRepository(), WelcomeDescriptionContract.Repository
+class WelcomeDescriptionRepository : BaseRepository(), WelcomeDescriptionContract.Repository
