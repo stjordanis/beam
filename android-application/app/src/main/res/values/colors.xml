@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="colorPrimary">#1c435b</color>
+    <color name="colorPrimaryPicked">#113951</color>
     <color name="colorPrimaryDark">#032e49</color>
     <color name="colorAccent">#00f6d2</color>
     <color name="colorAccentPicked">#01c4a7</color>
@@ -25,9 +26,12 @@
     <color name="pass_progress_medium">#f4ce4a</color>
     <color name="pass_progress_strong">@color/colorAccent</color>
 
-    <!--OpenWalletActivity-->
+    <!--WelcomePasswordsFragment-->
     <color name="password_text_color">#ffffff</color>
     <color name="password_underline_color">@color/colorPrimary</color>
+
+    <!--WelcomePhrasesFragment-->
+    <color name="phrase_number_text_color">#80d8d8d8</color>
 
     <!--WalletFragment-->
     <color name="transaction_common_status_color">@color/common_text_color</color>

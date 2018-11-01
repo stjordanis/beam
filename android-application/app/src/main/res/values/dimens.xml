@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="common_padding">16dp</dimen>
+    <dimen name="common_offset">16dp</dimen>
     <dimen name="common_margin">5dp</dimen>
     <dimen name="common_button_margin">53dp</dimen>
     <dimen name="common_alert_dialog_margin">20dp</dimen>
@@ -19,6 +20,7 @@
 
     <!--WelcomeActivity-->
     <dimen name="welcome_title_text_size">30sp</dimen>
+    <dimen name="welcome_title_margin_top">25dp</dimen>
     <dimen name="welcome_button_text_padding_start">14dp</dimen>
     <dimen name="welcome_button_text_padding_top">11dp</dimen>
     <dimen name="welcome_button_text_padding_bottom">11dp</dimen>
@@ -35,7 +37,13 @@
     <dimen name="welcome_passwords_progress_item_margin">8dp</dimen>
     <dimen name="welcome_passwords_items_offset">9dp</dimen>
     <dimen name="welcome_password_title_padding_bottom">14dp</dimen>
+    <dimen name="welcome_phrases_button_margin">40dp</dimen>
     <dimen name="welcome_main_margin_side">53dp</dimen>
+    <dimen name="welcome_number_text_size">10sp</dimen>
+    <dimen name="welcome_number_offset">9dp</dimen>
+    <dimen name="welcome_grid_offset">28dp</dimen>
+    <dimen name="welcome_grid_element_side_offset">12dp</dimen>
+    <dimen name="welcome_grid_element_top_offset">25dp</dimen>
     <item name="welcome_password_dots_space" format="float" type="dimen">0.28</item>
     <item name="welcome_password_letters_space" format="float" type="dimen">0.1</item>
 
