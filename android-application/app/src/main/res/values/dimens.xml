@@ -44,6 +44,7 @@
     <dimen name="welcome_grid_offset">28dp</dimen>
     <dimen name="welcome_grid_element_side_offset">12dp</dimen>
     <dimen name="welcome_grid_element_top_offset">25dp</dimen>
+    <dimen name="welcome_description_side_offset">28dp</dimen>
     <item name="welcome_password_dots_space" format="float" type="dimen">0.28</item>
     <item name="welcome_password_letters_space" format="float" type="dimen">0.1</item>
 

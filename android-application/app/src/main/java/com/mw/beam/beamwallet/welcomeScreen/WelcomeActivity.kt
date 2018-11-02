@@ -9,6 +9,7 @@ import com.mw.beam.beamwallet.welcomeScreen.welcomeDescription.WelcomeDescriptio
 import com.mw.beam.beamwallet.welcomeScreen.welcomeMain.WelcomeMainFragment
 import com.mw.beam.beamwallet.welcomeScreen.welcomePasswords.WelcomePasswordsFragment
 import com.mw.beam.beamwallet.welcomeScreen.welcomePhrases.WelcomePhrasesFragment
+import com.mw.beam.beamwallet.welcomeScreen.welcomeValidation.WelcomeValidationFragment
 
 /**
  * Created by vain onnellinen on 10/19/18.
@@ -17,7 +18,8 @@ class WelcomeActivity : BaseActivity<WelcomePresenter>(),
         WelcomeContract.View, WelcomeMainFragment.WelcomeMainHandler,
         WelcomeDescriptionFragment.GeneratePhraseHandler,
         WelcomePasswordsFragment.WelcomePasswordsHandler,
-        WelcomePhrasesFragment.WelcomePhrasesHandler {
+        WelcomePhrasesFragment.WelcomePhrasesHandler,
+        WelcomeValidationFragment.WelcomeValidationHandler {
     private lateinit var presenter: WelcomePresenter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,6 +46,10 @@ class WelcomeActivity : BaseActivity<WelcomePresenter>(),
         showFragment(WelcomePhrasesFragment.newInstance(), WelcomePhrasesFragment.getFragmentTag(), null, false)
     }
 
+    override fun showValidationFragment(phrases: MutableList<String>) {
+        showFragment(WelcomeValidationFragment.newInstance(phrases), WelcomeValidationFragment.getFragmentTag(), null, false)
+    }
+
     override fun showMainActivity() {
         finish()
         startActivity(Intent(this, MainActivity::class.java))
@@ -67,5 +73,9 @@ class WelcomeActivity : BaseActivity<WelcomePresenter>(),
 
     override fun proceedToPasswords() {
         presenter.onProceedToPasswords()
+    }
+
+    override fun proceedToValidation(phrases: MutableList<String>) {
+        presenter.onProceedToValidation(phrases)
     }
 }
