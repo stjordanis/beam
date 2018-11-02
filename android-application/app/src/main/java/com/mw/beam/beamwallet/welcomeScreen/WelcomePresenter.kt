@@ -29,7 +29,11 @@ class WelcomePresenter(currentView: WelcomeContract.View, private val repository
         view?.showPasswordsFragment()
     }
 
+    override fun onProceedToValidation(phrases: MutableList<String>) {
+        view?.showValidationFragment(phrases)
+    }
+
     override fun onChangeWallet() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        view?.showSnackBar("Coming soon...")
     }
 }

@@ -25,20 +25,6 @@ class BeamPhrase : ConstraintLayout {
                 numberView.text = field.toString()
             }
         }
-    var numberTextColorResId: Int = Integer.MIN_VALUE
-        set(value) {
-            field = value
-            if (field != Integer.MIN_VALUE) {
-                numberView.setTextColor(ContextCompat.getColor(context, field))
-            }
-        }
-    var numberBackgroundColorResId: Int = Integer.MIN_VALUE
-        set(value) {
-            field = value
-            if (field != Integer.MIN_VALUE) {
-                numberView.setTextColor(ContextCompat.getColor(context, field))
-            }
-        }
 
     constructor(context: Context, attrs: AttributeSet, defStyle: Int) : super(context, attrs, defStyle) {
         init(context, attrs)
@@ -66,8 +52,6 @@ class BeamPhrase : ConstraintLayout {
 
             phrase = a.getNonResourceString(R.styleable.BeamPhrase_phrase)
             number = a.getResourceId(R.styleable.BeamPhrase_number, Integer.MIN_VALUE)
-            numberTextColorResId = a.getResourceId(R.styleable.BeamPhrase_number_text_color, Integer.MIN_VALUE)
-            numberBackgroundColorResId = a.getResourceId(R.styleable.BeamPhrase_number_background, Integer.MIN_VALUE)
         }
     }
 }

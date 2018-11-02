@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <attr name="phrase" format="string" />
+    <attr name="number" format="integer" />
+
     <declare-styleable name="BeamButton">
         <attr name="button_text" format="integer" />
         <attr name="button_icon" format="integer" />
@@ -12,8 +15,14 @@
     </declare-styleable>
 
     <declare-styleable name="BeamPhrase">
-        <attr name="phrase" format="string" />
-        <attr name="number" format="integer" />
+        <attr name="phrase" />
+        <attr name="number" />
+    </declare-styleable>
+
+    <declare-styleable name="BeamPhraseInput">
+        <attr name="phrase" />
+        <attr name="number" />
+        <attr name="isForEnsure" format="boolean" />
         <attr name="number_text_color" format="integer" />
         <attr name="number_background" format="integer" />
     </declare-styleable>

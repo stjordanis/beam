@@ -13,6 +13,7 @@ interface WelcomeContract {
         fun showDescriptionFragment()
         fun showPasswordsFragment()
         fun showPhrasesFragment()
+        fun showValidationFragment(phrases: MutableList<String>)
         fun showMainActivity()
     }
 
@@ -22,6 +23,7 @@ interface WelcomeContract {
         fun onOpenWallet()
         fun onChangeWallet()
         fun onProceedToPasswords()
+        fun onProceedToValidation(phrases: MutableList<String>)
     }
 
     interface Repository : MvpRepository
