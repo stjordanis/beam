@@ -10,9 +10,9 @@ import com.mw.beam.beamwallet.baseScreen.MvpView
 interface WelcomePhrasesContract {
     interface View : MvpView {
         fun init()
-        fun showPasswordsFragments()
+        fun showValidationFragment(phrases: MutableList<String>)
         fun configPhrases(phrases: MutableList<String>)
-        fun copyToClipboard(data : String)
+        fun copyToClipboard(data: String)
     }
 
     interface Presenter : MvpPresenter<View> {

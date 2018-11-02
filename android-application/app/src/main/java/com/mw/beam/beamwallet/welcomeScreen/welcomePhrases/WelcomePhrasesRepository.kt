@@ -8,6 +8,7 @@ import com.mw.beam.beamwallet.baseScreen.BaseRepository
 class WelcomePhrasesRepository : BaseRepository(), WelcomePhrasesContract.Repository {
 
     override fun getPhrases(): MutableList<String> {
+        //TODO singleton
         return mutableListOf(
                 "test 1",
                 "test 2",
