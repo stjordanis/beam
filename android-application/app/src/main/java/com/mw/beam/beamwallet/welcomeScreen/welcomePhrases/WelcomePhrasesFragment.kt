@@ -83,12 +83,12 @@ class WelcomePhrasesFragment : BaseFragment<WelcomePhrasesPresenter>(), WelcomeP
         clipboard.primaryClip = ClipData.newPlainText(COPY_TAG, data)
     }
 
-    override fun showPasswordsFragments() {
-        (activity as WelcomePhrasesHandler).proceedToPasswords()
+    override fun showValidationFragment(phrases: MutableList<String>) {
+        (activity as WelcomePhrasesHandler).proceedToValidation(phrases)
     }
 
     interface WelcomePhrasesHandler {
-        fun proceedToPasswords()
+        fun proceedToValidation(phrases: MutableList<String>)
     }
 
     private fun configPhrase(text: String, number: Int, rowIndex: Int, columnIndex: Int): View? {

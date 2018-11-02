@@ -15,7 +15,7 @@ class WelcomePhrasesPresenter(currentView: WelcomePhrasesContract.View, private 
     }
 
     override fun onNextPressed() {
-        view?.showPasswordsFragments()
+        view?.showValidationFragment(repository.getPhrases())
     }
 
     override fun onCopyPressed() {

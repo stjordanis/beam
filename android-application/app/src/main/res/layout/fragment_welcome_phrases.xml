@@ -23,7 +23,7 @@
             android:id="@+id/description"
             style="@style/welcome_description_text_style"
             android:paddingTop="@dimen/common_padding"
-            android:text="@string/welcome_description"
+            android:text="@string/welcome_phrases_description"
             app:layout_constraintBottom_toTopOf="@id/ic_no_see"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -35,10 +35,10 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/welcome_grid_offset"
             android:layout_marginEnd="@dimen/welcome_grid_offset"
+            android:layout_marginBottom="@dimen/welcome_phrases_button_margin"
             android:columnCount="2"
             android:orientation="vertical"
             app:layout_constraintBottom_toTopOf="@id/btnCopy"
-            android:layout_marginBottom="@dimen/welcome_phrases_button_margin"
             app:layout_constraintTop_toBottomOf="@id/description" />
 
         <com.mw.beam.beamwallet.core.views.BeamButton
