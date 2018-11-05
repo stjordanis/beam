@@ -13,15 +13,16 @@ interface WelcomeContract {
         fun showDescriptionFragment()
         fun showPasswordsFragment()
         fun showPhrasesFragment()
+        fun showRecoverFragment()
         fun showValidationFragment(phrases: MutableList<String>)
         fun showMainActivity()
     }
 
     interface Presenter : MvpPresenter<View> {
         fun onCreateWallet()
+        fun onRecoverWallet()
         fun onGeneratePhrase()
         fun onOpenWallet()
-        fun onChangeWallet()
         fun onProceedToPasswords()
         fun onProceedToValidation(phrases: MutableList<String>)
     }

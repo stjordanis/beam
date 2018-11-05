@@ -9,6 +9,7 @@ import com.mw.beam.beamwallet.welcomeScreen.welcomeDescription.WelcomeDescriptio
 import com.mw.beam.beamwallet.welcomeScreen.welcomeMain.WelcomeMainFragment
 import com.mw.beam.beamwallet.welcomeScreen.welcomePasswords.WelcomePasswordsFragment
 import com.mw.beam.beamwallet.welcomeScreen.welcomePhrases.WelcomePhrasesFragment
+import com.mw.beam.beamwallet.welcomeScreen.welcomeRecover.WelcomeRecoverFragment
 import com.mw.beam.beamwallet.welcomeScreen.welcomeValidation.WelcomeValidationFragment
 
 /**
@@ -50,6 +51,10 @@ class WelcomeActivity : BaseActivity<WelcomePresenter>(),
         showFragment(WelcomeValidationFragment.newInstance(phrases), WelcomeValidationFragment.getFragmentTag(), null, false)
     }
 
+    override fun showRecoverFragment() {
+        showFragment(WelcomeRecoverFragment.newInstance(), WelcomeRecoverFragment.getFragmentTag(), null, false)
+    }
+
     override fun showMainActivity() {
         finish()
         startActivity(Intent(this, MainActivity::class.java))
@@ -65,6 +70,10 @@ class WelcomeActivity : BaseActivity<WelcomePresenter>(),
 
     override fun openWallet() {
         presenter.onOpenWallet()
+    }
+
+    override fun recoverWallet() {
+        presenter.onRecoverWallet()
     }
 
     override fun proceedToWallet() {

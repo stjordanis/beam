@@ -18,9 +18,11 @@ class WelcomeValidationPresenter(currentView: WelcomeValidationContract.View, pr
         }
     }
 
+    override fun onPhraseChanged() {
+        view?.handleNextButton()
+    }
+
     override fun onNextPressed() {
-        if (view?.arePhrasesValid() == true) {
-            view?.showPasswordsFragment()
-        }
+        view?.showPasswordsFragment()
     }
 }

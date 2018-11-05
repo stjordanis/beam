@@ -14,11 +14,12 @@ interface WelcomeValidationContract {
         fun getData(): Phrases?
         fun configPhrases(phrasesToValidate: MutableList<Int>, phrases : Phrases)
         fun showPasswordsFragment()
-        fun arePhrasesValid() : Boolean
+        fun handleNextButton()
     }
 
     interface Presenter : MvpPresenter<View> {
         fun onNextPressed()
+        fun onPhraseChanged()
     }
 
     interface Repository : MvpRepository {

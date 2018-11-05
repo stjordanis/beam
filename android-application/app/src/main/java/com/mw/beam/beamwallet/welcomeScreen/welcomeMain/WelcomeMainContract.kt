@@ -18,6 +18,7 @@ interface WelcomeMainContract {
         fun showChangeAlert()
         fun showOpenWalletError()
         fun clearError()
+        fun restoreWallet()
     }
 
     interface Presenter : MvpPresenter<View> {
