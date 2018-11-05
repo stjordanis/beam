@@ -35,6 +35,7 @@ class WelcomeMainPresenter(currentView: WelcomeMainContract.View, private val re
     }
 
     override fun onChangeWallet() {
+        view?.clearError()
         view?.showChangeAlert()
     }
 
@@ -43,6 +44,6 @@ class WelcomeMainPresenter(currentView: WelcomeMainContract.View, private val re
     }
 
     override fun onRestoreWallet() {
-        view?.showSnackBar("Coming soon...")
+        view?.restoreWallet()
     }
 }
