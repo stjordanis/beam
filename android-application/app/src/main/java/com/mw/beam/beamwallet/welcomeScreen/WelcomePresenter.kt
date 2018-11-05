@@ -33,7 +33,7 @@ class WelcomePresenter(currentView: WelcomeContract.View, private val repository
         view?.showValidationFragment(phrases)
     }
 
-    override fun onChangeWallet() {
-        view?.showSnackBar("Coming soon...")
+    override fun onRecoverWallet() {
+        view?.showRecoverFragment()
     }
 }

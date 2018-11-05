@@ -114,8 +114,13 @@ class WelcomeMainFragment : BaseFragment<WelcomeMainPresenter>(), WelcomeMainCon
         showAlert(getString(R.string.welcome_change_alert), R.string.welcome_change, R.drawable.ic_btn_change_dark) { presenter.onChangeConfirm() }
     }
 
+    override fun restoreWallet() {
+        (activity as WelcomeMainHandler).recoverWallet()
+    }
+
     interface WelcomeMainHandler {
         fun createWallet()
         fun openWallet()
+        fun recoverWallet()
     }
 }
