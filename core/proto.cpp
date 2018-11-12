@@ -178,7 +178,7 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 	if (pCipherIn)
 	{
 		PeerID myPublic;
-		Sk2Pk(myPublic, (ECC::Scalar::Native&) myPrivate); // my private must have been already normalized. Should not be modified.
+		Sk2Pk(myPublic, Cast::NotConst(myPrivate)); // my private must have been already normalized. Should not be modified.
 		InitCipherIV(*pCipherIn, hvSecret.V, myPublic);
 	}
 
@@ -267,7 +267,6 @@ union HighestMsgCode
 
 bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
 {
-	// 
 	switch (id)
 	{
 #define THE_MACRO(code, msg) \
@@ -446,10 +445,15 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 		);
 }
 
+bool NodeConnection::IsLive() const
+{
+	return m_Connection && !m_pAsyncFail;
+}
+
 #define THE_MACRO(code, msg) \
 void NodeConnection::Send(const msg& v) \
 { \
-	if (m_pAsyncFail || !m_Connection) \
+	if (!IsLive()) \
 		return; \
 	m_SerializeCache.clear(); \
 	MsgSerializer& ser = m_Protocol.serializeNoFinalize(m_SerializeCache, uint8_t(code), v); \
@@ -943,7 +947,24 @@ std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo& pi)
 
 /////////////////////////
 // FlyClient
-FlyClient::~FlyClient()
+FlyClient::NetworkStd::~NetworkStd()
+{
+	Disconnect();
+}
+
+void FlyClient::NetworkStd::Connect()
+{
+	Disconnect();
+
+	for (size_t i = 0; i < m_Cfg.m_vNodes.size(); i++)
+	{
+		Connection* pConn = new Connection(*this);
+		pConn->m_Addr = m_Cfg.m_vNodes[i];
+		pConn->Connect(pConn->m_Addr);
+	}
+}
+
+void FlyClient::NetworkStd::Disconnect()
 {
 	while (!m_Connections.empty())
 		delete &m_Connections.front();
@@ -978,33 +999,116 @@ void FlyClient::ShrinkHist()
 	}
 }
 
-FlyClient::Connection::Connection(FlyClient& x)
+FlyClient::NetworkStd::Connection::Connection(NetworkStd& x)
 	:m_This(x)
 {
 	m_This.m_Connections.push_back(*this);
 	ZeroObject(m_Tip);
 }
 
-FlyClient::Connection::~Connection()
+FlyClient::NetworkStd::Connection::~Connection()
 {
 	m_This.m_Connections.erase(ConnectionList::s_iterator_to(*this));
+
+	while (!m_lst.empty())
+	{
+		RequestNode& n = m_lst.front();
+		m_lst.pop_front();
+		m_This.m_lst.push_back(n);
+	}
 }
 
-bool FlyClient::Connection::ShouldSync() const
+bool FlyClient::NetworkStd::Connection::ShouldSync() const
 {
-	const Block::SystemState::Full* pTip = m_This.get_Tip();
+	const Block::SystemState::Full* pTip = m_This.m_Client.get_Tip();
 	return !pTip || (pTip->m_ChainWork < m_Tip.m_ChainWork);
 }
 
-void FlyClient::Connection::OnConnectedSecure()
+void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
+	ZeroObject(m_Tip);
+	m_bNode = m_bBbs = m_bTransactions = false;
+
 	proto::Config msgCfg;
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
 	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
 }
 
-void FlyClient::Connection::OnMsg(proto::NewTip&& msg)
+void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
+{
+	NodeConnection::Reset();
+	SetTimer(m_This.m_Cfg.m_ReconnectTimeout_ms);
+}
+
+void FlyClient::NetworkStd::Connection::SetTimer(uint32_t timeout_ms)
+{
+	if (!m_pTimer)
+		m_pTimer = io::Timer::create(io::Reactor::get_Current());
+
+	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
+}
+
+void FlyClient::NetworkStd::Connection::KillTimer()
+{
+	if (m_pTimer)
+		m_pTimer->cancel();
+}
+
+void FlyClient::NetworkStd::Connection::OnTimer()
+{
+	if (IsLive())
+	{
+		if (m_This.m_Cfg.m_PollPeriod_ms)
+		{
+			Reset();
+			uint32_t timeout_ms = std::max(Rules::get().DesiredRate_s * 1000, m_This.m_Cfg.m_PollPeriod_ms);
+			SetTimer(timeout_ms);
+		}
+	}
+	else
+		Connect(m_Addr);
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(proto::Authentication&& msg)
+{
+	NodeConnection::OnMsg(std::move(msg));
+
+	if (IDType::Node == msg.m_IDType)
+	{
+		m_bNode = true;
+
+		if (m_This.m_pKdf)
+		{
+			ECC::Scalar::Native sk;
+			m_This.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
+			ProveID(sk, IDType::Owner);
+		}
+	}
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(proto::Config&& msg)
+{
+	if (msg.m_CfgChecksum != Rules::get().Checksum)
+		ThrowUnexpected("incompatible");
+
+	m_bBbs = msg.m_Bbs;
+	m_bTransactions = msg.m_SpreadingTransactions;
+	AssignRequests();
+
+	if (m_bBbs)
+		for (BbsSubscriptions::const_iterator it = m_This.m_BbsSubscriptions.begin(); m_This.m_BbsSubscriptions.end() != it; it++)
+			if (it->second > 0)
+			{
+				proto::BbsSubscribe msgOut;
+				// msg.m_TimeFrom - // TODO
+				msgOut.m_Channel = it->first;
+				msgOut.m_On = true;
+				Send(msgOut);
+			}
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(proto::NewTip&& msg)
 {
 	if (m_Tip == msg.m_Description)
 		return; // redundant msg, might happen in older nodes
@@ -1024,13 +1128,14 @@ void FlyClient::Connection::OnMsg(proto::NewTip&& msg)
 		StartSync();
 }
 
-void FlyClient::Connection::StartSync()
+void FlyClient::NetworkStd::Connection::StartSync()
 {
 	assert(ShouldSync());
+	KillTimer();
 
 	if (m_Tip.m_Height > Rules::HeightGenesis)
 	{
-		const Block::SystemState::Full* pTip = m_This.get_Tip();
+		const Block::SystemState::Full* pTip = m_This.m_Client.get_Tip();
 		if (!(pTip && pTip->IsNext(m_Tip)))
 		{
 			// starting search
@@ -1041,12 +1146,14 @@ void FlyClient::Connection::StartSync()
 	}
 
 	// simple case
-	m_This.m_Hist[m_Tip.m_Height] = m_Tip;
-	m_This.ShrinkHist();
-	m_This.OnNewTip();
+	m_This.m_Client.m_Hist[m_Tip.m_Height] = m_Tip;
+	m_This.m_Client.ShrinkHist();
+	PrioritizeSelf();
+	AssignRequests();
+	m_This.m_Client.OnNewTip();
 }
 
-void FlyClient::Connection::SearchBelow(Height h, uint32_t nCount)
+void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
 {
 	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
 	assert(nCount);
@@ -1054,7 +1161,7 @@ void FlyClient::Connection::SearchBelow(Height h, uint32_t nCount)
 	proto::GetCommonState msg;
 	msg.m_IDs.reserve(nCount);
 
-	for (StateMap::iterator it = m_This.m_Hist.lower_bound(h); nCount-- && (m_This.m_Hist.begin() != it); )
+	for (StateMap::iterator it = m_This.m_Client.m_Hist.lower_bound(h); nCount-- && (m_This.m_Client.m_Hist.begin() != it); )
 	{
 		--it;
 		const Block::SystemState::Full& s = it->second;
@@ -1076,7 +1183,7 @@ void FlyClient::Connection::SearchBelow(Height h, uint32_t nCount)
 	}
 }
 
-void FlyClient::Connection::OnMsg(proto::ProofCommonState&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofCommonState&& msg)
 {
 	if (!m_pSync || m_pSync->m_vConfirming.empty())
 		ThrowUnexpected();
@@ -1098,8 +1205,8 @@ void FlyClient::Connection::OnMsg(proto::ProofCommonState&& msg)
 		if (!m_Tip.IsValidProofState(id, msg.m_Proof))
 			ThrowUnexpected();
 
-		StateMap::iterator it = m_This.m_Hist.find(id.m_Height);
-		if (m_This.m_Hist.end() != it)
+		StateMap::iterator it = m_This.m_Client.m_Hist.find(id.m_Height);
+		if (m_This.m_Client.m_Hist.end() != it)
 		{
 			Merkle::Hash hv;
 			it->second.get_Hash(hv);
@@ -1116,7 +1223,7 @@ void FlyClient::Connection::OnMsg(proto::ProofCommonState&& msg)
 		SearchBelow(m_Tip.m_Height, 1);
 	}
 }
-void FlyClient::Connection::RequestChainworkProof()
+void FlyClient::NetworkStd::Connection::RequestChainworkProof()
 {
 	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
 
@@ -1128,7 +1235,7 @@ void FlyClient::Connection::RequestChainworkProof()
 	m_pSync->m_LowHeightSinceConfirmed = m_pSync->m_Confirmed.m_Height;
 }
 
-struct FlyClient::Connection::StateArray
+struct FlyClient::NetworkStd::Connection::StateArray
 {
 	std::vector<Block::SystemState::Full> m_vec;
 
@@ -1136,7 +1243,7 @@ struct FlyClient::Connection::StateArray
 	bool Find(const Block::SystemState::Full&) const;
 };
 
-void FlyClient::Connection::StateArray::Unpack(const Block::ChainWorkProof& proof)
+void FlyClient::NetworkStd::Connection::StateArray::Unpack(const Block::ChainWorkProof& proof)
 {
 	m_vec.reserve(proof.m_vArbitraryStates.size() + proof.m_Heading.m_vElements.size());
 
@@ -1145,8 +1252,8 @@ void FlyClient::Connection::StateArray::Unpack(const Block::ChainWorkProof& proo
 	std::copy(proof.m_vArbitraryStates.rbegin(), proof.m_vArbitraryStates.rend(), m_vec.begin());
 
 	m_vec.emplace_back();
-	((Block::SystemState::Sequence::Prefix&) m_vec.back()) = proof.m_Heading.m_Prefix;
-	((Block::SystemState::Sequence::Element&)  m_vec.back()) = proof.m_Heading.m_vElements.back();
+	Cast::Down<Block::SystemState::Sequence::Prefix>(m_vec.back()) = proof.m_Heading.m_Prefix;
+	Cast::Down<Block::SystemState::Sequence::Element>(m_vec.back()) = proof.m_Heading.m_vElements.back();
 
 	for (size_t i = proof.m_Heading.m_vElements.size() - 1; i--; )
 	{
@@ -1154,12 +1261,12 @@ void FlyClient::Connection::StateArray::Unpack(const Block::ChainWorkProof& proo
 
 		sLast = m_vec[m_vec.size() - 2];
 		sLast.NextPrefix();
-		((Block::SystemState::Sequence::Element&) sLast) = proof.m_Heading.m_vElements[i];
+		Cast::Down<Block::SystemState::Sequence::Element>(sLast) = proof.m_Heading.m_vElements[i];
 		sLast.m_PoW.m_Difficulty.Inc(sLast.m_ChainWork);
 	}
 }
 
-bool FlyClient::Connection::StateArray::Find(const Block::SystemState::Full& s) const
+bool FlyClient::NetworkStd::Connection::StateArray::Find(const Block::SystemState::Full& s) const
 {
 	struct Cmp {
 		bool operator () (const Block::SystemState::Full& s, Height h) const { return s.m_Height < h; }
@@ -1170,7 +1277,7 @@ bool FlyClient::Connection::StateArray::Find(const Block::SystemState::Full& s) 
 	return (m_vec.end() != it) && (*it == s);
 }
 
-void FlyClient::Connection::OnMsg(proto::ProofChainWork&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
 {
 	if (!m_pSync || !m_pSync->m_vConfirming.empty())
 		ThrowUnexpected();
@@ -1209,9 +1316,9 @@ void FlyClient::Connection::OnMsg(proto::ProofChainWork&& msg)
 	}
 
 	bool bErased = false;
-	while (!m_This.m_Hist.empty())
+	while (!m_This.m_Client.m_Hist.empty())
 	{
-		StateMap::reverse_iterator it = m_This.m_Hist.rbegin();
+		StateMap::reverse_iterator it = m_This.m_Client.m_Hist.rbegin();
 		const Block::SystemState::Full& s = (it++)->second;
 
 		if (s.m_Height <= pSync->m_LowHeightSinceConfirmed)
@@ -1221,12 +1328,12 @@ void FlyClient::Connection::OnMsg(proto::ProofChainWork&& msg)
 			break;
 
 		bErased = true;
-		m_This.m_Hist.erase(it.base()); // according to docs - this is a correct conversion to a fwd-iterator. Call base() of an *advanced* reverse_iterator
+		m_This.m_Client.m_Hist.erase(it.base()); // according to docs - this is a correct conversion to a fwd-iterator. Call base() of an *advanced* reverse_iterator
 	}
 
 	if (bErased)
 	{
-		const Block::SystemState::Full* pTip = m_This.get_Tip();
+		const Block::SystemState::Full* pTip = m_This.m_Client.get_Tip();
 		Height hLow = pTip ? pTip->m_Height : 0;
 
 		// if more connections are opened simultaneously - notify them
@@ -1237,21 +1344,277 @@ void FlyClient::Connection::OnMsg(proto::ProofChainWork&& msg)
 				c.m_pSync->m_LowHeightSinceConfirmed = hLow;
 		}
 
-		m_This.OnRolledBack();
+		m_This.m_Client.OnRolledBack();
 	}
 
 	for (size_t i = 0; i < arr.m_vec.size(); i++)
 	{
 		const Block::SystemState::Full& s = arr.m_vec[i];
-		m_This.m_Hist[s.m_Height] = std::move(s);
+		m_This.m_Client.m_Hist[s.m_Height] = std::move(s);
 	}
 
-	m_This.ShrinkHist();
-	m_This.OnNewTip(); // finished!
-
-
+	m_This.m_Client.ShrinkHist();
+	PrioritizeSelf();
+	AssignRequests();
+	m_This.m_Client.OnNewTip(); // finished!
 }
 
+
+void FlyClient::NetworkStd::Connection::PrioritizeSelf()
+{
+	m_This.m_Connections.erase(ConnectionList::s_iterator_to(*this));
+	m_This.m_Connections.push_front(*this);
+}
+
+void FlyClient::NetworkStd::PostRequest(Request::Ptr&& pReq)
+{
+	assert(pReq && !pReq->m_pTrg);
+	pReq->m_pTrg = &m_Client;
+
+	RequestNode* pNode = new RequestNode;
+	m_lst.push_back(*pNode);
+	pNode->m_pRequest = std::move(pReq);
+
+	OnNewRequests();
+}
+
+void FlyClient::NetworkStd::OnNewRequests()
+{
+	for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; it++)
+	{
+		Connection& c = *it;
+		if (c.IsLive() && c.IsSecureOut())
+		{
+			c.AssignRequests();
+			break;
+		}
+	}
+}
+
+bool FlyClient::NetworkStd::Connection::IsAtTip() const
+{
+	const Block::SystemState::Full* pTip = m_This.m_Client.get_Tip();
+	return pTip && (*pTip == m_Tip);
+}
+
+void FlyClient::NetworkStd::Connection::AssignRequests()
+{
+	for (RequestList::iterator it = m_This.m_lst.begin(); m_This.m_lst.end() != it; )
+		AssignRequest(*it++);
+
+	if (m_lst.empty() && m_This.m_Cfg.m_PollPeriod_ms)
+		SetTimer(0);
+	else
+		KillTimer();
+}
+
+void FlyClient::NetworkStd::Connection::AssignRequest(RequestNode& n)
+{
+	assert(n.m_pRequest);
+	if (!n.m_pRequest->m_pTrg)
+	{
+		m_This.m_lst.Delete(n);
+		return;
+	}
+
+	switch (n.m_pRequest->get_Type())
+	{
+#define THE_MACRO(type, msgOut, msgIn) \
+	case Request::Type::type: \
+		{ \
+			Request##type& req = Cast::Up<Request##type>(*n.m_pRequest); \
+			if (!IsSupported(req)) \
+				return; \
+			SendRequest(req); \
+		} \
+		break;
+
+	REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
+
+	default: // ?!
+		m_This.m_lst.Finish(n);
+		return;
+	}
+
+	m_This.m_lst.pop_front();
+	m_lst.push_back(n);
+}
+
+void FlyClient::NetworkStd::RequestList::Clear()
+{
+	while (!empty())
+		Delete(front());
+}
+
+void FlyClient::NetworkStd::RequestList::Delete(RequestNode& n)
+{
+	erase(s_iterator_to(n));
+	delete &n;
+}
+
+void FlyClient::NetworkStd::RequestList::Finish(RequestNode& n)
+{
+	assert(n.m_pRequest);
+	if (n.m_pRequest->m_pTrg)
+		n.m_pRequest->m_pTrg->OnRequestComplete(std::move(n.m_pRequest));
+	Delete(n);
+}
+
+FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequestStrict(Request::Type x)
+{
+	if (m_lst.empty())
+		ThrowUnexpected();
+	RequestNode& n = m_lst.front();
+	assert(n.m_pRequest);
+
+	if (n.m_pRequest->get_Type() != x)
+		ThrowUnexpected();
+
+	return *n.m_pRequest;
+}
+
+#define THE_MACRO_SWAP_FIELD(type, name) std::swap(req.m_Res.m_##name, msg.m_##name);
+#define THE_MACRO(type, msgOut, msgIn) \
+void FlyClient::NetworkStd::Connection::OnMsg(proto::msgIn&& msg) \
+{  \
+	Request##type& req = Cast::Up<Request##type>(get_FirstRequestStrict(Request::Type::type)); \
+	BeamNodeMsg_##msgIn(THE_MACRO_SWAP_FIELD) \
+	OnRequestData(req); \
+}
+
+REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
+#undef THE_MACRO_SWAP_FIELD
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestUtxo& req)
+{
+	return IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestUtxo& req)
+{
+	for (size_t i = 0; i < req.m_Res.m_Proofs.size(); i++)
+		if (!m_Tip.IsValidProofUtxo(req.m_Msg.m_Utxo, req.m_Res.m_Proofs[i]))
+			ThrowUnexpected();
+
+	OnFirstRequestDone();
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestKernel& req)
+{
+	return m_bNode && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
+{
+	if (!req.m_Res.m_Proof.empty())
+		if (!m_Tip.IsValidProofKernel(req.m_Msg.m_ID, req.m_Res.m_Proof))
+			ThrowUnexpected();
+
+	OnFirstRequestDone();
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestMined& req)
+{
+	return m_bNode && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestMined& req)
+{
+	OnFirstRequestDone();
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestRecover& req)
+{
+	return m_bNode && IsAtTip(); // must also be owned
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestRecover& req)
+{
+	OnFirstRequestDone();
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
+{
+	return m_bTransactions && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
+{
+	OnFirstRequestDone(false);
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
+{
+	return m_bBbs && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
+{
+	req.m_Msg.m_TimePosted = getTimestamp();
+	Send(req.m_Msg);
+
+	proto::Ping msg2(Zero);
+	Send(msg2);
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestBbsMsg& req)
+{
+	OnFirstRequestDone(false);
+}
+
+void FlyClient::NetworkStd::Connection::OnFirstRequestDone(bool bMustBeAtTip /* = true */)
+{
+	RequestNode& n = m_lst.front();
+	assert(n.m_pRequest);
+
+	if (n.m_pRequest->m_pTrg)
+	{
+		if (bMustBeAtTip)
+		{
+			if (!IsAtTip())
+			{
+				// should retry
+				m_lst.erase(RequestList::s_iterator_to(n));
+				m_This.m_lst.push_back(n);
+				m_This.OnNewRequests();
+				return;
+			}
+		}
+
+		m_lst.Finish(n);
+	}
+	else
+		m_lst.Delete(n); // aborted already
+}
+
+void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, bool b)
+{
+	BbsSubscriptions::iterator it = m_BbsSubscriptions.find(ch);
+	if (m_BbsSubscriptions.end() == it)
+		it = m_BbsSubscriptions.insert(BbsSubscriptions::value_type(ch, 0)).first;
+
+	// we allow negative values. Assuming that sometimes unsubscription can preceed subscription
+	int32_t& n = it->second;
+
+	if (b ? (n++) : (--n))
+		return;
+
+	proto::BbsSubscribe msg;
+	// msg.m_TimeFrom - // TODO
+	msg.m_Channel = ch;
+	msg.m_On = b;
+
+	for (ConnectionList::iterator it2 = m_Connections.begin(); m_Connections.end() != it2; it2++)
+		if (it2->IsLive() && it2->IsSecureOut())
+			it2->Send(msg);
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(proto::BbsMsg&& msg)
+{
+	m_This.m_Client.OnMsg(std::move(msg));
+}
 
 } // namespace proto
 } // namespace beam

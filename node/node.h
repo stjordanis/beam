@@ -44,8 +44,6 @@ struct Node
 		std::string m_sPathLocal;
 		NodeProcessor::Horizon m_Horizon;
 
-		bool m_RestrictMinedReportToOwner = true;
-
 		struct Timeout {
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;
@@ -60,6 +58,7 @@ struct Node
 			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
 		} m_Timeout;
 
+		uint32_t m_MaxConcurrentBlocksRequest = 5;
 		uint32_t m_BbsIdealChannelPopulation = 100;
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
@@ -248,8 +247,7 @@ private:
 	std::unique_ptr<FirstTimeSync> m_pSync;
 
 	void TryAssignTask(Task&, const PeerID*);
-	bool ShouldAssignTask(Task&, Peer&);
-	void AssignTask(Task&, Peer&);
+	bool TryAssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
 	void InitIDs();
@@ -436,6 +434,7 @@ private:
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
 
+		bool ShouldAssignTasks();
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
@@ -466,6 +465,7 @@ private:
 		virtual void OnMsg(proto::GetCommonState&&) override;
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;
+		virtual void OnMsg(proto::GetProofKernel2&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
 		virtual void OnMsg(proto::GetProofChainWork&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
@@ -552,7 +552,8 @@ private:
 			// Task is mutable. But modifications are allowed only when holding the mutex.
 
 			Block::SystemState::Full m_Hdr;
-			ByteBuffer m_Body;
+			ByteBuffer m_BodyP;
+			ByteBuffer m_BodyE;
 			Amount m_Fees;
 
 			std::shared_ptr<volatile bool> m_pStop;

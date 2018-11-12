@@ -1224,6 +1224,8 @@ namespace ECC {
 		m_kCoFactor = 1U; // by default
 	}
 
+	HKdf::~HKdf(){}
+
 	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
 	{
 		DerivePKey(out, hv);
@@ -1412,7 +1414,7 @@ namespace ECC {
 			Key::ID::Packed kid = m_Kid;
 			XCryptKid(kid, cp);
 
-			cp.m_Kidv.as_ID() = kid;
+			Cast::Down<Key::ID>(cp.m_Kidv) = kid;
 			cp.m_Kidv.m_Value = m_Value;
 		}
 
