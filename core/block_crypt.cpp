@@ -823,16 +823,20 @@ namespace beam
 		return m_PoW.IsValid(hv.m_pData, hv.nBytes);
 	}
 
-	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
+#if defined(BEAM_USE_GPU)
+    bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel, bool useGpu)
+#else
+    bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
+#endif
 	{
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
 
 #if defined(BEAM_USE_GPU)
-		return m_PoW.SolveGPU(hv.m_pData, hv.nBytes, fnCancel);
-#else
-        return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
+        if (useGpu)
+            return m_PoW.SolveGPU(hv.m_pData, hv.nBytes, fnCancel);
 #endif
+        return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
 	}
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const

@@ -21,6 +21,8 @@
 #include <string.h>
 
 #include <vector>
+#include <exception>
+#include <sstream>
 
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
@@ -60,8 +62,12 @@ typedef uint64_t u64;
 #define checkCudaErrors(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true) {
     if (code != cudaSuccess) {
-        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-        if (abort) exit(code);
+        if (abort) {
+            std::stringstream stream;
+
+            stream << "GPUassert: " << cudaGetErrorString(code) << " " << file << " " << line;
+            throw std::runtime_error(stream.str());
+        }
     }
 }
 
@@ -957,14 +963,14 @@ struct GpuContext
         : threadsperblock(64)/// TODO: get it somewhere
         , totalblocks(20 * 7)/// TODO: get it somewhere
         , device_id(0)
+        , eq(new equi(threadsperblock * totalblocks))
+        , solutionBuf(sizeof(proof) * MAXSOLS + 4096)
     {
-        eq = new equi(threadsperblock * totalblocks);
         eq->blake_ctx = state;
 
         // TODO: ugly code, must be rewrited
         {
-            sol_memory = malloc(sizeof(proof) * MAXSOLS + 4096);
-            solutions = (uint32_t*)(((long long)sol_memory + 4095) & -4096);
+            solutions = (uint32_t*)(((long long)solutionBuf.data() + 4095) & -4096);
         }
 
         checkCudaErrors(cudaSetDevice(device_id));
@@ -991,14 +997,12 @@ struct GpuContext
     {
         checkCudaErrors(cudaSetDevice(device_id));
         checkCudaErrors(cudaDeviceReset());
-        free(sol_memory);
-        delete eq;
     }
 
     bool solve(const EquihashGpu::IsValid& valid, const EquihashGpu::Cancel& cancel)
     {
         checkCudaErrors(cudaSetDevice(device_id));
-        checkCudaErrors(cudaMemcpy(device_eq, eq, sizeof(equi), cudaMemcpyHostToDevice));
+        checkCudaErrors(cudaMemcpy(device_eq, eq.get(), sizeof(equi), cudaMemcpyHostToDevice));
 
         digitH << <totalblocks, threadsperblock >> > (device_eq);
 
@@ -1030,7 +1034,7 @@ struct GpuContext
 
         digitK << <totalblocks, threadsperblock >> > (device_eq);
 
-        checkCudaErrors(cudaMemcpy(eq, device_eq, sizeof(equi), cudaMemcpyDeviceToHost));
+        checkCudaErrors(cudaMemcpy(eq.get(), device_eq, sizeof(equi), cudaMemcpyDeviceToHost));
         checkCudaErrors(cudaMemcpy(solutions, eq->sols, MAXSOLS * sizeof(proof), cudaMemcpyDeviceToHost));
 
         for (unsigned s = 0; (s < eq->nsols) && (s < MAXSOLS); s++)
@@ -1058,10 +1062,10 @@ struct GpuContext
     int device_id;
     uint32_t* heap0;
     uint32_t* heap1;
-    equi* eq;
+    std::unique_ptr<equi> eq;
     equi* device_eq;
 
-    void* sol_memory;
+    std::vector<uint8_t> solutionBuf;
     uint32_t* solutions;
 };
 
