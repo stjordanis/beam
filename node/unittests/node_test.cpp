@@ -176,8 +176,8 @@ namespace beam
 		db.SetStateRollback(pRows[0], bBodyP);
 		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
 
-		db.DelStateBlockPRB(pRows[0]);
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+		//db.DelStateBlockPRB(pRows[0]);
+		//db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
 
 		db.DelStateBlockAll(pRows[0]);
 		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
@@ -694,7 +694,19 @@ namespace beam
 		{
 			DeleteFile(g_sz2);
 
-			NodeProcessor np2;
+			struct MyNodeProcessorX
+				:public NodeProcessor
+			{
+				std::string m_sPathMB;
+				virtual bool OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID&) override
+				{
+					rw.m_sPath = m_sPathMB;
+					rw.ROpen();
+					return true;
+				}
+			};
+
+			MyNodeProcessorX np2;
 			np2.Initialize(g_sz2);
 
 			rwData.m_hvContentTag = Zero;
@@ -714,6 +726,28 @@ namespace beam
 			rwData.ROpen();
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
+
+			np2.get_DB().MacroblockIns(np2.m_Cursor.m_Sid.m_Row);
+			np2.m_sPathMB = g_sz3;
+
+			// try kernel proofs. Must be retrieved from the macroblock
+			for (size_t i = 0; i < np.m_Wallet.m_MyKernels.size(); i++)
+			{
+				TxKernel krn;
+				np.m_Wallet.m_MyKernels[i].Export(krn);
+
+				Merkle::Hash id;
+				krn.get_ID(id);
+
+				Merkle::Proof proof;
+				TxKernel::Ptr pKrn;
+				Height h = np2.get_ProofKernel(proof, &pKrn, id);
+				verify_test(h >= Rules::HeightGenesis);
+
+				Merkle::Interpret(id, proof);
+				verify_test(blockChain[h - Rules::HeightGenesis]->m_Hdr.m_Kernels == id);
+			}
+			
 
 			rwData.Delete();
 		}
@@ -1109,12 +1143,13 @@ namespace beam
 					m_queProofsStateExpected.push_back((uint32_t) i);
 				}
 
+				if (m_vStates.size() > 1)
 				{
 					proto::GetCommonState msgOut2;
-					msgOut2.m_IDs.resize(m_vStates.size());
+					msgOut2.m_IDs.resize(m_vStates.size() - 1);
 
-					for (size_t i = 0; i < m_vStates.size(); i++)
-						m_vStates[i].get_ID(msgOut2.m_IDs[i]);
+					for (size_t i = 0; i < m_vStates.size() - 1; i++)
+						m_vStates[m_vStates.size() - i - 2].get_ID(msgOut2.m_IDs[i]);
 
 					Send(msgOut2);
 				}
@@ -1172,6 +1207,10 @@ namespace beam
 				msgRec.m_Public = true;
 				Send(msgRec);
 				m_nRecoveryPending++;
+
+				proto::GetUtxoEvents msgEvt;
+				Send(msgEvt);
+				m_nRecoveryPending++;
 			}
 
 			virtual void OnMsg(proto::ProofState&& msg) override
@@ -1193,19 +1232,7 @@ namespace beam
 			virtual void OnMsg(proto::ProofCommonState&& msg) override
 			{
 				verify_test(!m_vStates.empty());
-				if (1 == m_vStates.size())
-				{
-					verify_test(msg.m_iState == 1);
-					verify_test(msg.m_Proof.empty());
-				}
-				else
-				{
-					verify_test(msg.m_iState == 0);
-
-					Block::SystemState::ID id;
-					m_vStates.front().get_ID(id);
-					verify_test(m_vStates.back().IsValidProofState(id, msg.m_Proof));
-				}
+				verify_test(m_vStates.back().IsValidProofState(msg.m_ID, msg.m_Proof));
 			}
 
 			virtual void OnMsg(proto::ProofUtxo&& msg) override
@@ -1295,6 +1322,14 @@ namespace beam
 
 				verify_test(msg.m_Public.empty()); // so far public and private is the same, hence only private should be reported
 				verify_test(!msg.m_Private.empty()); // at least coinbases must be present
+			}
+
+			virtual void OnMsg(proto::UtxoEvents&& msg) override
+			{
+				verify_test(m_nRecoveryPending);
+				m_nRecoveryPending--;
+
+				verify_test(!msg.m_Events.empty());
 			}
 
 			void SetTimer(uint32_t timeout_ms) {

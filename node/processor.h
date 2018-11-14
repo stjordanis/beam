@@ -54,8 +54,10 @@ class NodeProcessor
 	void ToggleSubsidyOpened();
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
+	void RecognizeUtxos(TxBase::IReader&&, Height hMax);
 
 	static void SquashOnce(std::vector<Block::Body>&);
+	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, Height, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
 	void InitCursor();
 	static void OnCorrupted();
@@ -63,6 +65,7 @@ class NodeProcessor
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
+	Height get_FossilHeight();
 
 	struct UtxoSig;
 	struct UnspentWalker;
@@ -87,6 +90,7 @@ class NodeProcessor
 	};
 
 	bool EnumBlocks(IBlockWalker&);
+	Height OpenLatestMacroblock(Block::Body::RW&);
 
 public:
 
@@ -163,6 +167,7 @@ public:
 	virtual void OnBlockData() {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
+	virtual Key::IPKdf* get_Kdf(uint32_t i) { return NULL; }
 
 	uint64_t FindActiveAtStrict(Height);
 

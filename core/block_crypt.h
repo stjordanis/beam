@@ -632,7 +632,8 @@ namespace beam
 		macro(hd) \
 		macro(ui) \
 		macro(uo) \
-		macro(ko)
+		macro(ko) \
+		macro(kx)
 
 		struct Type
 		{
@@ -654,13 +655,19 @@ namespace beam
 		Output::Ptr m_pGuardUtxoOut[2];
 		TxKernel::Ptr m_pGuardKernel[2];
 
-		Height m_pMaturity[Type::count]; // actually isn't needed for type==hd. nevermind.
+		Height m_pMaturity[Type::count]; // some are used as maturity, some have different meaning.
+		// Those are aliases, used in read mode
+		uint64_t& m_KrnSizeTotal() { return m_pMaturity[Type::hd]; }
+		uint64_t& m_KrnThresholdPos() { return m_pMaturity[Type::kx]; }
 
 		template <typename T>
 		void LoadInternal(const T*& pPtr, int, typename T::Ptr* ppGuard);
+		bool LoadMaturity(int);
+		void NextKernelThreshold();
 
 		template <typename T>
 		void WriteInternal(const T&, int);
+		void WriteMaturity(const TxElement&, int);
 
 		bool OpenInternal(int iData);
 		void PostOpen(int iData);
@@ -685,6 +692,8 @@ namespace beam
 		void Flush();
 		void Close();
 		void Delete(); // must be closed
+
+		void NextKernelFF(Height hMin);
 
 		// IReader
 		virtual void Clone(Ptr&) override;
@@ -774,4 +783,13 @@ namespace beam
 		void Export(void*, uint32_t, uint8_t nCode);
 		bool Import(void*, uint32_t, uint8_t nCode);
 	};
+
+#pragma pack (push, 1)
+	struct UtxoEvent
+	{
+		uintBigFor<uint32_t>::Type m_KdfIdx;
+		uint8_t m_Added; // added or deleted
+		ECC::Key::IDV::Packed m_Kidv;
+	};
+#pragma pack (pop)
 }

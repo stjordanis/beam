@@ -321,7 +321,7 @@ void NodeProcessor::PruneOld()
 
 		AdjustFossilEnd(h);
 
-		for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1); ; )
+		for (Height hFossil = get_FossilHeight(); ; )
 		{
 			if (++hFossil >= h)
 				break;
@@ -332,13 +332,18 @@ void NodeProcessor::PruneOld()
 				if (!(NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row)))
 					m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
 
-				m_DB.DelStateBlockPRB(ws.m_Sid.m_Row);
+				m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
 				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
 			}
 
 			m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
 		}
 	}
+}
+
+Height NodeProcessor::get_FossilHeight()
+{
+	return m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
 }
 
 void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
@@ -402,45 +407,81 @@ void NodeProcessor::ReadBody(Block::Body& res, const ByteBuffer& bbP, const Byte
 	der & Cast::Down<TxVectors::Ethernal>(res);
 }
 
+uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, Height h, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
+{
+	uint64_t iRet = uint64_t (-1);
+
+	for (uint64_t i = 0; r.m_pKernel && r.m_pKernel->m_Maturity == h; r.NextKernel(), i++)
+	{
+		Merkle::Hash hv;
+		r.m_pKernel->get_ID(hv);
+		mmr.Append(hv);
+
+		if (hv == idKrn)
+		{
+			iRet = i; // found
+			if (ppRes)
+			{
+				ppRes->reset(new TxKernel);
+				**ppRes = *r.m_pKernel;
+			}
+		}
+	}
+
+	return iRet;
+}
+
 Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes, const Merkle::Hash& idKrn)
 {
 	Height h = m_DB.FindKernel(idKrn);
 	if (h < Rules::HeightGenesis)
 		return h;
 
-	uint64_t rowid = FindActiveAtStrict(h);
+	Merkle::FixedMmmr mmr;
+	size_t iTrg;
 
-	ByteBuffer bbE;
-	m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
-
-	TxVectors::Ethernal txve;
-
-	Deserializer der;
-	der.reset(bbE);
-	der & txve;
-
-	// TODO - for a single proof there's no need to allocate the whole MMR, the proof can be calculated on-the-fly recursively.
-	// The number of calculations, however, is the same
-
-	Merkle::FixedMmmr mmr(txve.m_vKernels.size());
-
-	size_t iTrg = txve.m_vKernels.size();
-	for (size_t i = 0; i < txve.m_vKernels.size(); i++)
+	if (h <= get_FossilHeight())
 	{
-		TxKernel::Ptr& pKrn = txve.m_vKernels[i];
-		Merkle::Hash hv;
-		pKrn->get_ID(hv);
-		mmr.Append(hv);
+		Block::Body::RW rw;
+		if (!OpenLatestMacroblock(rw))
+			OnCorrupted();
 
-		if (hv == idKrn)
-		{
-			iTrg = i; // found
-			if (ppRes)
-				*ppRes = std::move(pKrn);
-		}
+		rw.Reset();
+		rw.NextKernelFF(h);
+
+		// 1st calculate the count
+		uint64_t nTotal = 0;
+		for (; rw.m_pKernel && rw.m_pKernel->m_Maturity == h; rw.NextKernel())
+			nTotal++;
+
+		mmr.Reset(nTotal);
+		rw.Reset();
+		rw.NextKernelFF(h);
+
+		iTrg = ProcessKrnMmr(mmr, std::move(rw), h, idKrn, ppRes);
+	}
+	else
+	{
+		uint64_t rowid = FindActiveAtStrict(h);
+
+		ByteBuffer bbE;
+		m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
+
+		TxVectors::Ethernal txve;
+		TxVectors::Perishable txvp; // dummy
+
+		Deserializer der;
+		der.reset(bbE);
+		der & txve;
+
+		TxVectors::Reader r(txvp, txve);
+		r.Reset();
+
+		mmr.Reset(txve.m_vKernels.size());
+		iTrg = ProcessKrnMmr(mmr, std::move(r), 0, idKrn, ppRes);
 	}
 
-	if (txve.m_vKernels.size() == iTrg)
+	if (uint64_t(-1) == iTrg)
 		OnCorrupted();
 
 	mmr.get_Proof(proof, iTrg);
@@ -580,10 +621,78 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				m_DB.DeleteKernel(hv, sid.m_Height);
 		}
 
+		if (bFwd)
+		{
+			auto r = block.get_Reader();
+			r.Reset();
+			RecognizeUtxos(std::move(r), sid.m_Height);
+		}
+		else
+			m_DB.DeleteEventsAbove(m_Cursor.m_ID.m_Height);
+
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
 	return bOk;
+}
+
+void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
+{
+	NodeDB::WalkerEvent wlk(m_DB);
+
+	for ( ; r.m_pUtxoIn; r.NextUtxoIn())
+	{
+		const Input& x = *r.m_pUtxoIn;
+
+		m_DB.FindEvents(wlk, Blob(&x.m_Commitment, sizeof(x.m_Commitment))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
+		if (wlk.MoveNext())
+		{
+			if (wlk.m_Body.n != sizeof(UtxoEvent))
+				OnCorrupted();
+
+			UtxoEvent evt = *(UtxoEvent*)wlk.m_Body.p; // copy
+			if (evt.m_Added != 1)
+				OnCorrupted();
+
+			// In case of macroblock we can't recover the original input height. But in our current implementation macroblocks always go from the beginning, hence they don't contain input.
+
+			evt.m_Added = 0;
+			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(NULL, 0));
+		}
+	}
+
+	for (; r.m_pUtxoOut; r.NextUtxoOut())
+	{
+		const Output& x = *r.m_pUtxoOut;
+
+		for (uint32_t iKey = 0; ; iKey++)
+		{
+			Key::IPKdf* pKdf = get_Kdf(iKey);
+			if (!pKdf)
+				break;
+
+			Key::IDV kidv;
+			if (x.Recover(*pKdf, kidv))
+			{
+				// bingo!
+				UtxoEvent evt;
+				evt.m_KdfIdx = iKey;
+				evt.m_Kidv = kidv;
+				evt.m_Added = 1;
+
+				Height h;
+				if (x.m_Maturity)
+					// try to reverse-engineer the original block from the maturity
+					h = x.m_Maturity - x.get_MinMaturity(0);
+				else
+					h = hMax;
+
+				m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&x.m_Commitment, sizeof(x.m_Commitment)));
+
+				break;
+			}
+		}
+	}
 }
 
 bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, const Height* pHMax)
@@ -889,14 +998,14 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 		m_DB.set_Peer(rowid, &peer);
 
 		LOG_INFO() << id << " Header accepted";
+		OnStateData();
 	}
-	OnStateData();
+	
 	return ret;
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& bbP, const Blob& bbE, const PeerID& peer)
 {
-	OnBlockData();
 	size_t nSize = size_t(bbP.n) + size_t(bbE.n);
 	if (nSize > Rules::get().MaxBodySize)
 	{
@@ -929,6 +1038,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
 
+	OnBlockData();
 	return DataStatus::Accepted;
 }
 
@@ -1558,10 +1668,6 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
 	LOG_INFO() << "Building auxilliary datas...";
 
-	TxVectors::Ethernal txve;
-	TxVectors::Perishable txvp; // dummy
-	ByteBuffer krnBufCache;
-
 	r.Reset();
 	r.get_Start(body, s);
 	for (bool bFirstTime = true; r.get_NextHdr(s); s.NextPrefix())
@@ -1580,34 +1686,22 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 		m_DB.SetStateFunctional(sid.m_Row);
 
-		m_DB.DelStateBlockPRB(sid.m_Row); // if somehow it was downloaded
+		m_DB.DelStateBlockAll(sid.m_Row); // if somehow it was downloaded
 		m_DB.set_Peer(sid.m_Row, NULL);
-
-		// kernels
-		txve.m_vKernels.clear();
-		for (; r.m_pKernel && (r.m_pKernel->m_Maturity == s.m_Height); r.NextKernel())
-			TxVectors::Writer(txvp, txve).Write(*r.m_pKernel); // not the fastest method (unneeded allocs, copying)
-
-		krnBufCache.clear();
-
-		Serializer ser;
-		ser.swap_buf(krnBufCache);
-		ser & txve;
-		ser.swap_buf(krnBufCache);
-
-		m_DB.SetStateBlock(sid.m_Row, Blob(NULL, 0), krnBufCache);
 
 		sid.m_Height = id.m_Height;
 		m_DB.MoveFwd(sid);
-
-		for (size_t i = 0; i < txve.m_vKernels.size(); i++)
-		{
-			txve.m_vKernels[i]->get_ID(hv);
-			m_DB.InsertKernel(hv, id.m_Height);
-		}
 	}
 
-	assert(!r.m_pKernel);
+	// kernels
+	for (; r.m_pKernel; r.NextKernel())
+	{
+		r.m_pKernel->get_ID(hv);
+		m_DB.InsertKernel(hv, r.m_pKernel->m_Maturity);
+	}
+
+	LOG_INFO() << "Recovering owner UTXOs...";
+	RecognizeUtxos(std::move(r), id.m_Height);
 
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
@@ -1619,34 +1713,39 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	return true;
 }
 
-bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
+Height NodeProcessor::OpenLatestMacroblock(Block::Body::RW& rw)
 {
-	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
-		return true;
-
 	NodeDB::WalkerState ws(m_DB);
-	Height h = 0;
-
 	for (m_DB.EnumMacroblocks(ws); ws.MoveNext(); )
 	{
 		if (ws.m_Sid.m_Height > m_Cursor.m_ID.m_Height)
 			continue; //?
 
-		Block::Body::RW rw;
-		if (!OpenMacroblock(rw, ws.m_Sid))
-			continue;
+		if (OpenMacroblock(rw, ws.m_Sid))
+			return ws.m_Sid.m_Height;
+	}
 
+	return Rules::HeightGenesis - 1;
+}
+
+bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
+{
+	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
+		return true;
+
+	Block::Body::RW rw;
+
+	Height h = OpenLatestMacroblock(rw);
+	if (h >= Rules::HeightGenesis)
+	{
 		Block::BodyBase body;
 		Block::SystemState::Sequence::Prefix prefix;
 
 		rw.Reset();
 		rw.get_Start(body, prefix);
 
-		if (!wlk.OnBlock(body, std::move(rw), 0, Rules::HeightGenesis, &ws.m_Sid.m_Height))
+		if (!wlk.OnBlock(body, std::move(rw), 0, Rules::HeightGenesis, &h))
 			return false;
-
-		h = ws.m_Sid.m_Height;
-		break;
 	}
 
 	std::vector<uint64_t> vPath;

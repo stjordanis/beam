@@ -93,7 +93,7 @@ namespace proto {
 	macro(Merkle::HardProof, Proof)
 
 #define BeamNodeMsg_ProofCommonState(macro) \
-	macro(uint32_t, iState) \
+	macro(Block::SystemState::ID, ID) \
 	macro(Merkle::HardProof, Proof)
 
 #define BeamNodeMsg_ProofChainWork(macro) \
@@ -182,7 +182,8 @@ namespace proto {
 
 #define BeamNodeMsg_Macroblock(macro) \
 	macro(Block::SystemState::ID, ID) \
-	macro(ByteBuffer, Portion)
+	macro(ByteBuffer, Portion) \
+	macro(uint64_t, SizeTotal)
 
 #define BeamNodeMsg_Recover(macro) \
 	macro(bool, Private) \
@@ -191,6 +192,12 @@ namespace proto {
 #define BeamNodeMsg_Recovered(macro) \
 	macro(std::vector<Key::IDV>, Private) \
 	macro(std::vector<Key::IDV>, Public)
+
+#define BeamNodeMsg_GetUtxoEvents(macro) \
+	macro(Height, HeightMin)
+
+#define BeamNodeMsg_UtxoEvents(macro) \
+	macro(std::vector<UtxoEventPlus>, Events)
 
 #define BeamNodeMsgsAll(macro) \
 	/* general msgs */ \
@@ -236,6 +243,8 @@ namespace proto {
 	macro(0x29, Mined) \
 	macro(0x2a, Recover) \
 	macro(0x2b, Recovered) \
+	macro(0x2c, GetUtxoEvents) \
+	macro(0x2d, UtxoEvents) \
 	/* tx broadcast and replication */ \
 	macro(0x30, NewTransaction) \
 	macro(0x31, HaveTransaction) \
@@ -274,6 +283,26 @@ namespace proto {
 	};
 
 	static const uint32_t g_HdrPackMaxSize = 128;
+
+#pragma pack (push, 1)
+	struct UtxoEventPlus
+		:public UtxoEvent
+	{
+		static const uint32_t s_Max = 64; // may actually send more, if the remaining events are on the same height
+
+		uintBigFor<Height>::Type m_Height;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			typedef uintBigFor<UtxoEventPlus>::Type TBlob;
+			static_assert(sizeof(TBlob) == sizeof(*this), "");
+
+			ar & reinterpret_cast<TBlob&>(*this);
+		}
+	};
+#pragma pack (pop)
+
 
 	enum Unused_ { Unused };
 	enum Uninitialized_ { Uninitialized };
@@ -747,10 +776,10 @@ namespace proto {
 			{
 				struct SyncCtx
 				{
-					std::vector<Block::SystemState::ID> m_vConfirming;
+					std::vector<Block::SystemState::Full> m_vConfirming;
 					Block::SystemState::Full m_Confirmed;
 					Block::SystemState::Full m_TipBeforeGap;
-					Height m_LowHeightSinceConfirmed;
+					Height m_LowHeight;
 				};
 
 				std::unique_ptr<SyncCtx> m_pSync;

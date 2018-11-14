@@ -131,6 +131,7 @@ struct Node
 
 	Key::IKdf::Ptr m_pKdf;
 	Key::IPKdf::Ptr m_pOwnerKdf;
+	bool m_bSameKdf; // should be avoided actually
 
 	~Node();
 	void Initialize();
@@ -155,6 +156,7 @@ private:
 		void OnBlockData() override;
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
+		Key::IPKdf* get_Kdf(uint32_t i) override;
 
 		void ReportProgress();
         void ReportNewState();
@@ -241,6 +243,9 @@ private:
 
 		uint32_t m_RequestsPending = 0;
 		uint8_t m_iData = 0;
+
+		uint64_t m_SizeTotal;
+		uint64_t m_SizeCompleted;
 	};
 
 	void OnSyncTimer();
@@ -485,6 +490,7 @@ private:
 		virtual void OnMsg(proto::Macroblock&&) override;
 		virtual void OnMsg(proto::ProofChainWork&&) override;
 		virtual void OnMsg(proto::Recover&&) override;
+		virtual void OnMsg(proto::GetUtxoEvents&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -599,6 +605,7 @@ private:
 		bool ProceedInternal();
 		bool SquashOnce(std::vector<HeightRange>&);
 		bool SquashOnce(Block::BodyBase::RW&, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1);
+		uint64_t get_SizeTotal(Height);
 
 		PerThread m_Link;
 		std::mutex m_Mutex;
