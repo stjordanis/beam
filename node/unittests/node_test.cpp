@@ -21,8 +21,11 @@
 #include "../../utility/serialize.h"
 #include "../../utility/test_helpers.h"
 #include "../../core/serialization_adapters.h"
+#include "../../core/unittest/mini_blockchain.h"
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 #include "utility/logger.h"
 
 namespace ECC {
@@ -130,8 +133,9 @@ namespace beam
 				cmmrFork = cmmr;
 
 			cmmr.get_Hash(s.m_Definition);
-
 			Merkle::Interpret(s.m_Definition, hvZero, true);
+
+			s.m_Kernels = Zero;
 		}
 
 		uint64_t pRows[hMax];
@@ -152,11 +156,11 @@ namespace beam
 			}
 		}
 
-		NodeDB::Blob bBody("body", 4);
+		Blob bBodyP("body", 4), bBodyE("abc", 3);
 		Merkle::Hash peer, peer2;
 		memset(peer.m_pData, 0x66, peer.nBytes);
 
-		db.SetStateBlock(pRows[0], bBody);
+		db.SetStateBlock(pRows[0], bBodyP, bBodyE);
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
 		db.set_Peer(pRows[0], &peer);
@@ -166,13 +170,17 @@ namespace beam
 		db.set_Peer(pRows[0], NULL);
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
-		ByteBuffer bbBody, bbRollback;
-		db.GetStateBlock(pRows[0], bbBody, bbRollback);
-		db.SetStateRollback(pRows[0], bBody);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback);
+		ByteBuffer bbBodyP, bbBodyE, bbRollback;
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
 
-		db.DelStateBlock(pRows[0]);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback);
+		db.SetStateRollback(pRows[0], bBodyP);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+
+		//db.DelStateBlockPRB(pRows[0]);
+		//db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+
+		db.DelStateBlockAll(pRows[0]);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
 
 		tr.Commit();
 		tr.Start(db);
@@ -387,7 +395,7 @@ namespace beam
 			;
 
 		Merkle::Hash hv;
-		NodeDB::Blob b0(hv);
+		Blob b0(hv);
 		hv = 345U;
 
 		db.InsertDummy(176, b0);
@@ -420,6 +428,25 @@ namespace beam
 
 		verify_test(!db.FindDummy(h1, b0));
 
+		// Kernels
+		db.InsertKernel(bBodyP, 5);
+		db.InsertKernel(bBodyP, 5); // duplicate
+		db.InsertKernel(bBodyP, 7);
+		db.InsertKernel(bBodyP, 2);
+
+		verify_test(db.FindKernel(bBodyP) == 7);
+		verify_test(db.FindKernel(bBodyE) == 0);
+
+		db.DeleteKernel(bBodyP, 7);
+		verify_test(db.FindKernel(bBodyP) == 5);
+		db.DeleteKernel(bBodyP, 5);
+		verify_test(db.FindKernel(bBodyP) == 5);
+		db.DeleteKernel(bBodyP, 2);
+		verify_test(db.FindKernel(bBodyP) == 5);
+		db.DeleteKernel(bBodyP, 5);
+		verify_test(db.FindKernel(bBodyP) == 0);
+
+
 		tr.Commit();
 	}
 
@@ -445,7 +472,7 @@ namespace beam
 
 	struct MiniWallet
 	{
-		ECC::Kdf m_Kdf;
+		Key::IKdf::Ptr m_pKdf;
 		uint32_t m_nKernelSubIdx = 1;
 
 		struct MyUtxo
@@ -453,7 +480,7 @@ namespace beam
 			ECC::Scalar m_Key;
 			Amount m_Value;
 
-			void ToOutput(TxVectors& txv, ECC::Scalar::Native& offset, Height hIncubation) const
+			void ToOutput(TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height hIncubation) const
 			{
 				ECC::Scalar::Native k = m_Key;
 
@@ -470,19 +497,20 @@ namespace beam
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
 		UtxoQueue m_MyUtxos;
 
-		const MyUtxo* AddMyUtxo(Amount n, Height h, KeyType eType)
+		const MyUtxo* AddMyUtxo(Amount n, Height h, Key::Type eType)
 		{
 			if (!n)
 				return NULL;
 
+
 			ECC::Scalar::Native key;
-			DeriveKey(key, m_Kdf, h, eType);
+			m_pKdf->DeriveKey(key, Key::ID(h, eType));
 
 			MyUtxo utxo;
 			utxo.m_Key = key;
 			utxo.m_Value = n;
 
-			h += (KeyType::Coinbase == eType) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
+			h += (Key::Type::Coinbase == eType) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
 
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
@@ -496,7 +524,7 @@ namespace beam
 			void Export(TxKernel& krn) const
 			{
 				krn.m_Fee = m_Fee;
-				krn.m_Excess = ECC::Point::Native(ECC::Context::get().G * m_k);
+				krn.m_Commitment = ECC::Point::Native(ECC::Context::get().G * m_k);
 
 				if (m_bUseHashlock)
 				{
@@ -554,7 +582,7 @@ namespace beam
 				MyUtxo utxoOut;
 				utxoOut.m_Value = utxo.m_Value - mk.m_Fee;
 
-				DeriveKey(k, m_Kdf, h, KeyType::Regular);
+				m_pKdf->DeriveKey(k, Key::ID(h, Key::Type::Regular));
 				utxoOut.m_Key = k;
 
 				utxoOut.ToOutput(*pTx, kOffset, hIncubation);
@@ -564,18 +592,18 @@ namespace beam
 
 			m_MyUtxos.erase(it);
 
-			DeriveKey(mk.m_k, m_Kdf, h, KeyType::Kernel, m_nKernelSubIdx++);
+			m_pKdf->DeriveKey(mk.m_k, Key::ID(h, Key::Type::Kernel, m_nKernelSubIdx++));
 
 			TxKernel::Ptr pKrn;
 			mk.Export(pKrn);
-			pTx->m_vKernelsOutput.push_back(std::move(pKrn));
+			pTx->m_vKernels.push_back(std::move(pKrn));
 
 
 			k = -mk.m_k;
 			kOffset += k;
 			pTx->m_Offset = kOffset;
 
-			pTx->Sort();
+			pTx->Normalize();
 			Transaction::Context ctx;
 			bool isTxValid = pTx->IsValid(ctx);
 			verify_test(isTxValid);
@@ -593,8 +621,10 @@ namespace beam
 
 		MyNodeProcessor1()
 		{
-			ECC::SetRandom(m_Kdf.m_Secret.V);
-			m_Wallet.m_Kdf = m_Kdf;
+			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+			ECC::SetRandom(pKdf->m_Secret.V);
+
+			m_Wallet.m_pKdf = pKdf;
 	}
 	};
 
@@ -603,7 +633,8 @@ namespace beam
 		typedef std::unique_ptr<BlockPlus> Ptr;
 
 		Block::SystemState::Full m_Hdr;
-		ByteBuffer m_Body;
+		ByteBuffer m_BodyP;
+		ByteBuffer m_BodyE;
 	};
 
 	void TestNodeProcessor1(std::vector<BlockPlus::Ptr>& blockChain)
@@ -612,6 +643,8 @@ namespace beam
 		np.m_Horizon.m_Branching = 35;
 		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
+
+		NodeProcessor::BlockContext bc(np.m_TxPool, *np.m_Wallet.m_pKdf);
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
@@ -634,21 +667,22 @@ namespace beam
 				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
 			}
 
-			BlockPlus::Ptr pBlock(new BlockPlus);
+			verify_test(np.GenerateNewBlock(bc));
 
-			Amount fees = 0;
-			verify_test(np.GenerateNewBlock(np.m_TxPool, pBlock->m_Hdr, pBlock->m_Body, fees));
-
-			np.OnState(pBlock->m_Hdr, PeerID());
+			np.OnState(bc.m_Hdr, PeerID());
 
 			Block::SystemState::ID id;
-			pBlock->m_Hdr.get_ID(id);
+			bc.m_Hdr.get_ID(id);
 
-			np.OnBlock(id, pBlock->m_Body, PeerID());
+			np.OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 
-			np.m_Wallet.AddMyUtxo(fees, h, KeyType::Comission);
-			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, KeyType::Coinbase);
+			np.m_Wallet.AddMyUtxo(bc.m_Fees, h, Key::Type::Comission);
+			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase);
 
+			BlockPlus::Ptr pBlock(new BlockPlus);
+			pBlock->m_Hdr = std::move(bc.m_Hdr);
+			pBlock->m_BodyP = std::move(bc.m_BodyP);
+			pBlock->m_BodyE = std::move(bc.m_BodyE);
 			blockChain.push_back(std::move(pBlock));
 		}
 
@@ -660,7 +694,19 @@ namespace beam
 		{
 			DeleteFile(g_sz2);
 
-			NodeProcessor np2;
+			struct MyNodeProcessorX
+				:public NodeProcessor
+			{
+				std::string m_sPathMB;
+				virtual bool OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID&) override
+				{
+					rw.m_sPath = m_sPathMB;
+					rw.ROpen();
+					return true;
+				}
+			};
+
+			MyNodeProcessorX np2;
 			np2.Initialize(g_sz2);
 
 			rwData.m_hvContentTag = Zero;
@@ -681,6 +727,28 @@ namespace beam
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
+			np2.get_DB().MacroblockIns(np2.m_Cursor.m_Sid.m_Row);
+			np2.m_sPathMB = g_sz3;
+
+			// try kernel proofs. Must be retrieved from the macroblock
+			for (size_t i = 0; i < np.m_Wallet.m_MyKernels.size(); i++)
+			{
+				TxKernel krn;
+				np.m_Wallet.m_MyKernels[i].Export(krn);
+
+				Merkle::Hash id;
+				krn.get_ID(id);
+
+				Merkle::Proof proof;
+				TxKernel::Ptr pKrn;
+				Height h = np2.get_ProofKernel(proof, &pKrn, id);
+				verify_test(h >= Rules::HeightGenesis);
+
+				Merkle::Interpret(id, proof);
+				verify_test(blockChain[h - Rules::HeightGenesis]->m_Hdr.m_Kernels == id);
+			}
+			
+
 			rwData.Delete();
 		}
 	}
@@ -696,6 +764,7 @@ namespace beam
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override {}
 		virtual void OnPeerInsane(const PeerID&) override {}
 		virtual void OnNewState() override {}
+		virtual void AdjustFossilEnd(Height& h) override { h = 0; } // don't fossile anything, since we're not creating macroblocks
 
 	};
 
@@ -732,7 +801,7 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_Body, peer);
+				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
 			}
 		}
 
@@ -760,7 +829,7 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_Body, peer);
+				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
 			}
 		}
 
@@ -776,8 +845,14 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_Body, peer);
+				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
 			}
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.m_Horizon = horz;
+			np.Initialize(g_sz, true); // reset cursor
 		}
 
 	}
@@ -808,8 +883,13 @@ namespace beam
 
 		node2.m_Cfg.m_BeaconPort = g_Port;
 
-		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
-		ECC::SetRandom(node2.m_Cfg.m_WalletKey.V);
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node.m_pKdf = pKdf;
+
+		pKdf.reset(new ECC::HKdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node2.m_pKdf = pKdf;
 
 		node.Initialize();
 		node2.Initialize();
@@ -824,7 +904,8 @@ namespace beam
 			Height m_HeightMax;
 			const Height m_HeightTrg = 70;
 
-			MyClient() {
+			MyClient()
+			{
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
@@ -843,25 +924,23 @@ namespace beam
 
 				if (m_HeightMax < m_HeightTrg)
 				{
-					Block::SystemState::Full s;
-					ByteBuffer body, pow;
+					Node& n = *m_ppNode[m_iNode];
 
 					TxPool::Fluff txPool; // empty, no transactions
+					NodeProcessor::BlockContext bc(txPool, *n.m_pKdf);
 
-					Node& n = *m_ppNode[m_iNode];
-					Amount fees = 0;
-					n.get_Processor().GenerateNewBlock(txPool, s, body, fees);
+					verify_test(n.get_Processor().GenerateNewBlock(bc));
 
-					n.get_Processor().OnState(s, PeerID());
+					n.get_Processor().OnState(bc.m_Hdr, PeerID());
 
 					Block::SystemState::ID id;
-					s.get_ID(id);
+					bc.m_Hdr.get_ID(id);
 
-					n.get_Processor().OnBlock(id, body, PeerID());
+					n.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 
-					m_HeightMax = std::max(m_HeightMax, s.m_Height);
+					m_HeightMax = std::max(m_HeightMax, bc.m_Hdr.m_Height);
 
-					printf("Mined block Height = %u, node = %u \n", (unsigned int) s.m_Height, (unsigned int)m_iNode);
+					printf("Mined block Height = %u, node = %u \n", (unsigned int) bc.m_Hdr.m_Height, (unsigned int)m_iNode);
 
 					++m_iNode %= _countof(m_ppNode);
 				}
@@ -885,9 +964,6 @@ namespace beam
 
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
-			}
-			void KillTimer() {
-				m_pTimer->cancel();
 			}
 		};
 
@@ -924,7 +1000,9 @@ namespace beam
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
-		ECC::SetRandom(node.m_Cfg.m_WalletKey.V);
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node.m_pKdf = pKdf;
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
@@ -950,9 +1028,12 @@ namespace beam
 			std::list<uint32_t> m_queProofsKrnExpected;
 			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
+			uint32_t m_nRecoveryPending = 0;
 
 
-			MyClient() {
+			MyClient(const Key::IKdf::Ptr& pKdf)
+			{
+				m_Wallet.m_pKdf = pKdf;
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
@@ -975,7 +1056,7 @@ namespace beam
 				if (proto::IDType::Node == msg.m_IDType)
 				{
 					ECC::Scalar::Native sk;
-					DeriveKey(sk, m_Wallet.m_Kdf, 0, KeyType::Identity);
+					m_Wallet.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
 					ProveID(sk, proto::IDType::Owner);
 				}
 			}
@@ -1014,6 +1095,11 @@ namespace beam
 				return !m_nBbsMsgsPending;
 			}
 
+			bool IsAllRecoveryReceived() const
+			{
+				return !m_nRecoveryPending;
+			}
+
 			void OnTimer() {
 
 				io::Reactor::get_Current().stop();
@@ -1028,7 +1114,7 @@ namespace beam
 
 				if (IsHeightReached())
 				{
-					if (IsAllProofsReceived() && IsAllBbsReceived())
+					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived())
 						io::Reactor::get_Current().stop();
 					return;
 				}
@@ -1046,7 +1132,7 @@ namespace beam
 				m_nBbsMsgsPending++;
 
 				// assume we've mined this
-				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, KeyType::Coinbase);
+				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, Key::Type::Coinbase);
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
@@ -1057,15 +1143,26 @@ namespace beam
 					m_queProofsStateExpected.push_back((uint32_t) i);
 				}
 
+				if (m_vStates.size() > 1)
+				{
+					proto::GetCommonState msgOut2;
+					msgOut2.m_IDs.resize(m_vStates.size() - 1);
+
+					for (size_t i = 0; i < m_vStates.size() - 1; i++)
+						m_vStates[m_vStates.size() - i - 2].get_ID(msgOut2.m_IDs[i]);
+
+					Send(msgOut2);
+				}
+
 				for (auto it = m_Wallet.m_MyUtxos.begin(); m_Wallet.m_MyUtxos.end() != it; it++)
 				{
 					const MiniWallet::MyUtxo& utxo = it->second;
 
 					proto::GetProofUtxo msgOut2;
-					msgOut2.m_Utxo.m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
+					msgOut2.m_Utxo = ECC::Commitment(utxo.m_Key, utxo.m_Value);
 					Send(msgOut2);
 
-					m_queProofsExpected.push_back(msgOut2.m_Utxo.m_Commitment);
+					m_queProofsExpected.push_back(msgOut2.m_Utxo);
 				}
 
 				for (uint32_t i = 0; i < m_Wallet.m_MyKernels.size(); i++)
@@ -1075,9 +1172,16 @@ namespace beam
 					TxKernel krn;
 					mk.Export(krn);
 
-					proto::GetProofKernel msgOut2;
+					proto::GetProofKernel2 msgOut2;
 					krn.get_ID(msgOut2.m_ID);
+					msgOut2.m_Fetch = true;
 					Send(msgOut2);
+
+					m_queProofsKrnExpected.push_back(i);
+
+					proto::GetProofKernel msgOut3;
+					krn.get_ID(msgOut3.m_ID);
+					Send(msgOut3);
 
 					m_queProofsKrnExpected.push_back(i);
 				}
@@ -1097,6 +1201,16 @@ namespace beam
 					assert(msgTx.m_Transaction);
 					Send(msgTx);
 				}
+
+				proto::Recover msgRec;
+				msgRec.m_Private = true;
+				msgRec.m_Public = true;
+				Send(msgRec);
+				m_nRecoveryPending++;
+
+				proto::GetUtxoEvents msgEvt;
+				Send(msgEvt);
+				m_nRecoveryPending++;
 			}
 
 			virtual void OnMsg(proto::ProofState&& msg) override
@@ -1115,27 +1229,61 @@ namespace beam
 					fail_test("unexpected proof");
 			}
 
+			virtual void OnMsg(proto::ProofCommonState&& msg) override
+			{
+				verify_test(!m_vStates.empty());
+				verify_test(m_vStates.back().IsValidProofState(msg.m_ID, msg.m_Proof));
+			}
+
 			virtual void OnMsg(proto::ProofUtxo&& msg) override
 			{
 				if (!m_queProofsExpected.empty())
 				{
-					Input inp;
-					inp.m_Commitment = m_queProofsExpected.front();
+					const ECC::Point& comm = m_queProofsExpected.front();
 
-					auto it = m_UtxosConfirmed.find(inp.m_Commitment);
+					auto it = m_UtxosConfirmed.find(comm);
 
 					if (msg.m_Proofs.empty())
 						verify_test(m_UtxosConfirmed.end() == it);
 					else
 					{
 						for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-							verify_test(m_vStates.back().IsValidProofUtxo(inp, msg.m_Proofs[j]));
+							verify_test(m_vStates.back().IsValidProofUtxo(comm, msg.m_Proofs[j]));
 
 						if (m_UtxosConfirmed.end() == it)
-							m_UtxosConfirmed.insert(inp.m_Commitment);
+							m_UtxosConfirmed.insert(comm);
 					}
 
 					m_queProofsExpected.pop_front();
+				}
+				else
+					fail_test("unexpected proof");
+			}
+
+			virtual void OnMsg(proto::ProofKernel2&& msg) override
+			{
+				if (!m_queProofsKrnExpected.empty())
+				{
+					m_queProofsKrnExpected.pop_front();
+
+					if (!msg.m_Proof.empty())
+					{
+						verify_test(msg.m_Kernel);
+
+						AmountBig fee;
+						ECC::Point::Native exc;
+						verify_test(msg.m_Kernel->IsValid(fee, exc));
+
+						Merkle::Hash hv;
+						msg.m_Kernel->get_ID(hv);
+						Merkle::Interpret(hv, msg.m_Proof);
+
+						verify_test(msg.m_Height <= m_vStates.size());
+						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];
+						verify_test(s.m_Height == msg.m_Height);
+
+						verify_test(s.m_Kernels == hv);
+					}
 				}
 				else
 					fail_test("unexpected proof");
@@ -1152,7 +1300,6 @@ namespace beam
 					{
 						TxKernel krn;
 						mk.Export(krn);
-
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 					}
 				}
@@ -1168,17 +1315,29 @@ namespace beam
 				m_nChainWorkProofsPending--;
 			}
 
+			virtual void OnMsg(proto::Recovered&& msg) override
+			{
+				verify_test(m_nRecoveryPending);
+				m_nRecoveryPending--;
+
+				verify_test(msg.m_Public.empty()); // so far public and private is the same, hence only private should be reported
+				verify_test(!msg.m_Private.empty()); // at least coinbases must be present
+			}
+
+			virtual void OnMsg(proto::UtxoEvents&& msg) override
+			{
+				verify_test(m_nRecoveryPending);
+				m_nRecoveryPending--;
+
+				verify_test(!msg.m_Events.empty());
+			}
 
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
-			void KillTimer() {
-				m_pTimer->cancel();
-			}
 		};
 
-		MyClient cl;
-		cl.m_Wallet.m_Kdf.m_Secret = node.m_Cfg.m_WalletKey; // same key gen
+		MyClient cl(pKdf);
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
@@ -1193,13 +1352,13 @@ namespace beam
 		for (int i = 0; i < 10; i++)
 		{
 			const Amount val = Rules::Coin * 10;
-			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(val, i, KeyType::Regular);
+			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(val, i, Key::Type::Regular);
 			utxo.ToOutput(treasury, offset, i);
 			treasury.m_Subsidy += val;
 		}
 
 		treasury.m_Offset = offset;
-		treasury.Sort();
+		treasury.Normalize();
 
 		node.Initialize();
 
@@ -1265,6 +1424,9 @@ namespace beam
 		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
 		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
 
+		pKdf.reset(new ECC::HKdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node2.m_pKdf = pKdf;
 		node2.Initialize();
 
 		pReactor->run();
@@ -1276,126 +1438,36 @@ namespace beam
 			fail_test("some proofs missing");
 		if (!cl.IsAllBbsReceived())
 			fail_test("some BBS messages missing");
+		if (!cl.IsAllRecoveryReceived())
+			fail_test("some recovery messages missing");
+
+		NodeProcessor::UtxoRecoverEx urec(node2.get_Processor());
+		urec.m_vKeys.push_back(node.m_pKdf);
+		urec.Proceed();
+
+		verify_test(!urec.m_Map.empty());
 	}
-
-
-	struct ChainContext
-	{
-		struct State
-		{
-			Block::SystemState::Full m_Hdr;
-			std::unique_ptr<uint8_t[]> m_pMmrData;
-		};
-
-		std::vector<State> m_vStates;
-		Merkle::Hash m_hvLive;
-
-		struct DMmr
-			:public Merkle::DistributedMmr
-		{
-			virtual const void* get_NodeData(Key key) const
-			{
-				return ((State*) key)->m_pMmrData.get();
-			}
-
-			virtual void get_NodeHash(Merkle::Hash& hv, Key key) const
-			{
-				((State*)key)->m_Hdr.get_Hash(hv);
-			}
-
-			IMPLEMENT_GET_PARENT_OBJ(ChainContext, m_Mmr)
-		} m_Mmr;
-
-		struct Source
-			:public Block::ChainWorkProof::ISource
-		{
-			virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
-			{
-				// median search. The Hdr.m_ChainWork must be strictly bigger than d. (It's exclusive)
-				typedef std::vector<State>::const_iterator Iterator;
-				Iterator it0 = get_ParentObj().m_vStates.begin();
-				Iterator it1 = get_ParentObj().m_vStates.end();
-
-				while (it0 < it1)
-				{
-					Iterator itMid = it0 + (it1 - it0) / 2;
-					if (itMid->m_Hdr.m_ChainWork <= d)
-						it0 = itMid + 1;
-					else
-						it1 = itMid;
-				}
-
-				s = it0->m_Hdr;
-			}
-
-			virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
-			{
-				assert(h >= Rules::HeightGenesis);
-				h -= Rules::HeightGenesis;
-
-				assert(h < get_ParentObj().m_vStates.size());
-
-				get_ParentObj().m_Mmr.get_Proof(bld, h);
-			}
-
-			IMPLEMENT_GET_PARENT_OBJ(ChainContext, m_Source)
-		} m_Source;
-
-		void Init()
-		{
-			m_hvLive = 55U;
-
-			m_vStates.resize(200000);
-			Difficulty d = Rules::get().StartDifficulty;
-
-			for (size_t i = 0; i < m_vStates.size(); i++)
-			{
-				State& s = m_vStates[i];
-				if (i)
-				{
-					const State& s0 = m_vStates[i - 1];
-					s.m_Hdr = s0.m_Hdr;
-					s.m_Hdr.NextPrefix();
-
-					m_Mmr.Append(DMmr::Key(&s0), s0.m_pMmrData.get(), s.m_Hdr.m_Prev);
-				}
-				else
-				{
-					ZeroObject(s.m_Hdr);
-					s.m_Hdr.m_Height = Rules::HeightGenesis;
-				}
-
-				s.m_Hdr.m_PoW.m_Difficulty = d;
-				d.Inc(s.m_Hdr.m_ChainWork);
-
-				if (!((i + 1) % 8000))
-					d.Adjust(140, 150, 3); // slightly raise
-
-				m_Mmr.get_Hash(s.m_Hdr.m_Definition);
-				Merkle::Interpret(s.m_Hdr.m_Definition, m_hvLive, true);
-
-				uint32_t nSize = m_Mmr.get_NodeSize(i);
-				s.m_pMmrData.reset(new uint8_t[nSize]);
-			}
-		}
-	};
 
 
 	void TestChainworkProof()
 	{
-		ChainContext cc;
-
 		printf("Preparing blockchain ...\n");
-		cc.Init();
+
+		MiniBlockChain cc;
+		cc.Generate(200000);
+
+		const Block::SystemState::Full& sRoot = cc.m_vStates.back().m_Hdr;
 
 		Block::ChainWorkProof cwp;
 		cwp.m_hvRootLive = cc.m_hvLive;
-		cwp.Create(cc.m_Source, cc.m_vStates.back().m_Hdr);
+		cwp.Create(cc.m_Source, sRoot);
 
 		uint32_t nStates = (uint32_t) cc.m_vStates.size();
 		for (size_t i0 = 0; ; i0++)
 		{
-			verify_test(cwp.IsValid());
+			Block::SystemState::Full sTip;
+			verify_test(cwp.IsValid(&sTip));
+			verify_test(sRoot == sTip);
 
 			printf("Blocks = %u. Proof: States = %u/%u, Hashes = %u, Size = %u\n",
 				nStates,
@@ -1416,10 +1488,211 @@ namespace beam
 			cwp.m_LowerBound = cwp2.m_LowerBound;
 			verify_test(cwp.Crop());
 
-			verify_test(cwp2.IsValid());
-			verify_test(cwp.IsValid());
+			verify_test(cwp2.IsValid(&sTip));
+			verify_test(sRoot == sTip);
+			verify_test(cwp.IsValid(&sTip));
+			verify_test(sRoot == sTip);
 		}
 	}
+
+	void RaiseHeightTo(Node& node, Height h)
+	{
+		TxPool::Fluff txPool;
+
+		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
+		{
+			NodeProcessor::BlockContext bc(txPool, *node.m_pKdf);
+			verify_test(node.get_Processor().GenerateNewBlock(bc));
+			node.get_Processor().OnState(bc.m_Hdr, PeerID());
+
+			Block::SystemState::ID id;
+			bc.m_Hdr.get_ID(id);
+			node.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
+		}
+	}
+
+	void TestFlyClient()
+	{
+		io::Reactor::Ptr pReactor(io::Reactor::create());
+		io::Reactor::Scope scope(*pReactor);
+
+		Node node;
+		node.m_Cfg.m_sPathLocal = g_sz;
+		node.m_Cfg.m_Listen.port(g_Port);
+		node.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node.m_Cfg.m_MiningThreads = 0;
+		node.m_Cfg.m_vTreasury.resize(1);
+		node.m_Cfg.m_vTreasury[0].ZeroInit();
+
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node.m_pKdf = pKdf;
+
+		node.Initialize();
+
+		struct MyFlyClient
+			:public proto::FlyClient
+		{
+			io::Timer::Ptr m_pTimer;
+
+			bool m_bTip;
+			Height m_hRolledTo;
+			uint32_t m_nProofsExpected;
+			BbsChannel m_LastBbsChannel = 0;
+			bool m_bBbsReceived;
+
+			MyFlyClient()
+			{
+				m_pTimer = io::Timer::create(io::Reactor::get_Current());
+			}
+
+			virtual void OnNewTip() override
+			{
+				m_bTip = true;
+				MaybeStop();
+			}
+
+			void MaybeStop()
+			{
+				if (m_bTip && !m_nProofsExpected && m_bBbsReceived)
+					io::Reactor::get_Current().stop();
+			}
+
+			virtual void OnRolledBack() override
+			{
+				m_hRolledTo = m_Hist.empty() ? 0 : m_Hist.rbegin()->first;
+			}
+
+			void OnTimer() {
+				io::Reactor::get_Current().stop();
+			}
+
+			void SetTimer(uint32_t timeout_ms) {
+				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
+			}
+
+			void KillTimer() {
+				m_pTimer->cancel();
+			}
+
+			virtual void OnRequestComplete(Request::Ptr&& pReq) override
+			{
+				verify_test(pReq && (this == pReq->m_pTrg));
+				verify_test(m_nProofsExpected);
+				m_nProofsExpected--;
+				MaybeStop();
+			}
+
+			virtual void OnMsg(proto::BbsMsg&&) override
+			{
+				m_bBbsReceived = true;
+				MaybeStop();
+			}
+
+			void SyncSync() // synchronize synchronously. Joky joke.
+			{
+				m_bTip = false;
+				m_hRolledTo = MaxHeight;
+				m_nProofsExpected = 0;
+				m_bBbsReceived = false;
+				++m_LastBbsChannel;
+
+				NetworkStd net(*this);
+
+							io::Address addr;
+							addr.resolve("127.0.0.1");
+							addr.port(g_Port);
+				net.m_Cfg.m_vNodes.resize(4, addr); // create several connections, let the compete
+
+				net.Connect();
+
+				// request several proofs
+				for (uint32_t i = 0; i < 10; i++)
+				{
+					RequestUtxo::Ptr pUtxo(new RequestUtxo);
+					net.PostRequest(pUtxo);
+
+					if (1 & i)
+						pUtxo->m_pTrg = NULL;
+					else
+						m_nProofsExpected++;
+
+					RequestKernel::Ptr pKrnl(new RequestKernel);
+					net.PostRequest(pKrnl);
+
+					if (1 & i)
+						pKrnl->m_pTrg = NULL;
+					else
+						m_nProofsExpected++;
+
+					RequestBbsMsg::Ptr pBbs(new RequestBbsMsg);
+					pBbs->m_Msg.m_Channel = m_LastBbsChannel;
+					net.PostRequest(pBbs);
+					m_nProofsExpected++;
+				}
+
+				net.BbsSubscribe(m_LastBbsChannel, true);
+
+				SetTimer(90 * 1000);
+				io::Reactor::get_Current().run();
+				KillTimer();
+			}
+		};
+
+		const Height hThrd1 = 250;
+		RaiseHeightTo(node, hThrd1);
+
+
+		MyFlyClient fc;
+		// simple case
+		fc.SyncSync();
+
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo == MaxHeight);
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd1);
+
+		{
+			// pop last
+			auto it = fc.m_Hist.rbegin();
+			fc.m_Hist.erase((++it).base());
+		}
+
+		fc.SyncSync(); // should be trivial
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo == MaxHeight);
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd1);
+
+		const Height hThrd2 = 270;
+		RaiseHeightTo(node, hThrd2);
+
+		// should only fill the gap to the tip, not from the beginning. Should involve
+		fc.SyncSync();
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo == MaxHeight);
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd2);
+
+		// simulate branching, make it rollback
+		Height hBranch = 203;
+		while (!fc.m_Hist.empty())
+		{
+			proto::FlyClient::StateMap::reverse_iterator it = fc.m_Hist.rbegin();
+			if ((it++)->first <= hBranch)
+				break;
+			fc.m_Hist.erase(it.base());
+		}
+
+		Block::SystemState::Full s1;
+		ZeroObject(s1);
+		s1.m_Height = hBranch + 2;
+		fc.m_Hist[s1.m_Height] = s1;
+
+		fc.SyncSync();
+
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo <= hBranch); // must rollback beyond the manually appended state
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd2);
+	}
+
 
 }
 
@@ -1477,6 +1750,12 @@ int main()
 	beam::TestNodeClientProto();
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
+
+	printf("Node <---> FlyClient test...\n");
+	fflush(stdout);
+
+	beam::TestFlyClient();
+	beam::DeleteFile(beam::g_sz);
 
 	return g_TestsFailed ? -1 : 0;
 }

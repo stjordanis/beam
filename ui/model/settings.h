@@ -36,8 +36,8 @@ public:
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
     std::string getBbsStorage() const;
-    void emergencyReset();
-	void reportProblem();
+    std::string getAppDataPath() const;
+    void reportProblem();
 
     bool getGenerateGenesys() const;
     void setGenerateGenesys(bool value);
@@ -60,9 +60,14 @@ public:
     bool getLocalNodeSynchronized() const;
     void setLocalNodeSynchronized(bool value);
 
+#ifdef BEAM_USE_GPU
+    bool getUseGpu() const;
+    void setUseGpu(bool value);
+#endif
+
 public:
-	static const char* WalletCfg;
-	static const char* LogsFolder;
+    static const char* WalletCfg;
+    static const char* LogsFolder;
 
     void applyChanges();
 
@@ -76,6 +81,9 @@ signals:
     void localNodeGenerateGenesysChanged();
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
+#ifdef BEAM_USE_GPU
+    void localNodeUseGpuChanged();
+#endif
 
 private:
     QSettings m_data;

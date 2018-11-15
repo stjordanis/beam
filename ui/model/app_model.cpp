@@ -28,6 +28,7 @@ AppModel* AppModel::getInstance()
 
 AppModel::AppModel(WalletSettings& settings)
     : m_settings{settings}
+    , m_restoreWallet{false}
 {
     assert(s_instance == nullptr);
     s_instance = this;
@@ -40,7 +41,7 @@ AppModel::~AppModel()
 
 bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 {
-    m_db = Keychain::init(m_settings.getWalletStorage(), pass, seed.hash());
+    m_db = WalletDB::init(m_settings.getWalletStorage(), pass, seed.hash());
 
     if (m_db)
     {
@@ -59,7 +60,6 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
             defaultAddress.m_own = true;
             defaultAddress.m_label = "default";
             defaultAddress.m_createTime = getTimestamp();
-            defaultAddress.m_duration = numeric_limits<uint64_t>::max();
             keystore->gen_keypair(defaultAddress.m_walletID);
             keystore->save_keypair(defaultAddress.m_walletID, true);
 
@@ -81,7 +81,7 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 
 bool AppModel::openWallet(const beam::SecString& pass)
 {
-    m_db = Keychain::open(m_settings.getWalletStorage(), pass);
+    m_db = WalletDB::open(m_settings.getWalletStorage(), pass);
 
     if (m_db)
     {
@@ -153,17 +153,8 @@ void AppModel::start(IKeyStore::Ptr keystore)
 
 void AppModel::startNode()
 {
-    ECC::NoLeak<ECC::uintBig> seed;
-    bool isSeedValid = m_db->getVar("WalletSeed", seed);
-
-    assert(isSeedValid);
-    if (!isSeedValid)
-    {
-        getMessages().addMessage(QObject::tr("You have no seed for key generation"));
-        return;
-    }
-
-    m_node = make_unique<NodeModel>(seed);
+    m_node = make_unique<NodeModel>();
+	m_node->m_pKdf = m_db->get_Kdf();
     m_node->start();
 }
 
@@ -201,4 +192,14 @@ void AppModel::changeWalletPassword(const std::string& pass)
     m_passwordHash.V = t.hash().V;
 
     m_wallet->async->changeWalletPassword(pass);
+}
+
+void AppModel::setRestoreWallet(bool value)
+{
+    m_restoreWallet = value;
+}
+
+bool AppModel::shouldRestoreWallet() const
+{
+    return m_restoreWallet;
 }

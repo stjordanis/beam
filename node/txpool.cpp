@@ -20,16 +20,23 @@
 
 namespace beam {
 
-void TxPool::Profit::SetSize(const Transaction& tx)
+template <typename Archive, typename TPtr>
+void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
 {
-	SerializerSizeCounter ssc;
-	ssc & tx;
-	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
+	for (uint32_t i = 0; i < v.size(); i++)
+		ar & *v[i];
 }
 
-void TxPool::Profit::SetFee(const Transaction::Context& ctx)
+void TxPool::Profit::SetSize(const Transaction& tx)
 {
-	m_Fee = ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
+	// account only for elements. Ignore offset and array sizes
+	SerializerSizeCounter ssc;
+
+	save_VecPtr(ssc, tx.m_vInputs);
+	save_VecPtr(ssc, tx.m_vOutputs);
+	save_VecPtr(ssc, tx.m_vKernels);
+
+	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
 }
 
 bool TxPool::Profit::operator < (const Profit& t) const
@@ -37,9 +44,13 @@ bool TxPool::Profit::operator < (const Profit& t) const
 	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
 	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
+	uintBigFor<AmountBig>::Type fee0, fee1;
+	m_Fee.Export(fee0);
+	t.m_Fee.Export(fee1);
+
 	return
-		(uintBigFrom(m_Fee) * uintBigFrom(t.m_nSize)) >
-		(uintBigFrom(t.m_Fee) * uintBigFrom(m_nSize));
+		(fee0 * uintBigFrom(t.m_nSize)) >
+		(fee1 * uintBigFrom(m_nSize));
 }
 
 /////////////////////////////
@@ -51,7 +62,7 @@ void TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Con
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
 	p->m_Threshold.m_Value	= ctx.m_Height.m_Max;
-	p->m_Profit.SetFee(ctx);
+	p->m_Profit.m_Fee = ctx.m_Fee;
 	p->m_Profit.SetSize(*p->m_pValue);
 	p->m_Tx.m_Key = key;
 
@@ -99,7 +110,7 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 	assert(trg.m_bAggregating && src.m_bAggregating);
 
 	Transaction txNew;
-	Transaction::Writer wtx(txNew);
+	TxVectors::Writer wtx(txNew, txNew);
 
 	volatile bool bStop = false;
 	wtx.Combine(trg.m_pValue->get_Reader(), src.m_pValue->get_Reader(), bStop);
@@ -115,9 +126,6 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 		return false; // conflicting txs, can't merge
 
 	trg.m_Profit.m_Fee += src.m_Profit.m_Fee;
-	if (trg.m_Profit.m_Fee < src.m_Profit.m_Fee)
-		trg.m_Profit.m_Fee = Amount(-1); // overflow, set max
-
 	trg.m_Profit.SetSize(txNew);
 
 	Delete(src);
@@ -125,8 +133,7 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 
 	trg.m_pValue->m_vInputs.swap(txNew.m_vInputs);
 	trg.m_pValue->m_vOutputs.swap(txNew.m_vOutputs);
-	trg.m_pValue->m_vKernelsInput.swap(txNew.m_vKernelsInput);
-	trg.m_pValue->m_vKernelsOutput.swap(txNew.m_vKernelsOutput);
+	trg.m_pValue->m_vKernels.swap(txNew.m_vKernels);
 	trg.m_pValue->m_Offset = txNew.m_Offset;
 
 	InsertKrn(trg);
@@ -196,12 +203,12 @@ void TxPool::Stem::DeleteTimer(Element& x)
 void TxPool::Stem::InsertKrn(Element& x)
 {
 	const Transaction& tx = *x.m_pValue;
-	x.m_vKrn.resize(tx.m_vKernelsOutput.size());
+	x.m_vKrn.resize(tx.m_vKernels.size());
 
 	for (size_t i = 0; i < x.m_vKrn.size(); i++)
 	{
 		Element::Kernel& n = x.m_vKrn[i];
-		tx.m_vKernelsOutput[i]->get_ID(n.m_hv);
+		tx.m_vKernels[i]->get_ID(n.m_hv);
 		m_setKrns.insert(n);
 		n.m_pThis = &x;
 	}

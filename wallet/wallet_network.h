@@ -52,7 +52,7 @@ namespace beam
 
 
         WalletNetworkIO(io::Address node_address
-                      , IKeyChain::Ptr keychain
+                      , IWalletDB::Ptr walletDB
                       , IKeyStore::Ptr keyStore
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , unsigned reconnect_ms = 1000 // 1 sec
@@ -64,6 +64,8 @@ namespace beam
         void stop();
 
         void add_wallet(const WalletID& walletID);
+        void subscribe(INetworkIOObserver* observer) override;
+        void unsubscribe(INetworkIOObserver* observer) override;
 
     private:
         // INetworkIO
@@ -73,6 +75,7 @@ namespace beam
         void send_node_message(proto::GetProofUtxo&&) override;
         void send_node_message(proto::GetHdr&&) override;
         void send_node_message(proto::GetMined&&) override;
+        void send_node_message(proto::Recover&&) override;
         void send_node_message(proto::GetProofState&&) override;
         void send_node_message(proto::GetProofKernel&&) override;
 
@@ -81,6 +84,9 @@ namespace beam
         //void close_connection(const WalletID& id) override;
         void connect_node() override;
         void close_node_connection() override;
+
+        void notifyNodeConnectedChanged();
+        void notifyNodeDisconnected();
 
         void new_own_address(const WalletID& address) override;
         void address_deleted(const WalletID& address) override;
@@ -102,6 +108,8 @@ namespace beam
         void on_node_disconnected();
 
         void create_node_connection();
+
+        void set_is_node_connected(bool is_node_connected);
 
         template <typename T>
         void send(const WalletID& walletID, MsgType type, T&& msg)
@@ -165,6 +173,7 @@ namespace beam
             bool OnMsg2(proto::ProofKernel&& msg) override;
 			bool OnMsg2(proto::NewTip&& msg) override;
             bool OnMsg2(proto::Mined&& msg) override;
+            bool OnMsg2(proto::Recovered&& msg) override;
             bool OnMsg2(proto::BbsMsg&& msg) override;
 			bool OnMsg2(proto::Authentication&& msg) override;
 		private:
@@ -184,7 +193,7 @@ namespace beam
         WalletID m_walletID;
         io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
-        IKeyChain::Ptr m_keychain;
+        IWalletDB::Ptr m_WalletDB;
 
         std::set<WalletID> m_wallets;
 
@@ -205,5 +214,7 @@ namespace beam
         IKeyStore::Ptr m_keystore;
         std::set<PubKey> m_myPubKeys;
         const WalletID* m_lastReceiver;
+
+        std::vector<INetworkIOObserver*> m_subscribers;
     };
 }

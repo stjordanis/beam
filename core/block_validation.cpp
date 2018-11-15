@@ -80,7 +80,6 @@ namespace beam
 			return false;
 
 		m_Sigma = -m_Sigma;
-		AmountBig feeInp; // dummy var
 
 		assert(m_nVerifiers);
 		uint32_t iV = m_iVerifier;
@@ -100,46 +99,21 @@ namespace beam
 				if (pPrev && (*pPrev > *r.m_pUtxoIn))
 					return false;
 
+				// make sure no redundant outputs
+				for (; r.m_pUtxoOut; r.NextUtxoOut())
+				{
+					int n = CmpInOut(*r.m_pUtxoIn, *r.m_pUtxoOut);
+					if (n < 0)
+						break;
+
+					if (!n)
+						return false; // duplicate!
+				}
+
 				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
 					return false;
 
 				m_Sigma += pt;
-			}
-		}
-
-		for (const TxKernel* pPrev = NULL; r.m_pKernelIn; pPrev = r.m_pKernelIn, r.NextKernelIn())
-		{
-			if (ShouldAbort())
-				return false;
-
-			// locate the corresponding output kernel. Use the fact that kernels are sorted by excess, and then by multiplier
-			// Do it regardless to the milti-verifier logic, to ensure we're not confused (muliple identical inputs, less outputs, and etc.)
-			while (true)
-			{
-				if (!r.m_pKernelOut)
-					return false;
-
-				const TxKernel& vOut = *r.m_pKernelOut;
-				r.NextKernelOut();
-
-				if (vOut.m_Excess > r.m_pKernelIn->m_Excess)
-					return false;
-
-				if (vOut.m_Excess == r.m_pKernelIn->m_Excess)
-				{
-					if (vOut.m_Multiplier <= r.m_pKernelIn->m_Multiplier)
-						return false;
-					break; // ok
-				}
-			}
-
-			if (ShouldVerify(iV))
-			{
-				if (pPrev && (*pPrev > *r.m_pKernelIn))
-					return false;
-
-				if (!r.m_pKernelIn->IsValid(feeInp, m_Sigma))
-					return false;
 			}
 		}
 
@@ -174,20 +148,20 @@ namespace beam
 			}
 		}
 
-		for (const TxKernel* pPrev = NULL; r.m_pKernelOut; pPrev = r.m_pKernelOut, r.NextKernelOut())
+		for (const TxKernel* pPrev = NULL; r.m_pKernel; pPrev = r.m_pKernel, r.NextKernel())
 		{
 			if (ShouldAbort())
 				return false;
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *r.m_pKernelOut))
+				if (pPrev && (*pPrev > *r.m_pKernel))
 					return false;
 
-				if (!r.m_pKernelOut->IsValid(m_Fee, m_Sigma))
+				if (!r.m_pKernel->IsValid(m_Fee, m_Sigma))
 					return false;
 
-				if (!HandleElementHeight(r.m_pKernelOut->m_Height))
+				if (!HandleElementHeight(r.m_pKernel->m_Height))
 					return false;
 			}
 		}

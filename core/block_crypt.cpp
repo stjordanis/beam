@@ -100,21 +100,16 @@ namespace beam
 
 	/////////////
 	// Input
-	int CommitmentAndMaturity::cmp_CaM(const CommitmentAndMaturity& v) const
+	int TxElement::cmp(const TxElement& v) const
 	{
-		CMP_MEMBER_EX(m_Commitment)
 		CMP_MEMBER(m_Maturity)
+		CMP_MEMBER_EX(m_Commitment)
 		return 0;
-	}
-
-	int CommitmentAndMaturity::cmp(const CommitmentAndMaturity& v) const
-	{
-		return cmp_CaM(v);
 	}
 
 	int Input::cmp(const Input& v) const
 	{
-		return cmp_CaM(v);
+		return Cast::Down<TxElement>(*this).cmp(v);
 	}
 
 	/////////////
@@ -149,7 +144,7 @@ namespace beam
 
 	void Output::operator = (const Output& v)
 	{
-		*((CommitmentAndMaturity*) this) = v;
+		Cast::Down<TxElement>(*this) = v;
 		m_Coinbase = v.m_Coinbase;
 		m_Incubation = v.m_Incubation;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
@@ -159,7 +154,7 @@ namespace beam
 	int Output::cmp(const Output& v) const
 	{
 		{
-			int n = cmp_CaM(v);
+			int n = Cast::Down<TxElement>(*this).cmp(v);
 			if (n)
 				return n;
 		}
@@ -172,23 +167,101 @@ namespace beam
 		return 0;
 	}
 
-	void Output::Create(const ECC::Scalar::Native& k, Amount v, bool bPublic /* = false */)
+	void Output::CreateInternal(const ECC::Scalar::Native& sk, Amount v, bool bPublic, Key::IKdf* pKdf, const Key::ID* pKid)
 	{
-		m_Commitment = ECC::Commitment(k, v);
+		m_Commitment = ECC::Commitment(sk, v);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
+
+		ECC::RangeProof::CreatorParams cp;
+		cp.m_Kidv.m_Value = v;
+
+		if (pKdf)
+		{
+			assert(pKid);
+			Cast::Down<Key::ID>(cp.m_Kidv) = *pKid;
+			get_SeedKid(cp.m_Seed.V, *pKdf);
+		}
+		else
+		{
+			ZeroObject(Cast::Down<Key::ID>(cp.m_Kidv));
+			ECC::Hash::Processor() << "outp" << sk << v >> cp.m_Seed.V;
+		}
 
 		if (bPublic)
 		{
 			m_pPublic.reset(new ECC::RangeProof::Public);
 			m_pPublic->m_Value = v;
-			m_pPublic->Create(k, oracle);
-		} else
+			m_pPublic->Create(sk, cp, oracle);
+		}
+		else
 		{
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(k, v, oracle);
+			m_pConfidential->Create(sk, cp, oracle);
 		}
+	}
+
+	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv)
+	{
+		kdf.DeriveKey(sk, kidv);
+		CreateInternal(sk, kidv.m_Value, m_Coinbase, &kdf, &kidv);
+	}
+
+	void Output::Create(const ECC::Scalar::Native& sk, Amount v, bool bPublic /* = false */)
+	{
+		CreateInternal(sk, v, bPublic, NULL, NULL);
+	}
+
+	void Output::get_SeedKid(ECC::uintBig& seed, Key::IPKdf& kdf) const
+	{
+		ECC::Hash::Processor() << m_Commitment >> seed;
+
+		ECC::Scalar::Native sk;
+		kdf.DerivePKey(sk, seed);
+
+		ECC::Hash::Processor() << sk >> seed;
+	}
+
+	bool Output::Recover(Key::IPKdf& kdf, Key::IDV& kidv) const
+	{
+		ECC::RangeProof::CreatorParams cp;
+		get_SeedKid(cp.m_Seed.V, kdf);
+
+		ECC::Oracle oracle;
+		oracle << m_Incubation;
+
+		if (m_pPublic)
+			m_pPublic->Recover(cp);
+		else
+		{
+			if (!(m_pConfidential && m_pConfidential->Recover(oracle, cp)))
+				false;
+		}
+
+		// reconstruct the commitment
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		ECC::Hash::Value hv;
+		cp.m_Kidv.get_Hash(hv);
+
+		ECC::Point::Native comm, comm2;
+		kdf.DerivePKey(comm, hv);
+
+		comm += ECC::Context::get().H * cp.m_Kidv.m_Value;
+
+		if (!comm2.Import(m_Commitment))
+			return false;
+
+		comm = -comm;
+		comm += comm2;
+		
+		if (!(comm == Zero))
+			return false;
+
+		// bingo!
+		kidv = cp.m_Kidv;
+		return true;
 	}
 
 	void HeightAdd(Height& trg, Height val)
@@ -212,9 +285,6 @@ namespace beam
 		if (pParent)
 		{
 			// nested kernel restrictions
-			if (m_Multiplier != pParent->m_Multiplier) // Multipliers must be equal
-				return false; 
-
 			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
 				(m_Height.m_Max < pParent->m_Height.m_Max))
 				return false; // parent Height range must be contained in ours.
@@ -224,8 +294,7 @@ namespace beam
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
-			<< m_Excess
-			<< m_Multiplier
+			<< m_Commitment
 			<< (bool) m_pHashLock;
 
 		if (m_pHashLock)
@@ -238,6 +307,10 @@ namespace beam
 
 			hp << *pLockImage;
 		}
+
+		ECC::Point::Native ptExcNested;
+		if (pExcess)
+			ptExcNested = Zero;
 
 		const TxKernel* p0Krn = NULL;
 		for (auto it = m_vNested.begin(); ; it++)
@@ -253,10 +326,9 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess, this, NULL))
+			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : NULL, this, NULL))
 				return false;
 
-			v.HashToID(hv);
 			hp << hv;
 		}
 
@@ -265,18 +337,13 @@ namespace beam
 		if (pExcess)
 		{
 			ECC::Point::Native pt;
-			if (!pt.Import(m_Excess))
+			if (!pt.Import(m_Commitment))
 				return false;
 
-			if (m_Multiplier)
-			{
-				ECC::Mode::Scope scope(ECC::Mode::Fast);
+			ptExcNested = -ptExcNested;
+			ptExcNested += pt;
 
-				ECC::Point::Native pt2(pt);
-				pt = pt2 * (m_Multiplier + 1);
-			}
-
-			if (!m_Signature.IsValid(hv, pt))
+			if (!m_Signature.IsValid(hv, ptExcNested))
 				return false;
 
 			*pExcess += pt;
@@ -299,23 +366,19 @@ namespace beam
 		return Traverse(hv, &fee, &exc, NULL, NULL);
 	}
 
-	void TxKernel::HashToID(Merkle::Hash& hv) const
-	{
-		// Some kernel hash values are reserved for the system usage
-		if (hv == Zero)
-			hv.Inc();
-	}
-
 	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
 		get_Hash(out, pLockImage);
-		HashToID(out);
 	}
 
 	int TxKernel::cmp(const TxKernel& v) const
 	{
-		CMP_MEMBER_EX(m_Excess)
-		CMP_MEMBER(m_Multiplier)
+		{
+			int n = Cast::Down<TxElement>(*this).cmp(v);
+			if (n)
+				return n;
+		}
+
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
@@ -342,8 +405,7 @@ namespace beam
 
 	void TxKernel::operator = (const TxKernel& v)
 	{
-		m_Excess = v.m_Excess;
-		m_Multiplier = v.m_Multiplier;
+		Cast::Down<TxElement>(*this) = v;
 		m_Signature = v.m_Signature;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
@@ -357,15 +419,6 @@ namespace beam
 
 	/////////////
 	// Transaction
-
-	void TxVectors::Sort()
-	{
-		std::sort(m_vInputs.begin(), m_vInputs.end());
-		std::sort(m_vOutputs.begin(), m_vOutputs.end());
-		std::sort(m_vKernelsInput.begin(), m_vKernelsInput.end());
-		std::sort(m_vKernelsOutput.begin(), m_vKernelsOutput.end());
-	}
-
 	template <class T>
 	void RebuildVectorWithoutNulls(std::vector<T>& v, size_t nDel)
 	{
@@ -378,8 +431,25 @@ namespace beam
 				v.push_back(std::move(vSrc[i]));
 	}
 
-	size_t TxVectors::DeleteIntermediateOutputs()
+	int TxBase::CmpInOut(const Input& in, const Output& out)
 	{
+		if (in.m_Maturity)
+			return Cast::Down<TxElement>(in).cmp(out);
+
+		// if maturity isn't overridden (as in standard txs/blocks) - we consider the commitment and the coinbase flag.
+		// In such a case the maturity parameters (such as explicit incubation) - are ignored. There's just no way to prevent the in/out elimination.
+		int n = in.m_Commitment.cmp(out.m_Commitment);
+		if (n)
+			return n;
+
+		return out.m_Coinbase ? 1 : 0;
+	}
+
+	size_t TxVectors::Perishable::NormalizeP()
+	{
+		std::sort(m_vInputs.begin(), m_vInputs.end());
+		std::sort(m_vOutputs.begin(), m_vOutputs.end());
+
 		size_t nDel = 0;
 
 		size_t i1 = m_vOutputs.size();
@@ -391,7 +461,7 @@ namespace beam
 			{
 				Output::Ptr& pOut = m_vOutputs[i1];
 
-				int n = pInp->cmp_CaM(*pOut);
+				int n = TxBase::CmpInOut(*pInp, *pOut);
 				if (n <= 0)
 				{
 					if (!n)
@@ -414,6 +484,17 @@ namespace beam
 		return nDel;
 	}
 
+	void TxVectors::Ethernal::NormalizeE()
+	{
+		std::sort(m_vKernels.begin(), m_vKernels.end());
+	}
+
+	size_t TxVectors::Full::Normalize()
+	{
+		NormalizeE();
+		return NormalizeP();
+	}
+
 	template <typename T>
 	int CmpPtrVectors(const std::vector<T>& a, const std::vector<T>& b)
 	{
@@ -434,43 +515,11 @@ namespace beam
 				return n; \
 		}
 
-	int Transaction::cmp(const Transaction& v) const
-	{
-		CMP_MEMBER(m_Offset)
-		CMP_MEMBER_VECPTR(m_vInputs)
-		CMP_MEMBER_VECPTR(m_vOutputs)
-		CMP_MEMBER_VECPTR(m_vKernelsInput)
-		CMP_MEMBER_VECPTR(m_vKernelsOutput)
-		return 0;
-	}
-
 	bool Transaction::IsValid(Context& ctx) const
 	{
 		return
 			ctx.ValidateAndSummarize(*this, get_Reader()) &&
 			ctx.IsValidTransaction();
-	}
-
-	template <typename T>
-	void TestNotNull(const std::unique_ptr<T>& p)
-	{
-		if (!p)
-			throw std::runtime_error("invalid NULL ptr");
-	}
-
-	void TxVectors::TestNoNulls() const
-	{
-		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
-			TestNotNull(*it);
-
-		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
-			TestNotNull(*it);
-
-		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
-			TestNotNull(*it);
-
-		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
-			TestNotNull(*it);
 	}
 
 	void Transaction::get_Key(KeyType& key) const
@@ -487,8 +536,8 @@ namespace beam
 			for (size_t i = 0; i < m_vOutputs.size(); i++)
 				key ^= m_vOutputs[i]->m_Commitment.m_X;
 
-			for (size_t i = 0; i < m_vKernelsOutput.size(); i++)
-				key ^= m_vKernelsOutput[i]->m_Excess.m_X;
+			for (size_t i = 0; i < m_vKernels.size(); i++)
+				key ^= m_vKernels[i]->m_Commitment.m_X;
 		}
 		else
 			key = m_Offset.m_Value;
@@ -531,64 +580,52 @@ namespace beam
 
 		COMPARE_TYPE(m_pUtxoIn, NextUtxoIn)
 		COMPARE_TYPE(m_pUtxoOut, NextUtxoOut)
-		COMPARE_TYPE(m_pKernelIn, NextKernelIn)
-		COMPARE_TYPE(m_pKernelOut, NextKernelOut)
+		COMPARE_TYPE(m_pKernel, NextKernel)
 	}
 
 
 	void TxVectors::Reader::Clone(Ptr& pOut)
 	{
-		pOut.reset(new Reader(m_Txv));
+		pOut.reset(new Reader(m_P, m_E));
 	}
 
 	void TxVectors::Reader::Reset()
 	{
 		ZeroObject(m_pIdx);
 
-		m_pUtxoIn = get_FromVector(m_Txv.m_vInputs, 0);
-		m_pUtxoOut = get_FromVector(m_Txv.m_vOutputs, 0);
-		m_pKernelIn = get_FromVector(m_Txv.m_vKernelsInput, 0);
-		m_pKernelOut = get_FromVector(m_Txv.m_vKernelsOutput, 0);
+		m_pUtxoIn = get_FromVector(m_P.m_vInputs, 0);
+		m_pUtxoOut = get_FromVector(m_P.m_vOutputs, 0);
+		m_pKernel = get_FromVector(m_E.m_vKernels, 0);
 	}
 
 	void TxVectors::Reader::NextUtxoIn()
 	{
-		m_pUtxoIn = get_FromVector(m_Txv.m_vInputs, ++m_pIdx[0]);
+		m_pUtxoIn = get_FromVector(m_P.m_vInputs, ++m_pIdx[0]);
 	}
 
 	void TxVectors::Reader::NextUtxoOut()
 	{
-		m_pUtxoOut = get_FromVector(m_Txv.m_vOutputs, ++m_pIdx[1]);
+		m_pUtxoOut = get_FromVector(m_P.m_vOutputs, ++m_pIdx[1]);
 	}
 
-	void TxVectors::Reader::NextKernelIn()
+	void TxVectors::Reader::NextKernel()
 	{
-		m_pKernelIn = get_FromVector(m_Txv.m_vKernelsInput, ++m_pIdx[2]);
+		m_pKernel = get_FromVector(m_E.m_vKernels, ++m_pIdx[2]);
 	}
 
-	void TxVectors::Reader::NextKernelOut()
+	void TxVectors::Writer::Write(const Input& v)
 	{
-		m_pKernelOut = get_FromVector(m_Txv.m_vKernelsOutput, ++m_pIdx[3]);
+		PushVectorPtr(m_P.m_vInputs, v);
 	}
 
-	void TxVectors::Writer::WriteIn(const Input& v)
+	void TxVectors::Writer::Write(const Output& v)
 	{
-		PushVectorPtr(m_Txv.m_vInputs, v);
+		PushVectorPtr(m_P.m_vOutputs, v);
 	}
 
-	void TxVectors::Writer::WriteOut(const Output& v)
+	void TxVectors::Writer::Write(const TxKernel& v)
 	{
-		PushVectorPtr(m_Txv.m_vOutputs, v);
-	}
-
-	void TxVectors::Writer::WriteIn(const TxKernel& v)
-	{
-		PushVectorPtr(m_Txv.m_vKernelsInput, v);
-	}
-
-	void TxVectors::Writer::WriteOut(const TxKernel& v)
-	{
-		PushVectorPtr(m_Txv.m_vKernelsOutput, v);
+		PushVectorPtr(m_E.m_vKernels, v);
 	}
 
 	/////////////
@@ -678,7 +715,10 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(6) // increment this whenever we change something in the protocol
+			<< uint32_t(10) // increment this whenever we change something in the protocol
+#ifndef BEAM_TESTNET
+            << "masternet"
+#endif
 			// out
 			>> Checksum;
 	}
@@ -687,8 +727,35 @@ namespace beam
 	int Block::SystemState::ID::cmp(const ID& v) const
 	{
 		CMP_MEMBER(m_Height)
-		CMP_MEMBER(m_Hash)
+		CMP_MEMBER_EX(m_Hash)
 		return 0;
+	}
+
+	int Block::SystemState::Full::cmp(const Full& v) const
+	{
+		CMP_MEMBER(m_Height)
+		CMP_MEMBER_EX(m_Kernels)
+		CMP_MEMBER_EX(m_Definition)
+		CMP_MEMBER_EX(m_Prev)
+		CMP_MEMBER_EX(m_ChainWork)
+		CMP_MEMBER(m_TimeStamp)
+		CMP_MEMBER(m_PoW.m_Difficulty.m_Packed)
+		CMP_MEMBER_EX(m_PoW.m_Nonce)
+		CMP_MEMBER(m_PoW.m_Indices)
+		return 0;
+	}
+
+	bool Block::SystemState::Full::IsNext(const Full& sNext) const
+	{
+		if (m_Height + 1 != sNext.m_Height)
+			return false;
+
+		if (!m_Height)
+			return sNext.m_Prev == Zero;
+
+		Merkle::Hash hv;
+		get_Hash(hv);
+		return sNext.m_Prev == hv;
 	}
 
 	void Block::SystemState::Full::NextPrefix()
@@ -705,14 +772,16 @@ namespace beam
 			<< m_Height
 			<< m_Prev
 			<< m_ChainWork
+			<< m_Kernels
 			<< m_Definition
 			<< m_TimeStamp
 			<< m_PoW.m_Difficulty.m_Packed;
 
 		if (bTotal)
 		{
-			hp.Write(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices));
-			hp << m_PoW.m_Nonce;
+			hp
+				<< Blob(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices))
+				<< m_PoW.m_Nonce;
 		}
 
 		hp >> out;
@@ -754,43 +823,60 @@ namespace beam
 		return m_PoW.IsValid(hv.m_pData, hv.nBytes);
 	}
 
-	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
+#if defined(BEAM_USE_GPU)
+    bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel, bool useGpu)
+#else
+    bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
+#endif
 	{
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
-		return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
+
+#if defined(BEAM_USE_GPU)
+        if (useGpu)
+            return m_PoW.SolveGPU(hv.m_pData, hv.nBytes, fnCancel);
+#endif
+        return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const Input& inp, const Input::Proof& p) const
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
 	{
-		// verify known part. Last node should be at left, earlier should be at right
-		size_t n = p.m_Proof.size();
-		if ((n < 2) ||
-			p.m_Proof[n - 1].first ||
-			!p.m_Proof[n - 2].first)
+		// verify known part. Last node (history) should be at left
+		if (p.m_Proof.empty() || p.m_Proof.back().first)
 			return false;
 
 		Merkle::Hash hv;
-		p.m_State.get_ID(hv, inp);
+		p.m_State.get_ID(hv, comm);
 
 		Merkle::Interpret(hv, p.m_Proof);
 		return hv == m_Definition;
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofKernel(const TxKernel& krn, const Merkle::Proof& proof) const
+	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
 	{
-		// verify known part. Last node should be at left, earlier should be at left
-		size_t n = proof.size();
-		if ((n < 2) ||
-			proof[n - 1].first ||
-			proof[n - 2].first)
-			return false;
-
 		Merkle::Hash hv;
 		krn.get_ID(hv);
+		return IsValidProofKernel(hv, proof);
+	}
 
-		Merkle::Interpret(hv, proof);
-		return hv == m_Definition;
+	bool Block::SystemState::Full::IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof& proof) const
+	{
+		if (!proof.m_State.IsValid())
+			return false;
+
+		Merkle::Hash hv = hvID;
+		Merkle::Interpret(hv, proof.m_Inner);
+		if (hv != proof.m_State.m_Kernels)
+			return false;
+
+		if (proof.m_State == *this)
+			return true;
+		if (proof.m_State.m_Height > m_Height)
+			return false;
+
+		ID id;
+		proof.m_State.get_ID(id);
+		return IsValidProofState(id, proof.m_Outer);
 	}
 
 	bool Block::SystemState::Full::IsValidProofState(const ID& id, const Merkle::HardProof& proof) const
@@ -878,11 +964,6 @@ namespace beam
 			ctx.ValidateAndSummarize(*this, std::move(r)) &&
 			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
-
-    void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)
-    {
-        kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
-    }
 
 	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height h /* = 0 */, uint32_t nIdx /* = 0 */)
 	{

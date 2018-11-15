@@ -24,6 +24,8 @@ namespace beam
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
 
+	using ECC::Key;
+
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
@@ -104,18 +106,6 @@ namespace beam
 		void AddTo(ECC::Point::Native&) const;
 	};
 
-	struct CommitmentAndMaturity
-	{
-		ECC::Point m_Commitment;
-		Height m_Maturity;
-
-		CommitmentAndMaturity() :m_Maturity(0) {}
-
-		int cmp_CaM(const CommitmentAndMaturity&) const;
-		int cmp(const CommitmentAndMaturity&) const;
-		COMPARISON_VIA_CMP
-	};
-
 	struct Rules
 	{
 		static Rules& get();
@@ -135,7 +125,7 @@ namespace beam
 		uint32_t MaxDifficultyChange		= 2; // (x4, same as in bitcoin).
 		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
-		Difficulty StartDifficulty			= Difficulty(7 << Difficulty::s_MantissaBits); // fair start for a testnet
+		Difficulty StartDifficulty			= Difficulty(2 << Difficulty::s_MantissaBits); // FAST start, good for QA
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
@@ -148,8 +138,19 @@ namespace beam
 		void AdjustDifficulty(Difficulty&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const;
 	};
 
+	struct TxElement
+	{
+		ECC::Point m_Commitment;
+		Height m_Maturity; // Used in macroblocks only.
+
+		TxElement() :m_Maturity(0) {}
+
+		int cmp(const TxElement&) const;
+		COMPARISON_VIA_CMP
+	};
+
 	struct Input
-		:public CommitmentAndMaturity
+		:public TxElement
 	{
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
@@ -159,7 +160,7 @@ namespace beam
 			Height m_Maturity;
 			Input::Count m_Count;
 
-			void get_ID(Merkle::Hash&, const Input&) const;
+			void get_ID(Merkle::Hash&, const ECC::Point&) const;
 
 			template <typename Archive>
 			void serialize(Archive& ar)
@@ -193,7 +194,7 @@ namespace beam
 	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
 
 	struct Output
-		:public CommitmentAndMaturity
+		:public TxElement
 	{
 		typedef std::unique_ptr<Output> Ptr;
 
@@ -213,32 +214,35 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
+		void Create(ECC::Scalar::Native&, Key::IKdf&, const Key::IDV&);
+
+		bool Recover(Key::IPKdf&, Key::IDV&) const;
+
 		bool IsValid(ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
 		void operator = (const Output&);
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP
+
+	private:
+		void CreateInternal(const ECC::Scalar::Native&, Amount, bool bPublic, Key::IKdf*, const Key::ID*);
+		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
 
 	struct TxKernel
+		:public TxElement
 	{
 		typedef std::unique_ptr<TxKernel> Ptr;
 
 		// Mandatory
-		ECC::Point		m_Excess;
 		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
-		uint64_t		m_Multiplier;
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
 
-		TxKernel()
-			:m_Multiplier(0) // 0-based, 
-			,m_Fee(0)
-		{
-		}
+		TxKernel() :m_Fee(0) {}
 
 		struct HashLock
 		{
@@ -256,10 +260,12 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Excess and m_Multiplier (i.e. the public key)
+		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
+
+		struct LongProof; // legacy
 
 		void operator = (const TxKernel&);
 		int cmp(const TxKernel&) const;
@@ -267,7 +273,6 @@ namespace beam
 
 	private:
 		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
-		void HashToID(Merkle::Hash& hv) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -275,6 +280,7 @@ namespace beam
 	struct TxBase
 	{
 		class Context;
+		static int CmpInOut(const Input&, const Output&);
 
 		struct IReader
 		{
@@ -283,26 +289,23 @@ namespace beam
 			// during iterations those pointers are guaranteed to be valid during at least 1 consequent iteration
 			const Input* m_pUtxoIn;
 			const Output* m_pUtxoOut;
-			const TxKernel* m_pKernelIn;
-			const TxKernel* m_pKernelOut;
+			const TxKernel* m_pKernel;
 
 			virtual void Clone(Ptr&) = 0;
 			virtual void Reset() = 0;
 			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
 			virtual void NextUtxoIn() = 0;
 			virtual void NextUtxoOut() = 0;
-			virtual void NextKernelIn() = 0;
-			virtual void NextKernelOut() = 0;
+			virtual void NextKernel() = 0;
 
 			void Compare(IReader&& rOther, bool& bICover, bool& bOtherCovers);
 		};
 
 		struct IWriter
 		{
-			virtual void WriteIn(const Input&) = 0;
-			virtual void WriteIn(const TxKernel&) = 0;
-			virtual void WriteOut(const Output&) = 0;
-			virtual void WriteOut(const TxKernel&) = 0;
+			virtual void Write(const Input&) = 0;
+			virtual void Write(const Output&) = 0;
+			virtual void Write(const TxKernel&) = 0;
 
 			void Dump(IReader&&);
 			bool Combine(IReader** ppR, int nR, const volatile bool& bStop); // combine consequent blocks, merge-sort and delete consumed outputs
@@ -316,54 +319,61 @@ namespace beam
 
 	struct TxVectors
 	{
-		std::vector<Input::Ptr> m_vInputs;
-		std::vector<Output::Ptr> m_vOutputs;
-		std::vector<TxKernel::Ptr> m_vKernelsInput;
-		std::vector<TxKernel::Ptr> m_vKernelsOutput;
+		struct Perishable
+		{
+			std::vector<Input::Ptr> m_vInputs;
+			std::vector<Output::Ptr> m_vOutputs;
+			size_t NormalizeP(); // w.r.t. the standard, delete spent outputs. Returns the num deleted
+		};
 
-		void Sort(); // w.r.t. the standard
-		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
-
-		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
+		struct Ethernal
+		{
+			std::vector<TxKernel::Ptr> m_vKernels;
+			void NormalizeE();
+		};
 
 		class Reader :public TxBase::IReader {
-			size_t m_pIdx[4];
+			size_t m_pIdx[3];
 		public:
-			const TxVectors& m_Txv;
-			Reader(const TxVectors& txv) :m_Txv(txv) {}
+			const Perishable& m_P;
+			const Ethernal& m_E;
+			Reader(const Perishable& p, const Ethernal& e) :m_P(p) ,m_E(e) {}
 			// IReader
 			virtual void Clone(Ptr&) override;
 			virtual void Reset() override;
 			virtual void NextUtxoIn() override;
 			virtual void NextUtxoOut() override;
-			virtual void NextKernelIn() override;
-			virtual void NextKernelOut() override;
+			virtual void NextKernel() override;
 		};
-
-		Reader get_Reader() const {
-			return Reader(*this);
-		}
 
 		struct Writer :public TxBase::IWriter
 		{
-			TxVectors& m_Txv;
-			Writer(TxVectors& txv) :m_Txv(txv) {}
+			Perishable& m_P;
+			Ethernal& m_E;
+			Writer(Perishable& p, Ethernal& e) :m_P(p), m_E(e) {}
 
-			virtual void WriteIn(const Input&) override;
-			virtual void WriteIn(const TxKernel&) override;
-			virtual void WriteOut(const Output&) override;
-			virtual void WriteOut(const TxKernel&) override;
+			virtual void Write(const Input&) override;
+			virtual void Write(const Output&) override;
+			virtual void Write(const TxKernel&) override;
+		};
+
+		struct Full
+			:public TxVectors::Perishable
+			,public TxVectors::Ethernal
+		{
+			Reader get_Reader() const {
+				return Reader(*this, *this);
+			}
+
+			size_t Normalize();
 		};
 	};
 
 	struct Transaction
 		:public TxBase
-		,public TxVectors
+		,public TxVectors::Full
 	{
 		typedef std::shared_ptr<Transaction> Ptr;
-
-		int cmp(const Transaction&) const;
-		COMPARISON_VIA_CMP
 
 		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 
@@ -383,7 +393,7 @@ namespace beam
 			// equihash parameters. 
 			// Parameters recommended by BTG are 144/5, to make it asic-resistant (~1GB average, spikes about 1.5GB). On CPU solve time about 1 minutes
 			// The following are the parameters for testnet, to make it of similar size, and much faster solve time, to test concurrency and difficulty adjustment
-			static const uint32_t N = 120;
+			static const uint32_t N = 144;
 			static const uint32_t K = 5;
 
 			static const uint32_t nNumIndices		= 1 << K; // 32
@@ -406,6 +416,10 @@ namespace beam
 			// Difficulty and Nonce must be initialized. During the solution it's incremented each time by 1.
 			// returns false only if cancelled
 			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
+
+#if defined (BEAM_USE_GPU)
+            bool SolveGPU(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
+#endif
 
 		private:
 			struct Helper;
@@ -431,13 +445,13 @@ namespace beam
 
 				struct Element
 				{
-					Merkle::Hash	m_Definition; // Defined as Hash[ History | Hash[Utxos | Kernels] ]
+					Merkle::Hash	m_Kernels; // of this block only
+					Merkle::Hash	m_Definition; // Defined as Hash[ History | Utxos ]
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
 
 					// The following not only interprets the proof, but also verifies the knwon part of its structure.
-					bool IsValidProofUtxo(const Input&, const Input::Proof&) const;
-					bool IsValidProofKernel(const TxKernel&, const Merkle::Proof&) const;
+					bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
 				};
 			};
 
@@ -454,10 +468,23 @@ namespace beam
 
 				bool IsSane() const;
 				bool IsValidPoW() const;
-				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
+				bool IsValid() const { return IsSane() && IsValidPoW(); }
+#if defined(BEAM_USE_GPU)
+                bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; }, bool useGpu = false);
+#else
+                bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
+#endif
 
 				// the most robust proof verification - verifies the whole proof structure
 				bool IsValidProofState(const ID&, const Merkle::HardProof&) const;
+
+				bool IsValidProofKernel(const TxKernel&, const TxKernel::LongProof&) const;
+				bool IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof&) const;
+
+				int cmp(const Full&) const;
+				COMPARISON_VIA_CMP
+
+				bool IsNext(const Full& sNext) const;
 
 			private:
 				void get_HashInternal(Merkle::Hash&, bool bTotal) const;
@@ -508,7 +535,7 @@ namespace beam
 
 		struct Body
 			:public BodyBase
-			,public TxVectors
+			,public TxVectors::Full
 		{
 			bool IsValid(const HeightRange& hr, bool bSubsidyOpen) const
 			{
@@ -519,21 +546,27 @@ namespace beam
 		struct ChainWorkProof;
 	};
 
-	enum struct KeyType
+	struct TxKernel::LongProof
 	{
-		Comission,
-		Coinbase,
-		Kernel,
-		Regular,
-		Identity,
-		SChannelNonce
+		Merkle::Proof m_Inner;
+		Block::SystemState::Full m_State;
+		Merkle::HardProof m_Outer;
+
+		bool empty() const { return !m_State.m_Height; }
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_Inner
+				& m_State
+				& m_Outer;
+		}
 	};
-	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType, uint32_t nIdx = 0);
+
 	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height = 0, uint32_t nIdx = 0);
 
 	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
-
-
 
 
 	class TxBase::Context
@@ -550,14 +583,14 @@ namespace beam
 		//
 		// Validation formula
 		//
-		// Sum(Input UTXOs) + Sum(Input Kernels.Excess) = Sum(Output UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
+		// Sum(Input UTXOs) = Sum(Output UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
 		//
 		// For transaction validation fees are considered as implicit outputs (i.e. Sum(Fee)*H should be added for the right equation side)
 		//
 		// For a block validation Fees are not accounted for, since they are consumed by new outputs injected by the miner.
 		// However Each block contains extra outputs (coinbase) for block closure, which should be subtracted from the outputs for sum validation.
 		//
-		// Define: Sigma = Sum(Output UTXOs) - Sum(Input UTXOs) + Sum(Output Kernels.Excess) - Sum(Input Kernels.Excess) + m_Offset*G
+		// Define: Sigma = Sum(Output UTXOs) - Sum(Input UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G
 		// In other words Sigma = <all outputs> - <all inputs>
 		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
 
@@ -599,8 +632,8 @@ namespace beam
 		macro(hd) \
 		macro(ui) \
 		macro(uo) \
-		macro(ki) \
-		macro(ko)
+		macro(ko) \
+		macro(kx)
 
 		struct Type
 		{
@@ -620,14 +653,21 @@ namespace beam
 
 		Input::Ptr m_pGuardUtxoIn[2];
 		Output::Ptr m_pGuardUtxoOut[2];
-		TxKernel::Ptr m_pGuardKernelIn[2];
-		TxKernel::Ptr m_pGuardKernelOut[2];
+		TxKernel::Ptr m_pGuardKernel[2];
+
+		Height m_pMaturity[Type::count]; // some are used as maturity, some have different meaning.
+		// Those are aliases, used in read mode
+		uint64_t& m_KrnSizeTotal() { return m_pMaturity[Type::hd]; }
+		uint64_t& m_KrnThresholdPos() { return m_pMaturity[Type::kx]; }
 
 		template <typename T>
 		void LoadInternal(const T*& pPtr, int, typename T::Ptr* ppGuard);
+		bool LoadMaturity(int);
+		void NextKernelThreshold();
 
 		template <typename T>
 		void WriteInternal(const T&, int);
+		void WriteMaturity(const TxElement&, int);
 
 		bool OpenInternal(int iData);
 		void PostOpen(int iData);
@@ -653,21 +693,21 @@ namespace beam
 		void Close();
 		void Delete(); // must be closed
 
+		void NextKernelFF(Height hMin);
+
 		// IReader
 		virtual void Clone(Ptr&) override;
 		virtual void Reset() override;
 		virtual void NextUtxoIn() override;
 		virtual void NextUtxoOut() override;
-		virtual void NextKernelIn() override;
-		virtual void NextKernelOut() override;
+		virtual void NextKernel() override;
 		// IMacroReader
 		virtual void get_Start(BodyBase&, SystemState::Sequence::Prefix&) override;
 		virtual bool get_NextHdr(SystemState::Sequence::Element&) override;
 		// IWriter
-		virtual void WriteIn(const Input&) override;
-		virtual void WriteIn(const TxKernel&) override;
-		virtual void WriteOut(const Output&) override;
-		virtual void WriteOut(const TxKernel&) override;
+		virtual void Write(const Input&) override;
+		virtual void Write(const Output&) override;
+		virtual void Write(const TxKernel&) override;
 		// IMacroWriter
 		virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&) override;
 		virtual void put_NextHdr(const SystemState::Sequence::Element&) override;
@@ -702,7 +742,7 @@ namespace beam
 
 		void Reset();
 		void Create(ISource&, const SystemState::Full& sRoot);
-		bool IsValid(Block::SystemState::Full* pTip = NULL) const;
+		bool IsValid(SystemState::Full* pTip = NULL) const;
 		bool Crop(); // according to current bound
 		bool Crop(const ChainWorkProof& src);
 		bool IsEmpty() const { return m_Heading.m_vElements.empty(); }
@@ -721,8 +761,35 @@ namespace beam
 
 	private:
 		struct Sampler;
-		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, Block::SystemState::Full* pTip) const;
+		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, SystemState::Full* pTip) const;
 		void ZeroInit();
 	};
 
+	struct KeyString
+	{
+		std::string m_sRes;
+		std::string m_sMeta;
+		ECC::NoLeak<Merkle::Hash> m_hvSecret;
+
+		void Export(const ECC::HKdf&);
+		void Export(const ECC::HKdfPub&);
+		bool Import(ECC::HKdf&);
+		bool Import(ECC::HKdfPub&);
+
+	private:
+		typedef uintBig_t<64> MacValue;
+		void XCrypt(MacValue&, uint32_t nSize, bool bEnc) const;
+
+		void Export(void*, uint32_t, uint8_t nCode);
+		bool Import(void*, uint32_t, uint8_t nCode);
+	};
+
+#pragma pack (push, 1)
+	struct UtxoEvent
+	{
+		uintBigFor<uint32_t>::Type m_KdfIdx;
+		uint8_t m_Added; // added or deleted
+		ECC::Key::IDV::Packed m_Kidv;
+	};
+#pragma pack (pop)
 }

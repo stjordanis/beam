@@ -337,9 +337,9 @@ namespace
 			_startCV = make_shared<condition_variable>();
 		}
 
-		void start(const string& nodeAddr, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
+		void start(const string& nodeAddr, IWalletDB::Ptr WalletDB, IKeyStore::Ptr keystore)
 		{
-			_thread = make_shared<thread>(&WalletModel::run, this, nodeAddr, keychain, keystore);
+			_thread = make_shared<thread>(&WalletModel::run, this, nodeAddr, WalletDB, keystore);
 
 			{
 				unique_lock<mutex> lock(*_startMutex);
@@ -347,9 +347,9 @@ namespace
 			}
 		}
 
-		void run(const string& nodeURI, IKeyChain::Ptr keychain, IKeyStore::Ptr keystore)
+		void run(const string& nodeURI, IWalletDB::Ptr WalletDB, IKeyStore::Ptr keystore)
 		{
-			_keychain = keychain;
+			_WalletDB = WalletDB;
 			_keystore = keystore;
 
 			Android_JNI_getEnv();
@@ -369,9 +369,9 @@ namespace
 				return;
 			}
 
-			auto wallet_io = make_shared<WalletNetworkIO>(node_addr, keychain, keystore, reactor);
+			auto wallet_io = make_shared<WalletNetworkIO>(node_addr, WalletDB, keystore, reactor);
 
-			Wallet wallet{ keychain, wallet_io};
+			Wallet wallet{ WalletDB, wallet_io};
 
 			async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *reactor);
 
@@ -398,9 +398,9 @@ namespace
 			LOG_DEBUG() << "getWalletStatus()";
 			onStatus(getStatus());
 
-			onTxStatus(beam::ChangeAction::Reset, _keychain->getTxHistory());
-			onTxPeerUpdated(_keychain->getPeers());
-			onAdrresses(false, _keychain->getAddresses(false));
+			onTxStatus(beam::ChangeAction::Reset, _WalletDB->getTxHistory());
+			onTxPeerUpdated(_WalletDB->getPeers());
+			onAdrresses(false, _WalletDB->getAddresses(false));
 		}
 
 		void getUtxosStatus() override 
@@ -583,7 +583,7 @@ namespace
 		///////////////////////////////////////////////
 		// IWalletObserver impl
 		///////////////////////////////////////////////
-		void onKeychainChanged() override 
+		void onCoinsChanged() override
 		{
 			onAllUtxoChanged(getUtxos());
 			onStatus(getStatus());
@@ -602,13 +602,13 @@ namespace
 
 		void onTxPeerChanged() override
 		{
-			onTxPeerUpdated(_keychain->getPeers());
+			onTxPeerUpdated(_WalletDB->getPeers());
 		}
 
 		void onAddressChanged() override
 		{
-			onAdrresses(true, _keychain->getAddresses(true));
-    		onAdrresses(false, _keychain->getAddresses(false));
+			onAdrresses(true, _WalletDB->getAddresses(true));
+    		onAdrresses(false, _WalletDB->getAddresses(false));
 		}
 
 		void onSyncProgress(int done, int total) override
@@ -616,11 +616,16 @@ namespace
 			onSyncProgressUpdated(done, total);
 		}
 
+        void onRecoverProgress(int done, int total, const std::string& message) override
+        {
+            
+        }
+
 		WalletStatus getStatus() const
 		{
-			WalletStatus status{ wallet::getAvailable(_keychain), 0, 0, 0};
+			WalletStatus status{ wallet::getAvailable(_WalletDB), 0, 0, 0};
 
-			auto history = _keychain->getTxHistory();
+			auto history = _WalletDB->getTxHistory();
 
 			for (const auto& item : history)
 			{
@@ -633,11 +638,11 @@ namespace
 			   }
 			}
 
-			status.unconfirmed += wallet::getTotal(_keychain, Coin::Unconfirmed);
+			status.unconfirmed += wallet::getTotal(_WalletDB, Coin::Unconfirmed);
 
-			status.update.lastTime = _keychain->getLastUpdateTime();
+			status.update.lastTime = _WalletDB->getLastUpdateTime();
 			ZeroObject(status.stateID);
-			_keychain->getSystemStateID(status.stateID);
+			_WalletDB->getSystemStateID(status.stateID);
 
 			return status;
 		}
@@ -645,7 +650,7 @@ namespace
 		vector<Coin> getUtxos() const
 		{
 			vector<Coin> utxos;
-			_keychain->visit([&utxos](const Coin& c)->bool
+			_WalletDB->visit([&utxos](const Coin& c)->bool
 			{
 				utxos.push_back(c);
 				return true;
@@ -659,7 +664,7 @@ namespace
 
 		shared_ptr<thread> _thread;
 
-		IKeyChain::Ptr _keychain;
+		IWalletDB::Ptr _WalletDB;
 		IKeyStore::Ptr _keystore;
 
 		shared_ptr<mutex> _startMutex;
@@ -710,7 +715,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
 	auto pass = JString(env, passStr).value();
 
-	auto wallet = Keychain::init(
+	auto wallet = WalletDB::init(
 		appData + "/" WALLET_FILENAME,
 		pass,
 		SecString(JString(env, seed).value()).hash());
@@ -753,7 +758,7 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletInitialized)(JNIEnv *
 {
 	LOG_DEBUG() << "checking if wallet exists...";
 
-	return Keychain::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
+	return WalletDB::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobject thiz, 
@@ -766,7 +771,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 	LOG_DEBUG() << "opening wallet...";
 
 	string pass = JString(env, passStr).value();
-	auto wallet = Keychain::open(appData + "/" WALLET_FILENAME, pass);
+	auto wallet = WalletDB::open(appData + "/" WALLET_FILENAME, pass);
 
 	if(wallet)
 	{

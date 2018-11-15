@@ -20,6 +20,8 @@ target_link_libraries(wallet core p2p sqlite)
 
 add_executable(${TARGET_NAME} cli.cpp)
 
+target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external)
+
 if(LINUX)
 	target_link_libraries(${TARGET_NAME} -static-libstdc++ -static-libgcc)
 endif()

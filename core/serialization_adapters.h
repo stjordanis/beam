@@ -97,7 +97,7 @@ namespace detail
 		static const uint32_t N_Max = (N + 7) & ~7;
 		uint8_t m_pF[N_Max >> 3];
 
-		void get(uint32_t i, bool& b) const
+		void get(uint32_t i, uint8_t& b) const
 		{
 			assert(i < N_Max);
 			uint8_t x = m_pF[i >> 3];
@@ -105,7 +105,7 @@ namespace detail
 
 			b = (0 != (x & msk));
 		}
-		void set(uint32_t i, bool b)
+		void set(uint32_t i, uint8_t b)
 		{
 			// assume flags are zero-initialized
 			if (b)
@@ -114,8 +114,7 @@ namespace detail
 				uint8_t& x = m_pF[i >> 3];
 				uint8_t msk = 1 << (i & 7);
 
-				if (b)
-					x |= msk;
+				x |= msk;
 			}
 		}
 
@@ -196,6 +195,31 @@ namespace detail
 
             return ar;
         }
+
+		/// ECC::Key::IDV serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::Key::IDV& kidv)
+		{
+			ar
+				& kidv.m_Idx
+				& kidv.m_IdxSecondary
+				& kidv.m_Type
+				& kidv.m_Value;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::Key::IDV& kidv)
+		{
+			ar
+				& kidv.m_Idx
+				& kidv.m_IdxSecondary
+				& kidv.m_Type
+				& kidv.m_Value;
+
+			return ar;
+		}
 
         /// ECC::Signature serialization
         template<typename Archive>
@@ -333,6 +357,9 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
+				& val.m_Kid.m_Idx
+				& val.m_Kid.m_Idx2
+				& val.m_Kid.m_Type
             ;
 
             return ar;
@@ -344,6 +371,9 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
+				& val.m_Kid.m_Idx
+				& val.m_Kid.m_Idx2
+				& val.m_Kid.m_Type
             ;
 
             return ar;
@@ -358,15 +388,11 @@ namespace detail
         static Archive& save(Archive& ar, const beam::Input& input)
         {
 			uint8_t nFlags =
-				(input.m_Commitment.m_Y ? 1 : 0) |
-				(input.m_Maturity ? 0x2 : 0);
+				(input.m_Commitment.m_Y ? 1 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
-
-			if (input.m_Maturity)
-				ar & input.m_Maturity;
 
             return ar;
         }
@@ -379,10 +405,7 @@ namespace detail
 				& nFlags
 				& input.m_Commitment.m_X;
 
-			input.m_Commitment.m_Y = 0 != (1 & nFlags);
-
-			if (0x2 & nFlags)
-				ar & input.m_Maturity;
+			input.m_Commitment.m_Y = (1 & nFlags);
 
             return ar;
         }
@@ -396,8 +419,7 @@ namespace detail
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
-				(output.m_Incubation ? 0x10 : 0) |
-				(output.m_Maturity ? 0x20 : 0);
+				(output.m_Incubation ? 0x10 : 0);
 
 			ar
 				& nFlags
@@ -412,9 +434,6 @@ namespace detail
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
 
-			if (output.m_Maturity)
-				ar & output.m_Maturity;
-
             return ar;
         }
 
@@ -426,7 +445,7 @@ namespace detail
 				& nFlags
 				& output.m_Commitment.m_X;
 
-			output.m_Commitment.m_Y = 0 != (1 & nFlags);
+			output.m_Commitment.m_Y = (1 & nFlags);
 			output.m_Coinbase = 0 != (2 & nFlags);
 
 			if (4 & nFlags)
@@ -443,9 +462,6 @@ namespace detail
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
-
-			if (0x20 & nFlags)
-				ar & output.m_Maturity;
 
             return ar;
         }
@@ -476,7 +492,7 @@ namespace detail
         static Archive& save(Archive& ar, const beam::TxKernel& val)
         {
 			uint8_t nFlags =
-				(val.m_Multiplier ? 1 : 0) |
+				(val.m_Commitment.m_Y ? 1 : 0) |
 				(val.m_Fee ? 2 : 0) |
 				(val.m_Height.m_Min ? 4 : 0) |
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
@@ -486,18 +502,19 @@ namespace detail
 
 			ar
 				& nFlags
-				& val.m_Excess
+				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
 
-			if (1 & nFlags)
-				ar & val.m_Multiplier;
 			if (2 & nFlags)
 				ar & val.m_Fee;
 			if (4 & nFlags)
 				ar & val.m_Height.m_Min;
 			if (8 & nFlags)
-				ar & val.m_Height.m_Max;
+			{
+				beam::Height dh = val.m_Height.m_Max - val.m_Height.m_Min;
+				ar & dh;
+			}
 			if (0x20 & nFlags)
 				ar & *val.m_pHashLock;
 
@@ -519,14 +536,11 @@ namespace detail
 			uint8_t nFlags;
 			ar
 				& nFlags
-				& val.m_Excess
+				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
 
-			if (1 & nFlags)
-				ar & val.m_Multiplier;
-			else
-				val.m_Multiplier = 0;
+			val.m_Commitment.m_Y = (1 & nFlags);
 
 			if (2 & nFlags)
 				ar & val.m_Fee;
@@ -539,7 +553,11 @@ namespace detail
 				val.m_Height.m_Min = 0;
 
 			if (8 & nFlags)
-				ar & val.m_Height.m_Max;
+			{
+				beam::Height dh;
+				ar & dh;
+				val.m_Height.m_Max = val.m_Height.m_Min + dh;
+			}
 			else
 				val.m_Height.m_Max = beam::Height(-1);
 
@@ -595,38 +613,70 @@ namespace detail
             return ar;
         }
 
-        template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxVectors& txv)
-        {
-			ar
-				& txv.m_vInputs
-				& txv.m_vOutputs
-				& txv.m_vKernelsInput
-				& txv.m_vKernelsOutput;
+		template <typename Archive, typename TPtr>
+		static void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
+		{
+			uint32_t nSize = static_cast<uint32_t>(v.size());
+			ar & beam::uintBigFrom(nSize);
 
+			for (uint32_t i = 0; i < nSize; i++)
+				ar & *v[i];
+		}
+
+		template <typename Archive, typename TPtr>
+		static void load_VecPtr(Archive& ar, std::vector<TPtr>& v)
+		{
+			beam::uintBigFor<uint32_t>::Type x;
+			ar & x;
+			
+			uint32_t nSize;
+			x.Export(nSize);
+
+			v.resize(nSize);
+			for (uint32_t i = 0; i < nSize; i++)
+			{
+				v[i].reset(new typename TPtr::element_type);
+				ar & *v[i];
+			}
+		}
+
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxVectors::Perishable& txv)
+        {
+			save_VecPtr(ar, txv.m_vInputs);
+			save_VecPtr(ar, txv.m_vOutputs);
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxVectors& txv)
+        static Archive& load(Archive& ar, beam::TxVectors::Perishable& txv)
         {
-			ar
-				& txv.m_vInputs
-				& txv.m_vOutputs
-				& txv.m_vKernelsInput
-				& txv.m_vKernelsOutput;
-
-			txv.TestNoNulls();
-
+			load_VecPtr(ar, txv.m_vInputs);
+			load_VecPtr(ar, txv.m_vOutputs);
             return ar;
         }
 
-        template<typename Archive>
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxVectors::Ethernal& txv)
+		{
+			save_VecPtr(ar, txv.m_vKernels);
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::TxVectors::Ethernal& txv)
+		{
+			load_VecPtr(ar, txv.m_vKernels);
+			return ar;
+		}
+
+		template<typename Archive>
         static Archive& save(Archive& ar, const beam::Transaction& tx)
         {
 			ar
-				& (beam::TxVectors&) tx
-				& (beam::TxBase&) tx;
+				& Cast::Down<beam::TxVectors::Perishable>(tx)
+				& Cast::Down<beam::TxVectors::Ethernal>(tx)
+				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
         }
@@ -635,8 +685,9 @@ namespace detail
         static Archive& load(Archive& ar, beam::Transaction& tx)
         {
 			ar
-				& (beam::TxVectors&) tx
-				& (beam::TxBase&) tx;
+				& Cast::Down<beam::TxVectors::Perishable>(tx)
+				& Cast::Down<beam::TxVectors::Ethernal>(tx)
+				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
         }
@@ -709,6 +760,7 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
+				& v.m_Kernels
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
@@ -720,6 +772,7 @@ namespace detail
 		static Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
+				& v.m_Kernels
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
@@ -730,8 +783,8 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::SystemState::Full& v)
 		{
-			save(ar, (const beam::Block::SystemState::Sequence::Prefix&) v);
-			save(ar, (const beam::Block::SystemState::Sequence::Element&) v);
+			save(ar, Cast::Down<beam::Block::SystemState::Sequence::Prefix>(v));
+			save(ar, Cast::Down<beam::Block::SystemState::Sequence::Element>(v));
 
 			return ar;
 		}
@@ -739,8 +792,8 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::SystemState::Full& v)
 		{
-			load(ar, (beam::Block::SystemState::Sequence::Prefix&) v);
-			load(ar, (beam::Block::SystemState::Sequence::Element&) v);
+			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Prefix>(v));
+			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Element>(v));
 
 			return ar;
 		}
@@ -784,8 +837,9 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::Body& bb)
 		{
-			ar & (const beam::Block::BodyBase&) bb;
-			ar & (const beam::TxVectors&) bb;
+			ar & Cast::Down<beam::Block::BodyBase>(bb);
+			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
+			ar & Cast::Down<beam::TxVectors::Ethernal>(bb);
 
 			return ar;
 		}
@@ -793,8 +847,9 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::Body& bb)
 		{
-			ar & (beam::Block::BodyBase&) bb;
-			ar & (beam::TxVectors&) bb;
+			ar & Cast::Down<beam::Block::BodyBase>(bb);
+			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
+			ar & Cast::Down<beam::TxVectors::Ethernal>(bb);
 
 			return ar;
 		}

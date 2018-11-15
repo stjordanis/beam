@@ -20,6 +20,7 @@
 
 #include <qqmlcontext.h>
 #include "viewmodel/start_view.h"
+#include "viewmodel/restore_view.h"
 #include "viewmodel/main_view.h"
 #include "viewmodel/utxo_view.h"
 #include "viewmodel/dashboard_view.h"
@@ -50,10 +51,14 @@
 
 #if defined Q_OS_WIN
 Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
+Q_IMPORT_PLUGIN(QWindowsPrinterSupportPlugin)
 #elif defined Q_OS_MAC
 Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin)
+Q_IMPORT_PLUGIN(QCocoaPrinterSupportPlugin)
 #elif defined Q_OS_LINUX
 Q_IMPORT_PLUGIN(QXcbIntegrationPlugin)
+Q_IMPORT_PLUGIN(QXcbGlxIntegrationPlugin)
+Q_IMPORT_PLUGIN(QCupsPrinterSupportPlugin)
 #endif
 
 Q_IMPORT_PLUGIN(QtQuick2Plugin)
@@ -66,11 +71,14 @@ Q_IMPORT_PLUGIN(QSvgPlugin)
 Q_IMPORT_PLUGIN(QtQuickLayoutsPlugin)
 Q_IMPORT_PLUGIN(QtQuickTemplates2Plugin)
 
+
 #endif
 
 using namespace beam;
 using namespace std;
 using namespace ECC;
+
+static const char* AppName = "Beam Wallet";
 
 int main (int argc, char* argv[])
 {
@@ -83,7 +91,7 @@ int main (int argc, char* argv[])
 
 	app.setWindowIcon(QIcon(":/assets/icon.png"));
 
-    QApplication::setApplicationName("Beam Wallet");
+    QApplication::setApplicationName(AppName);
 
     QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
 
@@ -98,28 +106,25 @@ int main (int argc, char* argv[])
         }
         catch (const po::error& e)
         {
-            cout << e.what() << std::endl;
-            cout << options << std::endl;
-
+            QMessageBox msgBox;
+            msgBox.setText(e.what());
+            msgBox.exec();
             return -1;
-        }
-
-        if (vm.count(cli::HELP))
-        {
-            cout << options << std::endl;
-
-            return 0;
         }
 
         if (vm.count(cli::VERSION))
         {
-            cout << PROJECT_VERSION << endl;
+            QMessageBox msgBox;
+            msgBox.setText(PROJECT_VERSION.c_str());
+            msgBox.exec();
             return 0;
         }
 
         if (vm.count(cli::GIT_COMMIT_HASH))
         {
-            cout << GIT_COMMIT_HASH << endl;
+            QMessageBox msgBox;
+            msgBox.setText(GIT_COMMIT_HASH.c_str());
+            msgBox.exec();
             return 0;
         }
 
@@ -129,10 +134,9 @@ int main (int argc, char* argv[])
         }
 
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
-#if LOG_VERBOSE_ENABLED
-        logLevel = LOG_LEVEL_VERBOSE;
-#endif
+        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+
+        beam::Crash::InstallHandler(appDataDir.filePath(AppName).toStdString().c_str());
 
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_",
 			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());
@@ -144,7 +148,7 @@ int main (int argc, char* argv[])
 
             QQuickView view;
             view.setResizeMode(QQuickView::SizeRootObjectToView);
-            view.setMinimumSize(QSize(860, 700));
+            view.setMinimumSize(QSize(800, 680));
             view.setFlag(Qt::WindowFullscreenButtonHint);
             WalletSettings settings(appDataDir);
             AppModel appModel(settings);
@@ -159,6 +163,7 @@ int main (int argc, char* argv[])
             }
 
             qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
+            qmlRegisterType<RestoreViewModel>("Beam.Wallet", 1, 0, "RestoreViewModel");
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
             qmlRegisterType<DashboardViewModel>("Beam.Wallet", 1, 0, "DashboardViewModel");
             qmlRegisterType<WalletViewModel>("Beam.Wallet", 1, 0, "WalletViewModel");
@@ -189,7 +194,9 @@ int main (int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
-        std::cout << e.what() << std::endl;
+        QMessageBox msgBox;
+        msgBox.setText(e.what());
+        msgBox.exec();
         return -1;
     }
 }

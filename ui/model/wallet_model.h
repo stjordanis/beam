@@ -27,6 +27,7 @@ struct IWalletModelAsync
 
     virtual void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
     virtual void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
+    virtual void restoreFromBlockchain() = 0;
     virtual void syncWithNode() = 0;
     virtual void calcChange(beam::Amount&& amount) = 0;
     virtual void getWalletStatus() = 0;
@@ -42,7 +43,6 @@ struct IWalletModelAsync
     virtual void deleteOwnAddress(const beam::WalletID& id) = 0 ;
 
     virtual void setNodeAddress(const std::string& addr) = 0;
-    virtual void emergencyReset() = 0;
 
     virtual void changeWalletPassword(const beam::SecString& password) = 0;
 
@@ -68,6 +68,7 @@ struct WalletStatus
 class WalletModel
     : public QThread
     , private beam::IWalletObserver
+    , private beam::INetworkIOObserver
     , private IWalletModelAsync
 {
     Q_OBJECT
@@ -75,7 +76,7 @@ public:
 
     using Ptr = std::shared_ptr<WalletModel>;
 
-    WalletModel(beam::IKeyChain::Ptr keychain, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
+    WalletModel(beam::IWalletDB::Ptr walletDB, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
     ~WalletModel();
 
     void run() override;
@@ -90,22 +91,27 @@ signals:
     void onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>& items);
     void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
     void onSyncProgressUpdated(int done, int total);
+    void onRestoreProgressUpdated(int done, int total, const QString& message);
     void onChangeCalculated(beam::Amount change);
     void onAllUtxoChanged(const std::vector<beam::Coin>& utxos);
     void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewWalletID(const beam::WalletID& walletID);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
+    void onNodeConnectedChanged(bool is_node_connected);
+    void onNodeConnectionFailedSignal();
 
 private:
-    void onKeychainChanged() override;
+    void onCoinsChanged() override;
     void onTransactionChanged(beam::ChangeAction action, std::vector<beam::TxDescription>&& items) override;
     void onSystemStateChanged() override;
     void onTxPeerChanged() override;
     void onAddressChanged() override;
     void onSyncProgress(int done, int total) override;
+    void onRecoverProgress(int done, int total, const std::string& message) override;
 
     void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee) override;
     void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override;
+    void restoreFromBlockchain() override;
     void syncWithNode() override;
     void calcChange(beam::Amount&& amount) override;
     void getWalletStatus() override;
@@ -119,15 +125,18 @@ private:
     void deleteAddress(const beam::WalletID& id) override;
     void deleteOwnAddress(const beam::WalletID& id) override;
     void setNodeAddress(const std::string& addr) override;
-    void emergencyReset() override;
     void changeWalletPassword(const beam::SecString& password) override;
+
+    // override beam::INetworkIOObserver
+    void onNodeConnectedStatusChanged(bool isNodeConnected) override;
+    void onNodeConnectionFailed() override;
 
     void onStatusChanged();
     WalletStatus getStatus() const;
     std::vector<beam::Coin> getUtxos() const;
 private:
 
-    beam::IKeyChain::Ptr _keychain;
+    beam::IWalletDB::Ptr _walletDB;
     beam::IKeyStore::Ptr _keystore;
     beam::io::Reactor::Ptr _reactor;
     std::weak_ptr<beam::INetworkIO> _wallet_io;

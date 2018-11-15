@@ -65,6 +65,8 @@
 
 inline void memset0(void* p, size_t n) { memset(p, 0, n); }
 bool memis0(const void* p, size_t n);
+void memxor(uint8_t* pDst, const uint8_t* pSrc, size_t n);
+
 
 template <typename T>
 inline void ZeroObject(T& x)
@@ -80,6 +82,53 @@ inline void ZeroObject(T& x)
 	template <typename T> bool operator == (const T& x) const { return cmp(x) == 0; } \
 	template <typename T> bool operator != (const T& x) const { return cmp(x) != 0; }
 
+
+namespace Cast
+{
+	template <typename T> inline T& NotConst(const T& x) { return (T&) x; }
+	template <typename T> inline T* NotConst(const T* p) { return (T*) p; }
+
+	template <typename TT, typename T> inline const TT& Up(const T& x)
+	{
+		const TT& ret = (const TT&) x;
+		const T& unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline TT& Up(T& x)
+	{
+		TT& ret = (TT&) x;
+		T& unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline TT* Up(T* p)
+	{
+		TT* ret = (TT*) p;
+		T* unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline const TT* Up(const T* p)
+	{
+		const TT* ret = (const TT*) p;
+		const T* unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline TT& Down(T& x)
+	{
+		return x;
+	}
+
+	template <typename TT, typename T> inline const TT& Down(const T& x)
+	{
+		return x;
+	}
+} // namespace Cast
+
+
+
 namespace beam
 {
 	typedef uint64_t Timestamp;
@@ -87,11 +136,65 @@ namespace beam
 	typedef uint64_t Amount;
 	typedef std::vector<uint8_t> ByteBuffer;
 
+	template <uint32_t nBits_>
+	struct uintBig_t;
+
 #ifdef WIN32
 	std::wstring Utf8toUtf16(const char*);
 #endif // WIN32
 
 	bool DeleteFile(const char*);
+
+	struct Blob {
+		const void* p;
+		uint32_t n;
+
+		Blob() {}
+		Blob(const void* p_, uint32_t n_) :p(p_), n(n_) {}
+		Blob(const ByteBuffer& bb);
+
+		template <uint32_t nBits_>
+		Blob(const uintBig_t<nBits_>& x) :p(x.m_pData), n(x.nBytes) {}
+
+		void Export(ByteBuffer&) const;
+	};
+
+	template <typename T>
+	struct TemporarySwap
+	{
+		T& m_var0;
+		T& m_var1;
+
+		TemporarySwap(T& v0, T& v1)
+			:m_var0(v0)
+			,m_var1(v1)
+		{
+			std::swap(m_var0, m_var1); // std::swap has specializations for many types that have internal swap(), such as unique_ptr, shared_ptr
+		}
+
+		~TemporarySwap()
+		{
+			std::swap(m_var0, m_var1);
+		}
+	};
+
+	namespace Crash
+	{
+		void InstallHandler(const char* szLocation);
+
+		enum Type {
+
+			BadPtr,
+			StlInvalid,
+			StackOverflow,
+			PureCall,
+			Terminate,
+
+			count
+		};
+
+		void Induce(Type);
+	}
 }
 
 namespace std
@@ -108,7 +211,7 @@ namespace std
 		static void NotImpl();
 
 	public:
-
+		FStream();
 		bool Open(const char*, bool bRead, bool bStrict = false, bool bAppend = false); // strict - throw exc if error
 		bool IsOpen() const { return m_F.is_open(); }
 		void Close();
@@ -116,6 +219,7 @@ namespace std
 
 		void Restart(); // for read-stream - jump to the beginning of the file
 		void Seek(uint64_t);
+		uint64_t Tell() { return m_F.tellg(); }
 
 		// read/write always return the size requested. Exception is thrown if underflow or error
 		size_t read(void* pPtr, size_t nSize);

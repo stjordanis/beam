@@ -29,7 +29,7 @@ namespace
 namespace beam {
 
     WalletNetworkIO::WalletNetworkIO(io::Address node_address
-                                   , IKeyChain::Ptr keychain
+                                   , IWalletDB::Ptr walletDB
                                    , IKeyStore::Ptr keyStore
                                    , io::Reactor::Ptr reactor
                                    , unsigned reconnect_ms
@@ -40,7 +40,7 @@ namespace beam {
         , m_walletID(Zero)
         , m_node_address{node_address}
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
-        , m_keychain{keychain}
+        , m_WalletDB{walletDB}
         , m_is_node_connected{false}
         , m_reactor_scope{*m_reactor }
         , m_reconnect_ms{ reconnect_ms }
@@ -53,13 +53,22 @@ namespace beam {
         m_protocol.add_message_handler<WalletNetworkIO, wallet::SetTxParameter,     &WalletNetworkIO::on_message>(setTxParameterCode, this, 1, 20000);
 
         ByteBuffer buffer;
-        m_keychain->getBlob(BBS_TIMESTAMPS, buffer);
+        m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
         if (!buffer.empty())
         {
             Deserializer d;
             d.reset(buffer.data(), buffer.size());
 
             d & m_bbs_timestamps;
+        }
+
+        auto myAddresses = m_WalletDB->getAddresses(true);
+        for (const auto& address : myAddresses)
+        {
+            if (address.isExpired())
+            {
+                m_keystore->disable_key(address.m_walletID);
+            }
         }
 
         m_keystore->get_enabled_keys(m_myPubKeys);
@@ -79,7 +88,7 @@ namespace beam {
             s.swap_buf(buffer);
             if (!buffer.empty())
             {
-                m_keychain->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
+                m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
             }
         }
         catch(...)
@@ -126,6 +135,11 @@ namespace beam {
         send_to_node(move(msg));
     }
 
+    void WalletNetworkIO::send_node_message(proto::Recover&& msg)
+    {
+        send_to_node(move(msg));
+    }
+
     void WalletNetworkIO::send_node_message(proto::GetProofState&& msg)
     {
         send_to_node(move(msg));
@@ -156,6 +170,37 @@ namespace beam {
         {
             m_close_timer = io::Timer::create(*m_reactor);
             m_close_timer->start(m_close_timeout_ms, false, BIND_THIS_MEMFN(on_close_connection_timer));
+        }
+    }
+
+    void WalletNetworkIO::subscribe(INetworkIOObserver* observer)
+    {
+        assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
+
+        m_subscribers.push_back(observer);
+    }
+
+    void WalletNetworkIO::unsubscribe(INetworkIOObserver* observer)
+    {
+        auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
+        assert(it != m_subscribers.end());
+
+        m_subscribers.erase(it);
+    }
+
+    void WalletNetworkIO::notifyNodeConnectedChanged()
+    {
+        for (auto sub : m_subscribers)
+        {
+            sub->onNodeConnectedStatusChanged(m_is_node_connected);
+        }
+    }
+
+    void WalletNetworkIO::notifyNodeDisconnected()
+    {
+        for (auto sub : m_subscribers)
+        {
+            sub->onNodeConnectionFailed();
         }
     }
 
@@ -208,7 +253,7 @@ namespace beam {
 
     void WalletNetworkIO::on_node_connected()
     {
-        m_is_node_connected = true;
+        set_is_node_connected(true);
         for (const auto& k : m_myPubKeys)
         {
             listen_to_bbs_channel(k);
@@ -224,7 +269,8 @@ namespace beam {
 
     void WalletNetworkIO::on_node_disconnected()
     {
-        m_is_node_connected = false;
+        set_is_node_connected(false);
+        notifyNodeDisconnected();
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t, ProtocolError error)
@@ -245,9 +291,15 @@ namespace beam {
         m_node_connection = make_unique<WalletNodeConnection>(m_node_address, get_wallet(), m_reactor, m_reconnect_ms, *this);
     }
 
+    void WalletNetworkIO::set_is_node_connected(bool is_node_connected)
+    {
+        m_is_node_connected = is_node_connected;
+        notifyNodeConnectedChanged();
+    }
+
     void WalletNetworkIO::update_wallets(const WalletID& walletID)
     {
-        auto p = m_keychain->getPeer(walletID);
+        auto p = m_WalletDB->getPeer(walletID);
         if (p.is_initialized())
         {
             add_wallet(p->m_walletID);
@@ -294,10 +346,6 @@ namespace beam {
                 m_lastReceiver = &k;
                 return handle_decrypted_message(msg.m_TimePosted, out, size);
             }
-            else
-            {
-                LOG_DEBUG() << "failed to decrypt BBS message from channel=" << msg.m_Channel;
-            }
         }
 
         return true;
@@ -317,7 +365,7 @@ namespace beam {
         get_wallet().abort_sync();
 
         m_close_timer.reset();
-        m_is_node_connected = false;
+        set_is_node_connected(false);
         m_node_connection.reset();
     }
 
@@ -388,6 +436,11 @@ namespace beam {
     }
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Mined&& msg)
+    {
+        return m_wallet.handle_node_message(move(msg));
+    }
+
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Recovered&& msg)
     {
         return m_wallet.handle_node_message(move(msg));
     }

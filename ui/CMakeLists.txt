@@ -6,7 +6,7 @@ else()
 endif()
 set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 
-find_package(Qt5 COMPONENTS Qml Quick Svg REQUIRED)
+find_package(Qt5 COMPONENTS Qml Quick Svg PrintSupport REQUIRED)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
@@ -38,6 +38,8 @@ set(UI_SRC
 	translator.cpp
 	viewmodel/start_view.h
 	viewmodel/start_view.cpp
+    viewmodel/restore_view.h
+	viewmodel/restore_view.cpp
 	viewmodel/utxo_view.h
 	viewmodel/utxo_view.cpp
 	viewmodel/main_view.h
@@ -84,7 +86,9 @@ endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
-add_dependencies(${TARGET_NAME} wallet)
+add_subdirectory(qrcode)
+add_dependencies(${TARGET_NAME} wallet mnemonic qrcode)
+target_link_libraries(${TARGET_NAME} qrcode)
 
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -119,7 +123,7 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 	target_link_libraries(${TARGET_NAME} node)
 #endif()
 
-target_link_libraries(${TARGET_NAME} wallet Qt5::Qml Qt5::Quick Qt5::Svg)
+target_link_libraries(${TARGET_NAME} wallet mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
 
 if(BEAM_USE_STATIC)
 
@@ -137,7 +141,7 @@ if(BEAM_USE_STATIC)
 			lib/Qt5Charts lib/Qt5Gui lib/Qt5PositioningQuick lib/Qt5QuickWidgets lib/Qt5Test lib/Qt5Xml qml/QtQuick.2/qtquick2plugin
 			qml/QtQuick/Window.2/windowplugin qml/QtQuick/Controls/qtquickcontrolsplugin qml/QtGraphicalEffects/qtgraphicaleffectsplugin
 			qml/QtGraphicalEffects/private/qtgraphicaleffectsprivate qml/QtQuick/Layouts/qquicklayoutsplugin qml/QtQuick/Controls.2/qtquickcontrols2plugin
-			qml/QtQuick/Templates.2/qtquicktemplates2plugin plugins/platforms/qwindows plugins/imageformats/qsvg)
+			qml/QtQuick/Templates.2/qtquicktemplates2plugin plugins/platforms/qwindows plugins/imageformats/qsvg plugins/printsupport/windowsprintersupport)
 
 			target_link_libraries(${TARGET_NAME} ${CMAKE_PREFIX_PATH}/${lib}.lib)
 		endforeach()
@@ -166,7 +170,7 @@ if(BEAM_USE_STATIC)
 			qml/QtQuick.2/libqtquick2plugin qml/QtQuick/Window.2/libwindowplugin qml/QtQuick/Controls/libqtquickcontrolsplugin
 			qml/QtGraphicalEffects/libqtgraphicaleffectsplugin qml/QtGraphicalEffects/private/libqtgraphicaleffectsprivate
 			qml/QtQuick/Layouts/libqquicklayoutsplugin qml/QtQuick/Controls.2/libqtquickcontrols2plugin qml/QtQuick/Templates.2/libqtquicktemplates2plugin
-			plugins/platforms/libqcocoa plugins/platforms/libqminimal plugins/imageformats/libqsvg)
+			plugins/platforms/libqcocoa plugins/platforms/libqminimal plugins/imageformats/libqsvg plugins/printsupport/libcocoaprintersupport)
 
 			target_link_libraries(${TARGET_NAME} ${CMAKE_PREFIX_PATH}/${lib}.a)
 		endforeach()
@@ -199,6 +203,7 @@ if(BEAM_USE_STATIC)
 
 		target_link_libraries(${TARGET_NAME}
 			${CMAKE_PREFIX_PATH}/plugins/platforms/libqxcb.a
+			${CMAKE_PREFIX_PATH}/plugins/xcbglintegrations/libqxcb-glx-integration.a
 		)
 
 		target_link_libraries(${TARGET_NAME}
@@ -212,6 +217,7 @@ if(BEAM_USE_STATIC)
 			${CMAKE_PREFIX_PATH}/qml/QtQuick/Templates.2/libqtquicktemplates2plugin.a
 
 			${CMAKE_PREFIX_PATH}/plugins/imageformats/libqsvg.a
+            ${CMAKE_PREFIX_PATH}/plugins/printsupport/libcupsprintersupport.a
 		)
 
 		foreach(lib
@@ -226,12 +232,16 @@ if(BEAM_USE_STATIC)
 			Qt5FbSupport Qt5Qml Qt5Test
 			Qt5Concurrent Qt5FontDatabaseSupport Qt5Network Qt5QmlDebug
 			Qt5Xml xcb-static Qt5Gamepad Qt5NetworkAuth Qt5QmlDevTools
-			Qt5Scxml Qt5ThemeSupport Qt5XmlPatterns Qt5DBus qtfreetype
+			Qt5Scxml Qt5ThemeSupport Qt5XmlPatterns Qt5DBus Qt5GlxSupport
 		)
 			target_link_libraries(${TARGET_NAME} ${CMAKE_PREFIX_PATH}/lib/lib${lib}.a)
 		endforeach()
 
-		target_link_libraries(${TARGET_NAME} -lX11-xcb -lX11 -lxcb -licui18n -licuuc -licudata -lGL)
+		target_link_libraries(${TARGET_NAME} -lX11-xcb -lX11 -lxcb -lGL -lfreetype -lfontconfig -lXi -lXext -lXfixes -lXrender -lglib-2.0 -lSM -lICE -lcups -lxcb-glx)
+
+		foreach(lib icui18n icuuc icudata)
+			target_link_libraries(${TARGET_NAME} /usr/lib/x86_64-linux-gnu/lib${lib}.a)
+		endforeach()
 
 		set_property(TARGET ${TARGET_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 

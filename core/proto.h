@@ -20,6 +20,7 @@
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
 #include "../utility/io/tcpserver.h"
+#include "../utility/io/timer.h"
 #include "aes.h"
 #include "block_crypt.h"
 #include <boost/intrusive/set.hpp>
@@ -54,28 +55,45 @@ namespace proto {
 	macro(Block::SystemState::ID, ID)
 
 #define BeamNodeMsg_Body(macro) \
-	macro(ByteBuffer, Buffer)
+	macro(ByteBuffer, Perishable) \
+	macro(ByteBuffer, Ethernal)
 
 #define BeamNodeMsg_GetProofState(macro) \
 	macro(Height, Height)
 
+#define BeamNodeMsg_GetCommonState(macro) \
+	macro(std::vector<Block::SystemState::ID>, IDs)
+
 #define BeamNodeMsg_GetProofKernel(macro) \
 	macro(Merkle::Hash, ID)
 
+#define BeamNodeMsg_GetProofKernel2(macro) \
+	macro(Merkle::Hash, ID) \
+	macro(bool, Fetch)
+
 #define BeamNodeMsg_GetProofUtxo(macro) \
-	macro(Input, Utxo) \
+	macro(ECC::Point, Utxo) \
 	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
 #define BeamNodeMsg_GetProofChainWork(macro) \
 	macro(Difficulty::Raw, LowerBound)
 
 #define BeamNodeMsg_ProofKernel(macro) \
-	macro(Merkle::Proof, Proof)
+	macro(TxKernel::LongProof, Proof)
+
+#define BeamNodeMsg_ProofKernel2(macro) \
+	macro(Merkle::Proof, Proof) \
+	macro(Height, Height) \
+	macro(TxKernel::Ptr, Kernel)
 
 #define BeamNodeMsg_ProofUtxo(macro) \
 	macro(std::vector<Input::Proof>, Proofs)
 
 #define BeamNodeMsg_ProofState(macro) \
+	macro(Merkle::HardProof, Proof)
+
+#define BeamNodeMsg_ProofCommonState(macro) \
+	macro(Block::SystemState::ID, ID) \
 	macro(Merkle::HardProof, Proof)
 
 #define BeamNodeMsg_ProofChainWork(macro) \
@@ -164,52 +182,80 @@ namespace proto {
 
 #define BeamNodeMsg_Macroblock(macro) \
 	macro(Block::SystemState::ID, ID) \
-	macro(ByteBuffer, Portion)
+	macro(ByteBuffer, Portion) \
+	macro(uint64_t, SizeTotal)
+
+#define BeamNodeMsg_Recover(macro) \
+	macro(bool, Private) \
+	macro(bool, Public)
+
+#define BeamNodeMsg_Recovered(macro) \
+	macro(std::vector<Key::IDV>, Private) \
+	macro(std::vector<Key::IDV>, Public)
+
+#define BeamNodeMsg_GetUtxoEvents(macro) \
+	macro(Height, HeightMin)
+
+#define BeamNodeMsg_UtxoEvents(macro) \
+	macro(std::vector<UtxoEventPlus>, Events)
 
 #define BeamNodeMsgsAll(macro) \
-	macro(1, NewTip) /* Also the first message sent by the node */ \
-	macro(2, GetHdr) \
-	macro(3, Hdr) \
-	macro(14, GetHdrPack) \
-	macro(19, HdrPack) \
-	macro(4, DataMissing) \
-	macro(5, Boolean) \
-	macro(6, GetBody) \
-	macro(7, Body) \
-	macro(8, GetProofState) \
-	macro(9, GetProofKernel) \
-	macro(10, GetProofUtxo) \
-	macro(11, ProofKernel) \
-	macro(12, ProofUtxo) \
-	macro(13, ProofState) \
-	macro(15, GetMined) \
-	macro(16, Mined) \
-	macro(17, GetProofChainWork) \
-	macro(18, ProofChainWork) \
-	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
-	macro(21, Ping) \
-	macro(22, Pong) \
-	macro(23, NewTransaction) \
-	macro(24, HaveTransaction) \
-	macro(25, GetTransaction) \
-	macro(29, Bye) \
-	macro(31, PeerInfoSelf) \
-	macro(32, PeerInfo) \
-	macro(33, GetTime) \
-	macro(34, Time) \
-	macro(35, GetExternalAddr) \
-	macro(36, ExternalAddr) \
-	macro(40, BbsMsg) \
-	macro(41, BbsHaveMsg) \
-	macro(42, BbsGetMsg) \
-	macro(43, BbsSubscribe) \
-	macro(44, BbsPickChannel) \
-	macro(45, BbsPickChannelRes) \
-	macro(50, MacroblockGet) \
-	macro(51, Macroblock) \
-	macro(61, SChannelInitiate) \
-	macro(62, SChannelReady) \
-	macro(63, Authentication) \
+	/* general msgs */ \
+	macro(0x00, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
+	macro(0x01, Bye) \
+	macro(0x02, Ping) \
+	macro(0x03, Pong) \
+	macro(0x04, SChannelInitiate) \
+	macro(0x05, SChannelReady) \
+	macro(0x06, Authentication) \
+	macro(0x07, PeerInfoSelf) \
+	macro(0x08, PeerInfo) \
+	macro(0x09, GetExternalAddr) \
+	macro(0x0a, ExternalAddr) \
+	macro(0x0b, GetTime) \
+	macro(0x0c, Time) \
+	macro(0x0d, DataMissing) \
+	macro(0x0e, Boolean) \
+	/* blockchain status */ \
+	macro(0x10, NewTip) \
+	macro(0x11, GetHdr) \
+	macro(0x12, Hdr) \
+	macro(0x13, GetHdrPack) \
+	macro(0x14, HdrPack) \
+	macro(0x15, GetBody) \
+	macro(0x16, Body) \
+	macro(0x17, GetProofState) \
+	macro(0x18, ProofState) \
+	macro(0x19, GetProofKernel) \
+	macro(0x1a, ProofKernel) \
+	macro(0x1b, GetProofUtxo) \
+	macro(0x1c, ProofUtxo) \
+	macro(0x1d, GetProofChainWork) \
+	macro(0x1e, ProofChainWork) \
+	macro(0x20, MacroblockGet) \
+	macro(0x21, Macroblock) \
+	macro(0x22, GetCommonState) \
+	macro(0x23, ProofCommonState) \
+	macro(0x24, GetProofKernel2) \
+	macro(0x25, ProofKernel2) \
+	/* onwer-relevant */ \
+	macro(0x28, GetMined) \
+	macro(0x29, Mined) \
+	macro(0x2a, Recover) \
+	macro(0x2b, Recovered) \
+	macro(0x2c, GetUtxoEvents) \
+	macro(0x2d, UtxoEvents) \
+	/* tx broadcast and replication */ \
+	macro(0x30, NewTransaction) \
+	macro(0x31, HaveTransaction) \
+	macro(0x32, GetTransaction) \
+	/* bbs */ \
+	macro(0x38, BbsMsg) \
+	macro(0x39, BbsHaveMsg) \
+	macro(0x3a, BbsGetMsg) \
+	macro(0x3b, BbsSubscribe) \
+	macro(0x3c, BbsPickChannel) \
+	macro(0x3d, BbsPickChannelRes) \
 
 
 	struct PerMined
@@ -238,6 +284,26 @@ namespace proto {
 
 	static const uint32_t g_HdrPackMaxSize = 128;
 
+#pragma pack (push, 1)
+	struct UtxoEventPlus
+		:public UtxoEvent
+	{
+		static const uint32_t s_Max = 64; // may actually send more, if the remaining events are on the same height
+
+		uintBigFor<Height>::Type m_Height;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			typedef uintBigFor<UtxoEventPlus>::Type TBlob;
+			static_assert(sizeof(TBlob) == sizeof(*this), "");
+
+			ar & reinterpret_cast<TBlob&>(*this);
+		}
+	};
+#pragma pack (pop)
+
+
 	enum Unused_ { Unused };
 	enum Uninitialized_ { Uninitialized };
 
@@ -257,12 +323,23 @@ namespace proto {
 	inline void ZeroInit(Block::SystemState::Full& x) { ZeroObject(x); }
 	inline void ZeroInit(Block::SystemState::Sequence::Prefix& x) { ZeroObject(x); }
 	inline void ZeroInit(Block::ChainWorkProof& x) {}
-	inline void ZeroInit(Input& x) { ZeroObject(x); }
+	inline void ZeroInit(ECC::Point& x) { ZeroObject(x); }
 	inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
+	inline void ZeroInit(TxKernel::LongProof& x) { ZeroObject(x.m_State); }
+
+	template <typename T> struct InitArg {
+		typedef const T& TArg;
+		static void Set(T& var, TArg arg) { var = arg; }
+	};
+
+	template <typename T> struct InitArg<std::unique_ptr<T> > {
+		typedef std::unique_ptr<T>& TArg;
+		static void Set(std::unique_ptr<T>& var, TArg arg) { var = std::move(arg); }
+	};
 
 
-#define THE_MACRO6(type, name) m_##name = name;
-#define THE_MACRO5(type, name) const type& name,
+#define THE_MACRO6(type, name) InitArg<type>::Set(m_##name, arg##name);
+#define THE_MACRO5(type, name) typename InitArg<type>::TArg arg##name,
 #define THE_MACRO4(type, name) ZeroInit(m_##name);
 #define THE_MACRO3(type, name) & m_##name
 #define THE_MACRO2(type, name) type m_##name;
@@ -389,6 +466,7 @@ namespace proto {
 
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
+		bool IsLive() const;
 		bool IsSecureIn() const;
 		bool IsSecureOut() const;
 
@@ -595,6 +673,187 @@ namespace proto {
 
 
 	std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo&);
+
+	struct FlyClient
+	{
+		typedef std::map<Height, Block::SystemState::Full> StateMap;
+		StateMap m_Hist; // some recent blocks of the current active branch
+		void ShrinkHist();
+
+		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
+
+#define REQUEST_TYPES_All(macro) \
+		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
+		macro(Kernel,		GetProofKernel,		ProofKernel) \
+		macro(Mined,		GetMined,			Mined) \
+		macro(Transaction,	NewTransaction,		Boolean) \
+		macro(BbsMsg,		BbsMsg,				Pong) \
+		macro(Recover,		Recover,			Recovered)
+
+		struct Request
+		{
+			typedef std::shared_ptr<Request> Ptr;
+
+			enum Type {
+#define THE_MACRO(type, msgOut, msgIn) type,
+				REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
+				count
+			};
+
+			virtual ~Request() {}
+			virtual Type get_Type() const = 0;
+
+			FlyClient* m_pTrg = NULL; // set to NULL if aborted
+		};
+
+#define THE_MACRO(type, msgOut, msgIn) \
+		struct Request##type :public Request { \
+			typedef std::shared_ptr<Request##type> Ptr; \
+			Request##type() :m_Res(Zero) {} \
+			virtual ~Request##type() {} \
+			virtual Type get_Type() const { return Type::type; } \
+			proto::msgOut m_Msg; \
+			proto::msgIn m_Res; \
+		};
+
+		REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
+
+		virtual ~FlyClient() {}
+		virtual void OnNewTip() {} // tip already added
+		virtual void OnRolledBack() {} // reversed states are already removed
+		virtual void OnRequestComplete(Request::Ptr&&) {}
+		virtual void OnMsg(proto::BbsMsg&&) {}
+
+		struct INetwork
+		{
+			FlyClient& m_Client;
+			INetwork(FlyClient& fc) :m_Client(fc) {}
+			virtual ~INetwork() {}
+
+			virtual void Connect() = 0;
+			virtual void Disconnect() = 0;
+			virtual void PostRequest(Request::Ptr&&) = 0;
+			virtual void BbsSubscribe(BbsChannel, bool) {} // duplicates should be handled internally
+		};
+
+		struct NetworkStd
+			:public INetwork
+		{
+			NetworkStd(FlyClient& fc) :INetwork(fc) {}
+			virtual ~NetworkStd();
+
+			struct RequestNode
+				:public boost::intrusive::list_base_hook<>
+			{
+				Request::Ptr m_pRequest;
+			};
+
+			struct RequestList
+				:public boost::intrusive::list<RequestNode>
+			{
+				void Delete(RequestNode& n);
+				void Finish(RequestNode& n);
+				void Clear();
+				~RequestList() { Clear(); }
+			};
+			
+			RequestList m_lst; // idle
+			void OnNewRequests();
+
+			struct Config {
+				std::vector<io::Address> m_vNodes;
+				uint32_t m_PollPeriod_ms = 0; // set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks
+				uint32_t m_ReconnectTimeout_ms = 5000;
+			} m_Cfg;
+
+			Key::IKdf::Ptr m_pKdf;
+
+			class Connection
+				:public NodeConnection
+				,public boost::intrusive::list_base_hook<>
+			{
+				struct SyncCtx
+				{
+					std::vector<Block::SystemState::Full> m_vConfirming;
+					Block::SystemState::Full m_Confirmed;
+					Block::SystemState::Full m_TipBeforeGap;
+					Height m_LowHeight;
+				};
+
+				std::unique_ptr<SyncCtx> m_pSync;
+
+				struct StateArray;
+
+				bool ShouldSync() const;
+				void StartSync();
+				void SearchBelow(Height, uint32_t nCount);
+				void RequestChainworkProof();
+				void PrioritizeSelf();
+				Request& get_FirstRequestStrict(Request::Type);
+				void OnFirstRequestDone(bool bMustBeAtTip = true);
+
+				io::Timer::Ptr m_pTimer;
+				void OnTimer();
+				void SetTimer(uint32_t);
+				void KillTimer();
+
+			public:
+				NetworkStd& m_This;
+
+				Connection(NetworkStd& x);
+				virtual ~Connection();
+
+				io::Address m_Addr;
+
+				// most recent tip of the Node, according to which all the proofs are interpreted
+				Block::SystemState::Full m_Tip;
+
+				RequestList m_lst; // in progress
+				void AssignRequests();
+				void AssignRequest(RequestNode&);
+
+				bool IsAtTip() const;
+
+				bool m_bBbs = false;
+				bool m_bTransactions = false;
+				bool m_bNode = false;
+
+				// NodeConnection
+				virtual void OnConnectedSecure() override;
+				virtual void OnDisconnect(const DisconnectReason&) override;
+				virtual void OnMsg(proto::Authentication&& msg) override;
+				virtual void OnMsg(proto::Config&& msg) override;
+				virtual void OnMsg(proto::NewTip&& msg) override;
+				virtual void OnMsg(proto::ProofCommonState&& msg) override;
+				virtual void OnMsg(proto::ProofChainWork&& msg) override;
+				virtual void OnMsg(proto::BbsMsg&& msg) override;
+#define THE_MACRO(type, msgOut, msgIn) \
+				virtual void OnMsg(proto::msgIn&&) override; \
+				bool IsSupported(Request##type&); \
+				void OnRequestData(Request##type&);
+				REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
+
+				template <typename Req> void SendRequest(Req& r) { Send(r.m_Msg); }
+				void SendRequest(RequestBbsMsg&);
+			};
+
+			typedef boost::intrusive::list<Connection> ConnectionList;
+			ConnectionList m_Connections;
+
+			typedef std::map<BbsChannel, int32_t> BbsSubscriptions;
+			BbsSubscriptions m_BbsSubscriptions;
+
+			// INetwork
+			virtual void Connect() override;
+			virtual void Disconnect() override;
+			virtual void PostRequest(Request::Ptr&&) override;
+			virtual void BbsSubscribe(BbsChannel, bool) override;
+		};
+	};
+
 
 } // namespace proto
 } // namespace beam

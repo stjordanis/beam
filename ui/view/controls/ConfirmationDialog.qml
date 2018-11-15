@@ -1,15 +1,17 @@
 import QtQuick 2.11
 import QtQuick.Controls 2.3
+import QtQuick.Layouts 1.0
 import "."
 
 Dialog {
     id: control
     property alias text: messageText.text
     property alias okButtonText: okButton.text
+    property alias okButtonIconSource: okButton.icon.source
+    property alias cancelVisible : cancelButton.visible
 
     modal: true
-    //width: 520
-    //height: childRect.height
+
     x: (parent.width - width) / 2
     y: (parent.height - height) / 2
     visible: false
@@ -17,7 +19,7 @@ Dialog {
     background: Rectangle {
         radius: 10
         color: Style.dark_slate_blue
-        anchors.fill: parent            
+        anchors.fill: parent
     }
 
     contentItem: SFText {
@@ -30,35 +32,49 @@ Dialog {
         horizontalAlignment : Text.AlignHCenter
     }
 
-    footer: DialogButtonBox {
-        alignment: Qt.AlignHCenter
-        spacing: 30
-        padding: 30
-        topPadding: 15
+    footer: Control {
+        
         background: Rectangle {
             radius: 10
             color: Style.dark_slate_blue
-            anchors.fill: parent            
-        }
-            
-        CustomButton {
-            id: okButton
-            palette.button: Style.bright_teal
-            height: 38
-            width: 122
-            text: qsTr("delete")
-            palette.buttonText: Style.marine
-            DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
-        }
+            anchors.fill: parent
+        }          
 
-        CustomButton {
-            id: cancelButton
-            palette.buttonText: Style.white
-            height: 38
-            width: 122
-            focus: true
-            text: qsTr("cancel")
-            DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+        contentItem: GridLayout {
+            id: test
+            columns: 3
+            Row {
+                Layout.fillWidth: true
+            }
+            Row {
+                spacing: 30
+                height: 40
+                padding: 30
+                topPadding: 15
+                CustomButton {
+                    id: cancelButton
+                    focus: true
+                    text: qsTr("cancel")
+                    onClicked: {                
+                        rejected();
+                        close();
+                    }
+                }
+
+                CustomButton {
+                    id: okButton
+                    palette.button: Style.bright_teal
+                    text: qsTr("delete")
+                    palette.buttonText: Style.marine
+                    onClicked: {
+                        accepted();
+                        close();
+                    }
+                }
+            }
+            Row {
+                Layout.fillWidth: true
+            }
         }
     }
 

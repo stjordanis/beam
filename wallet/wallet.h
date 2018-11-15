@@ -21,9 +21,10 @@
 
 namespace beam
 {
-    struct IWalletObserver : IKeyChainObserver
+    struct IWalletObserver : IWalletDbObserver
     {
         virtual void onSyncProgress(int done, int total) = 0;
+        virtual void onRecoverProgress(int done, int total, const std::string& message) = 0;
     };
 
     struct IWallet
@@ -40,6 +41,7 @@ namespace beam
         virtual bool handle_node_message(proto::ProofKernel&& msg) = 0;
         virtual bool handle_node_message(proto::NewTip&&) = 0;
         virtual bool handle_node_message(proto::Mined&& msg) = 0;
+        virtual bool handle_node_message(proto::Recovered&& msg) = 0;
 
         virtual void abort_sync() = 0;
 
@@ -50,9 +52,14 @@ namespace beam
         virtual void delete_tx(const TxID& id) = 0;
 
         virtual void set_node_address(io::Address node_address) = 0;
-        virtual void emergencyReset() = 0;
 
         virtual bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) = 0;
+    };
+
+    struct INetworkIOObserver
+    {
+        virtual void onNodeConnectedStatusChanged(bool isNodeConnected) = 0;
+        virtual void onNodeConnectionFailed() = 0;
     };
 
     struct INetworkIO 
@@ -70,10 +77,14 @@ namespace beam
         virtual void send_node_message(proto::GetMined&&) = 0;
         virtual void send_node_message(proto::GetProofState&&) = 0;
         virtual void send_node_message(proto::GetProofKernel&&) = 0;
+        virtual void send_node_message(proto::Recover&&) = 0;
         // connection control
         //virtual void close_connection(const WalletID& id) = 0;
         virtual void connect_node() = 0;
         virtual void close_node_connection() = 0;
+
+        virtual void subscribe(INetworkIOObserver* observer) = 0;
+        virtual void unsubscribe(INetworkIOObserver* observer) = 0;
 
         virtual void new_own_address(const WalletID& address) = 0;
         virtual void address_deleted(const WalletID& address) = 0;
@@ -99,7 +110,7 @@ namespace beam
             m_wallet = wallet;
             if (wallet != nullptr)
             {
-                connect_node();
+               // connect_node();
             }
         }
         IWallet* m_wallet; // wallet holds reference to INetworkIO
@@ -112,12 +123,13 @@ namespace beam
     public:
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
 
-        Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, bool holdNodeConnection = false, TxCompletedAction&& action = TxCompletedAction());
+        Wallet(IWalletDB::Ptr walletDB, INetworkIO::Ptr network, bool holdNodeConnection = false, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount);
         void resume_tx(const TxDescription& tx);
+        void recover();
         void resume_all_tx();
 
         void on_tx_completed(const TxID& txID) override;
@@ -137,6 +149,7 @@ namespace beam
         bool handle_node_message(proto::ProofKernel&& msg) override;
         bool handle_node_message(proto::NewTip&& msg) override;
         bool handle_node_message(proto::Mined&& msg) override;
+        bool handle_node_message(proto::Recovered&& msg) override;
 
         void abort_sync() override;
 
@@ -149,7 +162,6 @@ namespace beam
         void delete_tx(const TxID& txId) override;
 
         void set_node_address(io::Address node_address) override;
-        void emergencyReset() override;
         bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) override;
 
     private:
@@ -163,6 +175,7 @@ namespace beam
         void notifySyncProgress();
         void resetSystemState();
         void updateTransaction(const TxID& txID);
+        void saveKnownState();
 
         virtual bool IsTestMode() const { return false; }
 
@@ -180,7 +193,7 @@ namespace beam
 
         struct StateFinder;
 
-        IKeyChain::Ptr m_keyChain;
+        IWalletDB::Ptr m_WalletDB;
         INetworkIO::Ptr m_network;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_transactions;
         std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
@@ -188,6 +201,7 @@ namespace beam
         std::deque<std::pair<TxID, Transaction::Ptr>> m_reg_requests;
         std::vector<std::pair<TxID, Transaction::Ptr>> m_pending_reg_requests;
         std::deque<Coin> m_pendingUtxoProofs;
+        std::set<ECC::Point> m_PendingUtxoUnique;
         std::deque<wallet::BaseTransaction::Ptr> m_pendingKernelProofs;
         std::vector<Callback> m_pendingEvents;
 
@@ -199,6 +213,7 @@ namespace beam
         int m_syncTotal;
         bool m_synchronized;
         bool m_holdNodeConnection;
+        bool m_needRecover;
 
         std::vector<IWalletObserver*> m_subscribers;
     };
