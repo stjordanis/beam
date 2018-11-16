@@ -18,6 +18,8 @@
 #include "wallet/wallet_network.h"
 
 #include "utility/bridge.h"
+#include "utility/string_helpers.h"
+#include "mnemonic/mnemonic.h"
 
 #include <boost/filesystem.hpp>
 #include <jni.h>
@@ -842,7 +844,7 @@ extern "C" {
 #endif
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, jobject thiz, 
-	jstring nodeAddrStr, jstring appDataStr, jstring passStr, jstring seed)
+	jstring nodeAddrStr, jstring appDataStr, jstring passStr, jstring phrasesStr)
 {
 	auto appData = JString(env, appDataStr).value();
 
@@ -852,10 +854,26 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
 	auto pass = JString(env, passStr).value();
 
+	SecString seed;
+	
+	{
+
+        WordList phrases = string_helpers::split(JString(env, phrasesStr).value(), ';');
+        assert(phrases.size() == 12);
+        if (phrases.size() != 12)
+        {
+            LOG_ERROR() << "Invalid recovery phrases provided: " << JString(env, phrasesStr).value();
+            return nullptr;
+        }
+
+        auto buf = decodeMnemonic(phrases);
+        seed.assign(buf.data(), buf.size());
+	}
+
 	auto wallet = WalletDB::init(
 		appData + "/" WALLET_FILENAME,
 		pass,
-		SecString(JString(env, seed).value()).hash());
+		seed.hash());
 
 	if(wallet)
 	{

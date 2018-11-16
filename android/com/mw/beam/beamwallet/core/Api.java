@@ -19,7 +19,7 @@ import  com.mw.beam.beamwallet.core.entities.Wallet;
 public class Api
 {
 	public native boolean isWalletInitialized(String path);	
-	public native Wallet createWallet(String nodeAddr, String path, String pass, String seed);
+	public native Wallet createWallet(String nodeAddr, String path, String pass, String phrases);
 	public native Wallet openWallet(String nodeAddr, String path, String pass);
 
 	static 

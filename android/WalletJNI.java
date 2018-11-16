@@ -35,12 +35,14 @@ public class WalletJNI
 		}
 		else
 		{
-			wallet = api.createWallet(nodeAddr, "test", "123", "000");
+			wallet = api.createWallet(nodeAddr, "test", "123", "garbage;wild;fruit;vicious;jungle;snack;arrange;pink;scorpion;speed;used;frozen;");
 
 			System.out.println(wallet == null ? "wallet creation error" : "wallet successfully created");
 		}
 
 		wallet.syncWithNode();
+
+		boolean sendAttempt = false;
 
 		while(true)
 		{
@@ -50,6 +52,13 @@ public class WalletJNI
 			{
 				wallet.getWalletStatus();
 				wallet.getUtxosStatus();
+
+				if(!sendAttempt)
+				{
+					sendAttempt = true;
+
+					wallet.sendMoney("fbac2507faf499581aff0a2b97bccf5e4705aa36714ca14a529e98e8c4641ab7", "test comment", 1500, 10);
+				}
 			}
 			try
 			{
