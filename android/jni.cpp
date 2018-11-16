@@ -474,8 +474,44 @@ namespace
 		///////////////////////////////////////////////
 		// IWalletModelAsync impl
 		///////////////////////////////////////////////
-		void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
-		void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
+		void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) override 
+        {
+            assert(!_wallet.expired());
+            auto s = _wallet.lock();
+            if (s)
+            {
+                s->transfer_money(sender, receiver, move(amount), move(fee));
+            }
+        }
+
+		void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) override 
+        {
+            try
+            {
+                WalletID sender;
+                _keystore->gen_keypair(sender);
+
+                WalletAddress senderAddress;
+                senderAddress.m_walletID = sender;
+                senderAddress.m_own = true;
+                senderAddress.m_createTime = beam::getTimestamp();
+
+                createNewAddress(std::move(senderAddress));
+
+                ByteBuffer message(comment.begin(), comment.end());
+
+                assert(!_wallet.expired());
+                auto s = _wallet.lock();
+                if (s)
+                {
+                    s->transfer_money(sender, receiver, move(amount), move(fee), true, move(message));
+                }
+            }
+            catch (...)
+            {
+
+            }
+        }
 
 		void syncWithNode() override 
         {
