@@ -329,7 +329,7 @@ namespace
 		return env;
 	}
 
-	struct WalletModel : IWalletModelAsync, IWalletObserver
+	struct WalletModel : IWalletModelAsync, IWalletObserver, INetworkIOObserver
 	{
 		WalletModel()
 		{
@@ -357,9 +357,7 @@ namespace
 			LOG_DEBUG() << "run wallet...";
 
 			io::Reactor::Ptr reactor = io::Reactor::create();
-			io::Reactor::Scope scope(*reactor);
-
-			io::Reactor::GracefulIntHandler gih(*reactor);
+            io::Reactor::GracefulIntHandler gih(*reactor);
 
 			io::Address node_addr;
 			
@@ -370,6 +368,8 @@ namespace
 			}
 
 			auto wallet_io = make_shared<WalletNetworkIO>(node_addr, WalletDB, keystore, reactor);
+
+			wallet_io->subscribe(this);
 
 			Wallet wallet{ WalletDB, wallet_io};
 
@@ -382,7 +382,7 @@ namespace
 				_startCV->notify_one();
 			}
 
-			wallet_io->start();
+            reactor->run();
 		}
 
 		///////////////////////////////////////////////
@@ -619,6 +619,16 @@ namespace
         void onRecoverProgress(int done, int total, const std::string& message) override
         {
             
+        }
+
+        void onNodeConnectedStatusChanged(bool isNodeConnected) override
+        {
+
+        }
+
+        void onNodeConnectionFailed() override
+        {
+
         }
 
 		WalletStatus getStatus() const

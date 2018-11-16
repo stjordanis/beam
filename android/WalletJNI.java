@@ -25,7 +25,7 @@ public class WalletJNI
 
 		Wallet wallet;
 
-		String nodeAddr = "176.58.98.195:8501";
+		String nodeAddr = "172.104.249.212:8101";
 
 		if(api.isWalletInitialized("test"))
 		{
