@@ -38,12 +38,39 @@
 #define BBS_FILENAME "keys.bbs"
 
 using namespace beam;
+using namespace beam::io;
 using namespace std;
 
 namespace fs = boost::filesystem;
 
 namespace
 {
+    namespace
+    {
+        static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
+
+        template<typename Observer, typename Notifier>
+        struct ScopedSubscriber
+        {
+            ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
+                : m_observer(observer)
+                , m_notifier(notifier)
+            {
+                m_notifier->subscribe(m_observer);
+            }
+
+            ~ScopedSubscriber()
+            {
+                m_notifier->unsubscribe(m_observer);
+            }
+        private:
+            Observer * m_observer;
+            std::shared_ptr<Notifier> m_notifier;
+        };
+
+        using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
+    }
+
 	struct JString
 	{
 		JString(JNIEnv *envVal, jstring nameVal)
@@ -329,7 +356,7 @@ namespace
 		return env;
 	}
 
-	struct WalletModel : IWalletModelAsync, IWalletObserver, INetworkIOObserver
+	struct WalletModel : IWalletModelAsync, IWalletObserver
 	{
 		WalletModel()
 		{
@@ -347,47 +374,102 @@ namespace
 			}
 		}
 
-		void run(const string& nodeURI, IWalletDB::Ptr WalletDB, IKeyStore::Ptr keystore)
-		{
-			_WalletDB = WalletDB;
-			_keystore = keystore;
+        void run(const string& nodeURI, IWalletDB::Ptr walletDB, IKeyStore::Ptr keystore)
+        {
+            try
+            {
+                _walletDB = walletDB;
+                _keystore = keystore;
 
-			Android_JNI_getEnv();
+                std::unique_ptr<WalletSubscriber> wallet_subscriber;
 
-			LOG_DEBUG() << "run wallet...";
+                _reactor = Reactor::create();
+                io::Reactor::Scope scope(*_reactor);
 
-			io::Reactor::Ptr reactor = io::Reactor::create();
-            io::Reactor::GracefulIntHandler gih(*reactor);
+                io::Reactor::GracefulIntHandler gih(*_reactor);
 
-			io::Address node_addr;
-			
-			if (!node_addr.resolve(nodeURI.c_str()))
-			{
-				LOG_ERROR() << "unable to resolve node address: " << nodeURI.c_str();
-				return;
-			}
+                async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor);
 
-			auto wallet_io = make_shared<WalletNetworkIO>(node_addr, WalletDB, keystore, reactor);
+                //emit onStatus(getStatus());
+                //emit onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
+                //emit onTxPeerUpdated(_walletDB->getPeers());
 
-            _wallet_io = wallet_io;
+                _logRotateTimer = io::Timer::create(*_reactor);
+                _logRotateTimer->start(
+                    LOG_ROTATION_PERIOD, true,
+                    []() {
+                    Logger::get()->rotate();
+                });
 
-			wallet_io->subscribe(this);
+                auto wallet = make_shared<Wallet>(_walletDB);
+                _wallet = wallet;
 
-			Wallet wallet{ WalletDB, wallet_io};
+                struct MyNodeNetwork :public proto::FlyClient::NetworkStd {
 
-			async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *reactor);
+                    MyNodeNetwork(proto::FlyClient& fc, WalletModel& wm)
+                        :proto::FlyClient::NetworkStd(fc)
+                        , m_This(wm)
+                    {
+                    }
 
-			wallet.subscribe(this);
+                    WalletModel& m_This;
 
-			{
-				unique_lock<mutex> lock(*_startMutex);
-				_startCV->notify_one();
-			}
+                    void OnNodeConnected(size_t, bool bConnected) override {
+                        m_This.onNodeConnectedStatusChanged(bConnected);
+                    }
 
-            static_pointer_cast<INetworkIO>(wallet_io)->connect_node();
+                    void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason&) override {
+                        m_This.onNodeConnectionFailed();
+                    }
+                };
 
-            reactor->run();
-		}
+                auto nnet = make_shared<MyNodeNetwork>(*wallet, *this);
+
+                Address node_addr;
+                node_addr.resolve(nodeURI.c_str());
+                nnet->m_Cfg.m_vNodes.push_back(node_addr);
+
+                nnet->Connect();
+                _nnet = nnet;
+
+                auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, *nnet, _keystore, _walletDB);
+                _wnet = wnet;
+                wallet->set_Network(*nnet, *wnet);
+
+                wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+
+                //if (AppModel::getInstance()->shouldRestoreWallet())
+                //{
+                //    AppModel::getInstance()->setRestoreWallet(false);
+                //    restoreFromBlockchain();
+                //}
+
+                {
+                    unique_lock<mutex> lock(*_startMutex);
+                    _startCV->notify_one();
+                }
+
+                _reactor->run();
+            }
+            catch (const runtime_error& ex)
+            {
+                LOG_ERROR() << ex.what();
+            }
+            catch (...)
+            {
+                LOG_ERROR() << "Unhandled exception";
+            }
+        }
+
+        void onNodeConnectedStatusChanged(bool isNodeConnected)
+        {
+
+        }
+
+        void onNodeConnectionFailed()
+        {
+
+        }
 
 		///////////////////////////////////////////////
 		// IWalletModelAsync impl
@@ -397,12 +479,10 @@ namespace
 
 		void syncWithNode() override 
         {
-            assert(!_wallet_io.expired());
-            auto s = _wallet_io.lock();
+            assert(!_nnet.expired());
+            auto s = _nnet.lock();
             if (s)
-            {
-                static_pointer_cast<INetworkIO>(s)->connect_node();
-            }
+                s->Connect();
         }
 
 		void calcChange(beam::Amount&& amount) override {}
@@ -412,9 +492,9 @@ namespace
 			LOG_DEBUG() << "getWalletStatus()";
 			onStatus(getStatus());
 
-			onTxStatus(beam::ChangeAction::Reset, _WalletDB->getTxHistory());
-			onTxPeerUpdated(_WalletDB->getPeers());
-			onAdrresses(false, _WalletDB->getAddresses(false));
+			onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
+			onTxPeerUpdated(_walletDB->getPeers());
+			onAdrresses(false, _walletDB->getAddresses(false));
 		}
 
 		void getUtxosStatus() override 
@@ -616,13 +696,13 @@ namespace
 
 		void onTxPeerChanged() override
 		{
-			onTxPeerUpdated(_WalletDB->getPeers());
+			onTxPeerUpdated(_walletDB->getPeers());
 		}
 
 		void onAddressChanged() override
 		{
-			onAdrresses(true, _WalletDB->getAddresses(true));
-    		onAdrresses(false, _WalletDB->getAddresses(false));
+			onAdrresses(true, _walletDB->getAddresses(true));
+    		onAdrresses(false, _walletDB->getAddresses(false));
 		}
 
 		void onSyncProgress(int done, int total) override
@@ -635,21 +715,11 @@ namespace
             
         }
 
-        void onNodeConnectedStatusChanged(bool isNodeConnected) override
-        {
-
-        }
-
-        void onNodeConnectionFailed() override
-        {
-
-        }
-
 		WalletStatus getStatus() const
 		{
-			WalletStatus status{ wallet::getAvailable(_WalletDB), 0, 0, 0};
+			WalletStatus status{ wallet::getAvailable(_walletDB), 0, 0, 0};
 
-			auto history = _WalletDB->getTxHistory();
+			auto history = _walletDB->getTxHistory();
 
 			for (const auto& item : history)
 			{
@@ -662,11 +732,11 @@ namespace
 			   }
 			}
 
-			status.unconfirmed += wallet::getTotal(_WalletDB, Coin::Unconfirmed);
+			status.unconfirmed += wallet::getTotal(_walletDB, Coin::Unconfirmed);
 
-			status.update.lastTime = _WalletDB->getLastUpdateTime();
+			status.update.lastTime = _walletDB->getLastUpdateTime();
 			ZeroObject(status.stateID);
-			_WalletDB->getSystemStateID(status.stateID);
+			_walletDB->getSystemStateID(status.stateID);
 
 			return status;
 		}
@@ -674,7 +744,7 @@ namespace
 		vector<Coin> getUtxos() const
 		{
 			vector<Coin> utxos;
-			_WalletDB->visit([&utxos](const Coin& c)->bool
+			_walletDB->visit([&utxos](const Coin& c)->bool
 			{
 				utxos.push_back(c);
 				return true;
@@ -688,10 +758,15 @@ namespace
 
 		shared_ptr<thread> _thread;
 
-		IWalletDB::Ptr _WalletDB;
-		IKeyStore::Ptr _keystore;
+        beam::IWalletDB::Ptr _walletDB;
+        beam::IKeyStore::Ptr _keystore;
+        beam::io::Reactor::Ptr _reactor;
+        std::weak_ptr<beam::proto::FlyClient::INetwork> _nnet;
+        std::weak_ptr<beam::Wallet::INetwork> _wnet;
+        std::weak_ptr<beam::Wallet> _wallet;
+        beam::io::Timer::Ptr _logRotateTimer;
 
-        std::weak_ptr<beam::INetworkIO> _wallet_io;
+        std::string _nodeAddrStr;
 
 		shared_ptr<mutex> _startMutex;
 		shared_ptr<condition_variable> _startCV;

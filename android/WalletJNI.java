@@ -40,11 +40,10 @@ public class WalletJNI
 			System.out.println(wallet == null ? "wallet creation error" : "wallet successfully created");
 		}
 
+		wallet.syncWithNode();
+
 		while(true)
 		{
-
-			wallet.syncWithNode();
-
 			System.out.println("Show info about wallet.");
 
 			// call async wallet requests
