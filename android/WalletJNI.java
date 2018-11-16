@@ -43,6 +43,8 @@ public class WalletJNI
 		while(true)
 		{
 
+			wallet.syncWithNode();
+
 			System.out.println("Show info about wallet.");
 
 			// call async wallet requests

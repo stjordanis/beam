@@ -369,6 +369,8 @@ namespace
 
 			auto wallet_io = make_shared<WalletNetworkIO>(node_addr, WalletDB, keystore, reactor);
 
+            _wallet_io = wallet_io;
+
 			wallet_io->subscribe(this);
 
 			Wallet wallet{ WalletDB, wallet_io};
@@ -382,6 +384,8 @@ namespace
 				_startCV->notify_one();
 			}
 
+            static_pointer_cast<INetworkIO>(wallet_io)->connect_node();
+
             reactor->run();
 		}
 
@@ -390,7 +394,17 @@ namespace
 		///////////////////////////////////////////////
 		void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
 		void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) override {}
-		void syncWithNode() override {}
+
+		void syncWithNode() override 
+        {
+            assert(!_wallet_io.expired());
+            auto s = _wallet_io.lock();
+            if (s)
+            {
+                static_pointer_cast<INetworkIO>(s)->connect_node();
+            }
+        }
+
 		void calcChange(beam::Amount&& amount) override {}
 
 		void getWalletStatus() override 
@@ -677,6 +691,8 @@ namespace
 		IWalletDB::Ptr _WalletDB;
 		IKeyStore::Ptr _keystore;
 
+        std::weak_ptr<beam::INetworkIO> _wallet_io;
+
 		shared_ptr<mutex> _startMutex;
 		shared_ptr<condition_variable> _startCV;
 	};
@@ -817,6 +833,13 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxosStatus)(JNIEnv *env, j
 	LOG_DEBUG() << "getUtxosStatus()";
 
 	getWallet(env, thiz).async->getUtxosStatus();
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncWithNode)(JNIEnv *env, jobject thiz)
+{
+	LOG_DEBUG() << "syncWithNode()";
+
+	getWallet(env, thiz).async->syncWithNode();
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
