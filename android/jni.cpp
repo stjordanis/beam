@@ -842,6 +842,17 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncWithNode)(JNIEnv *env, job
 	getWallet(env, thiz).async->syncWithNode();
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobject thiz,
+    jstring receiverAddr, jstring comment, jlong amount, jlong fee)
+{
+	LOG_DEBUG() << "sendMoney(" << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
+
+	getWallet(env, thiz).async->sendMoney(from_hex(JString(env, receiverAddr).value())
+        , JString(env, comment).value()
+        , beam::Amount(amount)
+        , beam::Amount(fee));
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
 	JNIEnv *env;

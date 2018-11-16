@@ -24,8 +24,7 @@ public class Wallet
     public native void getWalletStatus();
     public native void getUtxosStatus();
     public native void syncWithNode();
-    public native void sendMoney(byte[] receiver, String comment, long amount, long fee);
-    public native void sendMoney2(byte[] sender, byte[] receiver, long amount, long fee);
+    public native void sendMoney(String receiver, String comment, long amount, long fee);
     
     // not implemented
     public native void calcChange();//beam::Amount&& amount);
