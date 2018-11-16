@@ -950,6 +950,22 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 	return nullptr;
 }
 
+JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, jobject thiz)
+{
+	auto phrases = beam::createMnemonic(beam::getEntropy(), beam::language::en);
+
+    jobjectArray phrasesArray = env->NewObjectArray(static_cast<jsize>(phrases.size()), env->FindClass("java/lang/String"), 0);
+
+    int i = 0;
+    for (auto& phrase : phrases)
+    {
+        jstring str = env->NewStringUTF(phrase.c_str());
+        env->SetObjectArrayElement(phrasesArray, i++, str);
+    }
+
+	return phrasesArray;
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getWalletStatus)(JNIEnv *env, jobject thiz)
 {
 	LOG_DEBUG() << "getWalletStatus()";

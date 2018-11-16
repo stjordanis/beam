@@ -15,6 +15,8 @@
 import com.mw.beam.beamwallet.core.*;
 import com.mw.beam.beamwallet.core.entities.*;
 
+import java.util.Arrays;
+
 public class WalletJNI
 {
 	public static void main(String[] args)
@@ -22,6 +24,13 @@ public class WalletJNI
 		System.out.println("Start Wallet JNI test...");
 
 		Api api = new Api();
+
+		{
+			System.out.println("Test mnemonic...");
+			String[] phrases = api.createMnemonic();
+
+			System.out.println(Arrays.toString(phrases));
+		}
 
 		Wallet wallet;
 
