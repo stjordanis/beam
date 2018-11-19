@@ -25,10 +25,10 @@ public class Wallet
     public native void getUtxosStatus();
     public native void syncWithNode();
     public native void sendMoney(String receiver, String comment, long amount, long fee);
+    public native void calcChange(long amount);
+    public native void getAddresses(boolean own);
     
     // not implemented
-    public native void calcChange();//beam::Amount&& amount);
-    public native void getAddresses();//bool own);
     public native void cancelTx();//const beam::TxID& id);
     public native void deleteTx();//const beam::TxID& id);
     public native void createNewAddress();//beam::WalletAddress&& address);
@@ -39,4 +39,5 @@ public class Wallet
     public native void setNodeAddress();//const std::string& addr);
     public native void emergencyReset();
     public native void changeWalletPassword();//const beam::SecString& password);
+    public native void restoreFromBlockchain();
 }

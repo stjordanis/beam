@@ -123,6 +123,12 @@ namespace
 		env->SetBooleanField(obj, env->GetFieldID(clazz, name, "Z"), value);
 	}
 
+    inline void setStringField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const std::string& value)
+    {
+        jfieldID fieldId = env->GetFieldID(clazz, "label", "Ljava/lang/String;");
+        env->SetObjectField(obj, fieldId, env->NewStringUTF(value.c_str()));
+    }
+
 	template <typename T>
 	inline void setByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const T& value)
 	{
@@ -345,6 +351,7 @@ namespace
 	static jclass TxDescriptionClass = 0;
 	static jclass TxPeerClass = 0;
 	static jclass UtxoClass = 0;
+    static jclass WalletAddressClass = 0;
 
 	static JNIEnv* Android_JNI_getEnv(void)
 	{
@@ -523,7 +530,23 @@ namespace
                 s->Connect();
         }
 
-		void calcChange(beam::Amount&& amount) override {}
+		void calcChange(beam::Amount&& amount) override 
+        {
+            auto coins = _walletDB->selectCoins(amount, false);
+            Amount sum = 0;
+            for (auto& c : coins)
+            {
+                sum += c.m_amount;
+            }
+            if (sum < amount)
+            {
+                onChangeCalculated(0);
+            }
+            else
+            {
+                onChangeCalculated(sum - amount);
+            }
+        }
 
 		void getWalletStatus() override 
 		{
@@ -541,7 +564,11 @@ namespace
 			onAllUtxoChanged(getUtxos());
 		}
 
-		void getAddresses(bool own) override {}
+		void getAddresses(bool own) override 
+        {
+            onAdrresses(own, _walletDB->getAddresses(own));
+        }
+
 		void cancelTx(const beam::TxID& id) override {}
 		void deleteTx(const beam::TxID& id) override {}
 		void createNewAddress(beam::WalletAddress&& address) override {}
@@ -644,16 +671,8 @@ namespace
 					jobject tx = env->AllocObject(TxPeerClass);
 
 					setByteArrayField(env, TxPeerClass, tx, "walletID", item.m_walletID);
-
-					{
-						jfieldID fieldId = env->GetFieldID(TxPeerClass, "label", "Ljava/lang/String;");
-						env->SetObjectField(tx, fieldId, env->NewStringUTF(item.m_label.c_str()));
-					}
-
-					{
-						jfieldID fieldId = env->GetFieldID(TxPeerClass, "address", "Ljava/lang/String;");
-                        env->SetObjectField(tx, fieldId, env->NewStringUTF(item.m_address.c_str()));
-					}
+                    setStringField(env, TxPeerClass, tx, "label", item.m_label);
+                    setStringField(env, TxPeerClass, tx, "address", item.m_address);
 
 					env->SetObjectArrayElement(peerItems, i, tx);
 				}				
@@ -663,10 +682,22 @@ namespace
 		}
 
 		void onSyncProgressUpdated(int done, int total) {}
-		void onChangeCalculated(beam::Amount change) {}
+
+		void onChangeCalculated(beam::Amount change) 
+        {
+            LOG_DEBUG() << "onChangeCalculated(" << change << ")";
+
+            JNIEnv* env = Android_JNI_getEnv();
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onChangeCalculated", "(J)V");
+
+            env->CallStaticVoidMethod(WalletListenerClass, callback, change);
+        }
 
 		void onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec) 
 		{
+            LOG_DEBUG() << "onAllUtxoChanged()";
+
 			JNIEnv* env = Android_JNI_getEnv();
 
 			jobjectArray utxos = 0;
@@ -707,7 +738,40 @@ namespace
 			env->CallStaticVoidMethod(WalletListenerClass, callback, utxos);
 		}
 
-		void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses) {}
+		void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses) 
+        {
+            LOG_DEBUG() << "onAdrresses(" << own << ")";
+
+            JNIEnv* env = Android_JNI_getEnv();
+
+            jobjectArray addrArray = 0;
+
+            if (!addresses.empty())
+            {
+                addrArray = env->NewObjectArray(static_cast<jsize>(addresses.size()), WalletAddressClass, NULL);
+
+                for (int i = 0; i < addresses.size(); ++i)
+                {
+                    const auto& addrRef = addresses[i];
+
+                    jobject addr = env->AllocObject(WalletAddressClass);
+
+                    {
+                        setByteArrayField(env, WalletAddressClass, addr, "walletID", addrRef.m_walletID);
+                        setStringField(env, WalletAddressClass, addr, "label", addrRef.m_label);
+                        setStringField(env, WalletAddressClass, addr, "category", addrRef.m_category);
+                        setLongField(env, WalletAddressClass, addr, "createTime", addrRef.m_createTime);
+                        setLongField(env, WalletAddressClass, addr, "duration", addrRef.m_duration);
+                        setBooleanField(env, WalletAddressClass, addr, "own", addrRef.m_own);
+                    }
+
+                    env->SetObjectArrayElement(addrArray, i, addr);
+                }
+            }
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAdrresses", "(Z[L" BEAM_JAVA_PATH "/entities/WalletAddress;)V");
+            env->CallStaticVoidMethod(WalletListenerClass, callback, own, addrArray);
+        }
 
 		void onGeneratedNewWalletID(const beam::WalletID& walletID) {}
 		void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) {}
@@ -998,6 +1062,22 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobjec
         , beam::Amount(fee));
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobject thiz,
+    jlong amount)
+{
+    LOG_DEBUG() << "calcChange(" << amount << ")";
+
+    getWallet(env, thiz).async->calcChange(beam::Amount(amount));
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAddresses)(JNIEnv *env, jobject thiz,
+    jboolean own)
+{
+    LOG_DEBUG() << "getAddresses(" << own << ")";
+
+    getWallet(env, thiz).async->getAddresses(own);
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
 	JNIEnv *env;
@@ -1041,6 +1121,11 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
 		UtxoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
 	}
+
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/WalletAddress");
+        WalletAddressClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+    }
 
     return JNI_VERSION_1_6;
 }

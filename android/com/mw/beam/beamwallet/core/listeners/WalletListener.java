@@ -18,6 +18,7 @@ import com.mw.beam.beamwallet.core.entities.WalletStatus;
 import com.mw.beam.beamwallet.core.entities.Utxo;
 import com.mw.beam.beamwallet.core.entities.TxDescription;
 import com.mw.beam.beamwallet.core.entities.TxPeer;
+import com.mw.beam.beamwallet.core.entities.WalletAddress;
 
 public class WalletListener
 {
@@ -104,7 +105,23 @@ public class WalletListener
 		}
 	}
 
-	static void onAdrresses(){} //bool own, const std::vector<beam::WalletAddress>& addresses) {}
+	static void onAdrresses(boolean own, WalletAddress[] addresses)
+	{
+		System.out.println(">>>>>>>>>>> onAdrresses(" + own + ") called");
+
+		if(addresses != null)
+		{
+			System.out.println("+-------------------------------------------------------");	
+
+			for(int i = 0; i < addresses.length; i++)
+			{
+				System.out.println(addresses[i].walletID.toString());
+			}
+
+			System.out.println("+-------------------------------------------------------");	
+		}
+	}
+
 	static void onGeneratedNewWalletID(){} //const beam::WalletID& walletID) {}
 	static void onChangeCurrentWalletIDs(){} //beam::WalletID senderID, beam::WalletID receiverID) {}
 

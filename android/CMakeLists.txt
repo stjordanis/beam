@@ -31,6 +31,7 @@ else()
 			com/mw/beam/beamwallet/core/entities/TxDescription.java
 			com/mw/beam/beamwallet/core/entities/SystemState.java
 			com/mw/beam/beamwallet/core/entities/WalletStatus.java
+            com/mw/beam/beamwallet/core/entities/WalletAddress.java
 			com/mw/beam/beamwallet/core/listeners/WalletListener.java
 		ENTRY_POINT WalletJNI
 	)
