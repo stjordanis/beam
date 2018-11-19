@@ -199,33 +199,33 @@ namespace
     }
 
 	// TODO: remove copy paste from UI
-	struct IWalletModelAsync
-	{
-		using Ptr = std::shared_ptr<IWalletModelAsync>;
+    struct IWalletModelAsync
+    {
+        using Ptr = std::shared_ptr<IWalletModelAsync>;
 
-		virtual void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
-		virtual void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
-		virtual void syncWithNode() = 0;
-		virtual void calcChange(beam::Amount&& amount) = 0;
-		virtual void getWalletStatus() = 0;
-		virtual void getUtxosStatus() = 0;
-		virtual void getAddresses(bool own) = 0;
-		virtual void cancelTx(const beam::TxID& id) = 0;
-		virtual void deleteTx(const beam::TxID& id) = 0;
-		virtual void createNewAddress(beam::WalletAddress&& address) = 0;
-		virtual void generateNewWalletID() = 0;
-		virtual void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) = 0;
+        virtual void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
+        virtual void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
+        virtual void restoreFromBlockchain() = 0;
+        virtual void syncWithNode() = 0;
+        virtual void calcChange(beam::Amount&& amount) = 0;
+        virtual void getWalletStatus() = 0;
+        virtual void getUtxosStatus() = 0;
+        virtual void getAddresses(bool own) = 0;
+        virtual void cancelTx(const beam::TxID& id) = 0;
+        virtual void deleteTx(const beam::TxID& id) = 0;
+        virtual void createNewAddress(beam::WalletAddress&& address) = 0;
+        virtual void generateNewWalletID() = 0;
+        virtual void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) = 0;
 
-		virtual void deleteAddress(const beam::WalletID& id) = 0;
-		virtual void deleteOwnAddress(const beam::WalletID& id) = 0 ;
+        virtual void deleteAddress(const beam::WalletID& id) = 0;
+        virtual void deleteOwnAddress(const beam::WalletID& id) = 0;
 
-		virtual void setNodeAddress(const std::string& addr) = 0;
-		virtual void emergencyReset() = 0;
+        virtual void setNodeAddress(const std::string& addr) = 0;
 
-		virtual void changeWalletPassword(const beam::SecString& password) = 0;
+        virtual void changeWalletPassword(const beam::SecString& password) = 0;
 
-		virtual ~IWalletModelAsync() {}
-	};
+        virtual ~IWalletModelAsync() {}
+    };
 
 	struct WalletStatus
 	{
@@ -262,6 +262,14 @@ namespace
 				receiver_.sendMoney(receiverID, comment, move(amount), move(fee));
 			});
 		}
+
+        void restoreFromBlockchain() override
+        {
+            tx.send([](BridgeInterface& receiver_) mutable
+            {
+                receiver_.restoreFromBlockchain();
+            });
+        }
 
 		void syncWithNode() override
 		{
@@ -364,14 +372,6 @@ namespace
 			tx.send([addr](BridgeInterface& receiver_) mutable
 			{
 				receiver_.setNodeAddress(addr);
-			});
-		}
-
-		void emergencyReset() override
-		{
-			tx.send([](BridgeInterface& receiver_) mutable
-			{
-				receiver_.emergencyReset();
 			});
 		}
 
@@ -517,12 +517,25 @@ namespace
 
         void onNodeConnectedStatusChanged(bool isNodeConnected)
         {
+            LOG_DEBUG() << "onNodeConnectedStatusChanged(" << isNodeConnected << ")";
+
+            JNIEnv* env = Android_JNI_getEnv();
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeConnectedStatusChanged", "(Z)V");
+
+            env->CallStaticVoidMethod(WalletListenerClass, callback, isNodeConnected);
 
         }
 
         void onNodeConnectionFailed()
         {
+            LOG_DEBUG() << "onNodeConnectionFailed()";
 
+            JNIEnv* env = Android_JNI_getEnv();
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeConnectionFailed", "()V");
+
+            env->CallStaticVoidMethod(WalletListenerClass, callback);
         }
 
 		///////////////////////////////////////////////
@@ -559,6 +572,23 @@ namespace
                 if (s)
                 {
                     s->transfer_money(sender, receiver, move(amount), move(fee), true, move(message));
+                }
+            }
+            catch (...)
+            {
+
+            }
+        }
+
+        void restoreFromBlockchain() override
+        {
+            try
+            {
+                assert(!_wallet.expired());
+                auto s = _wallet.lock();
+                if (s)
+                {
+                    s->recover();
                 }
             }
             catch (...)
@@ -653,7 +683,6 @@ namespace
 		void deleteAddress(const beam::WalletID& id) override {}
 		void deleteOwnAddress(const beam::WalletID& id)  override {}
 		void setNodeAddress(const std::string& addr) override {}
-		void emergencyReset() override {}
 		void changeWalletPassword(const beam::SecString& password) override {}
 
 		///////////////////////////////////////////////
@@ -757,7 +786,29 @@ namespace
 			env->CallStaticVoidMethod(WalletListenerClass, callback, peerItems);			
 		}
 
-		void onSyncProgressUpdated(int done, int total) {}
+		void onSyncProgressUpdated(int done, int total)
+        {
+            LOG_DEBUG() << "onSyncProgressUpdated(" << done << ", " << total << ")";
+
+            JNIEnv* env = Android_JNI_getEnv();
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onSyncProgressUpdated", "(II)V");
+
+            env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
+        }
+
+        void onRecoverProgressUpdated(int done, int total, const std::string& message)
+        {
+            LOG_DEBUG() << "onRecoverProgressUpdated(" << done << ", " << total << ", " << message << ")";
+
+            JNIEnv* env = Android_JNI_getEnv();
+
+            jstring messageObj = env->NewStringUTF(message.c_str());
+
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onRecoverProgressUpdated", "(IILjava/lang/String;)V");
+
+            env->CallStaticVoidMethod(WalletListenerClass, callback, done, total, messageObj);
+        }
 
 		void onChangeCalculated(beam::Amount change) 
         {
@@ -902,7 +953,7 @@ namespace
 
         void onRecoverProgress(int done, int total, const std::string& message) override
         {
-            
+            onRecoverProgressUpdated(done, total, message);
         }
 
 		WalletStatus getStatus() const
@@ -1189,6 +1240,13 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(createNewAddress)(JNIEnv *env,
 
 
     getWallet(env, thiz).async->createNewAddress(move(ownAddress));
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(restoreFromBlockchain)(JNIEnv *env, jobject thiz)
+{
+    LOG_DEBUG() << "restoreFromBlockchain()";
+
+    getWallet(env, thiz).async->restoreFromBlockchain();
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)

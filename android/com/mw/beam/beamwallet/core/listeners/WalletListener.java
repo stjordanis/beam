@@ -81,8 +81,20 @@ public class WalletListener
 		}
 	}
 
-	static void onSyncProgressUpdated(){} //int done, int total) {}
-	static void onChangeCalculated(){} //beam::Amount change) {}
+	static void onSyncProgressUpdated(int done, int total)
+	{
+		System.out.println(">>>>>>>>>>>>>> async onSyncProgressUpdated in Java [ " + done + " / " + total + " ]");
+	}
+
+	static void onRecoverProgress(int done, int total, String message)
+	{
+		System.out.println(">>>>>>>>>>>>>> async onRecoverProgress in Java [ " + done + " / " + total + " ], message: " + message);
+	}
+
+	static void onChangeCalculated(long amount)
+	{
+		System.out.println(">>>>>>>>>>> onChangeCalculated(" + amount + ") called");
+	}
 
 	static void onAllUtxoChanged(Utxo[] utxos)
 	{
@@ -144,13 +156,13 @@ public class WalletListener
 
 	static void onChangeCurrentWalletIDs(){} //beam::WalletID senderID, beam::WalletID receiverID) {}
 
-	static void onTest()
+	static void onNodeConnectedStatusChanged(boolean isNodeConnected)
 	{
-		System.out.println(">>>>>>>>>>> onTest() called");
+		System.out.println(">>>>>>>>>>>>>> async onNodeConnectedStatusChanged(" + isNodeConnected + ") in Java");
 	}
 
-	static void onSyncTest()
+	static void onNodeConnectionFailed()
 	{
-		System.out.println(">>>>>>>>>>> onSyncTest() called");
+		System.out.println(">>>>>>>>>>>>>> async onNodeConnectionFailed() in Java");
 	}
 }

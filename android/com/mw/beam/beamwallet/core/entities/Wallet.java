@@ -30,6 +30,7 @@ public class Wallet
     public native void getAddresses(boolean own);
     public native void generateNewWalletID();
     public native void createNewAddress(WalletAddress address);
+    public native void restoreFromBlockchain();
     
     // not implemented
     public native void cancelTx();//const beam::TxID& id);
@@ -38,7 +39,5 @@ public class Wallet
     public native void deleteAddress();//const beam::WalletID& id);
     public native void deleteOwnAddress();//const beam::WalletID& id) ;
     public native void setNodeAddress();//const std::string& addr);
-    public native void emergencyReset();
     public native void changeWalletPassword();//const beam::SecString& password);
-    public native void restoreFromBlockchain();
 }
