@@ -15,6 +15,7 @@
 package com.mw.beam.beamwallet.core.entities;
 
 import java.util.*; 
+import com.mw.beam.beamwallet.core.entities.WalletAddress;
 
 public class Wallet
 {
@@ -27,12 +28,12 @@ public class Wallet
     public native void sendMoney(String receiver, String comment, long amount, long fee);
     public native void calcChange(long amount);
     public native void getAddresses(boolean own);
+    public native void generateNewWalletID();
+    public native void createNewAddress(WalletAddress address);
     
     // not implemented
     public native void cancelTx();//const beam::TxID& id);
     public native void deleteTx();//const beam::TxID& id);
-    public native void createNewAddress();//beam::WalletAddress&& address);
-    public native void generateNewWalletID();
     public native void changeCurrentWalletIDs();//const beam::WalletID& senderID, const beam::WalletID& receiverID);
     public native void deleteAddress();//const beam::WalletID& id);
     public native void deleteOwnAddress();//const beam::WalletID& id) ;

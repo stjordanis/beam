@@ -14,6 +14,7 @@
 
 import com.mw.beam.beamwallet.core.*;
 import com.mw.beam.beamwallet.core.entities.*;
+import com.mw.beam.beamwallet.core.listeners.*;
 
 import java.util.Arrays;
 
@@ -49,9 +50,12 @@ public class WalletJNI
 			System.out.println(wallet == null ? "wallet creation error" : "wallet successfully created");
 		}
 
+		WalletListener.wallet = wallet;
+
 		wallet.syncWithNode();
 
 		boolean sendAttempt = false;
+		boolean addrGenearteAttempt = false;
 
 		while(true)
 		{
@@ -63,6 +67,12 @@ public class WalletJNI
 				wallet.getUtxosStatus();
 				wallet.getAddresses(true);
 				wallet.getAddresses(false);
+
+				if(!addrGenearteAttempt)
+				{
+					addrGenearteAttempt = true;
+					wallet.generateNewWalletID();
+				}
 
 				// if(!sendAttempt)
 				// {

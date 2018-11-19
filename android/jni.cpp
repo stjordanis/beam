@@ -125,7 +125,7 @@ namespace
 
     inline void setStringField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const std::string& value)
     {
-        jfieldID fieldId = env->GetFieldID(clazz, "label", "Ljava/lang/String;");
+        jfieldID fieldId = env->GetFieldID(clazz, name, "Ljava/lang/String;");
         env->SetObjectField(obj, fieldId, env->NewStringUTF(value.c_str()));
     }
 
@@ -152,6 +152,51 @@ namespace
 		data.assign(value.m_pData, value.m_pData + ECC::uintBig::nBytes);
 		setByteArrayField(env, clazz, obj, name, data);
 	}
+
+    inline std::string getStringField(JNIEnv *env, jclass clazz, jobject obj, const char* name)
+    {
+        jfieldID fieldId = env->GetFieldID(clazz, name, "Ljava/lang/String;");
+
+        return JString(env, (jstring)env->GetObjectField(obj, fieldId)).value();
+    }
+
+    inline jlong getLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name)
+    {
+        jfieldID fieldId = env->GetFieldID(clazz, name, "J");
+
+        return env->GetLongField(obj, fieldId);
+    }
+
+    inline jboolean getBooleanField(JNIEnv *env, jclass clazz, jobject obj, const char* name)
+    {
+        jfieldID fieldId = env->GetFieldID(clazz, name, "Z");
+
+        return env->GetBooleanField(obj, fieldId);
+    }
+
+    inline jsize getByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const char* name, uint8_t* value)
+    {
+        jfieldID fieldId = env->GetFieldID(clazz, name, "[B");
+        jbyteArray byteArray = (jbyteArray)env->GetObjectField(obj, fieldId);
+
+        jbyte* data = env->GetByteArrayElements(byteArray, NULL);
+
+        if (data)
+        {
+            jsize size = env->GetArrayLength(byteArray);
+
+            if (size > 0)
+            {
+                memcpy(value, data, size);
+            }
+
+            env->ReleaseByteArrayElements(byteArray, data, JNI_ABORT);
+
+            return size;
+        }
+
+        return 0;
+    }
 
 	// TODO: remove copy paste from UI
 	struct IWalletModelAsync
@@ -566,13 +611,44 @@ namespace
 
 		void getAddresses(bool own) override 
         {
+            LOG_DEBUG() << "getAddresses()";
+
             onAdrresses(own, _walletDB->getAddresses(own));
         }
 
 		void cancelTx(const beam::TxID& id) override {}
 		void deleteTx(const beam::TxID& id) override {}
-		void createNewAddress(beam::WalletAddress&& address) override {}
-		void generateNewWalletID() override {}
+
+		void createNewAddress(beam::WalletAddress&& address) override 
+        {
+            _keystore->save_keypair(address.m_walletID, true);
+            _walletDB->saveAddress(address);
+
+            if (address.m_own)
+            {
+                auto s = _wnet.lock();
+                if (s)
+                {
+                    static_cast<WalletNetworkViaBbs&>(*s).new_own_address(address.m_walletID);
+                }
+            }
+        }
+
+		void generateNewWalletID() override 
+        {
+            try
+            {
+                WalletID walletID;
+                _keystore->gen_keypair(walletID);
+
+                onGeneratedNewWalletID(walletID);
+            }
+            catch (...)
+            {
+
+            }
+        }
+
 		void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override {}
 		void deleteAddress(const beam::WalletID& id) override {}
 		void deleteOwnAddress(const beam::WalletID& id)  override {}
@@ -773,7 +849,19 @@ namespace
             env->CallStaticVoidMethod(WalletListenerClass, callback, own, addrArray);
         }
 
-		void onGeneratedNewWalletID(const beam::WalletID& walletID) {}
+		void onGeneratedNewWalletID(const beam::WalletID& walletID) 
+        {
+            LOG_DEBUG() << "onGeneratedNewWalletID()";
+
+            JNIEnv* env = Android_JNI_getEnv();
+
+            jbyteArray id = env->NewByteArray(WalletID::nBytes);
+            env->SetByteArrayRegion(id, 0, WalletID::nBytes, reinterpret_cast<const jbyte*>(walletID.m_pData));
+            
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onGeneratedNewWalletID", "([B)V");
+            env->CallStaticVoidMethod(WalletListenerClass, callback, id);
+        }
+
 		void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) {}
 
 		///////////////////////////////////////////////
@@ -1076,6 +1164,38 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAddresses)(JNIEnv *env, job
     LOG_DEBUG() << "getAddresses(" << own << ")";
 
     getWallet(env, thiz).async->getAddresses(own);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateNewWalletID)(JNIEnv *env, jobject thiz)
+{
+    LOG_DEBUG() << "generateNewWalletID()";
+
+    getWallet(env, thiz).async->generateNewWalletID();
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(createNewAddress)(JNIEnv *env, jobject thiz
+    , jobject walletAddrObj)
+{
+    LOG_DEBUG() << "createNewAddress()";
+
+    WalletAddress ownAddress{};
+
+    assert(false);
+
+    {
+        jsize size = getByteArrayField(env, WalletAddressClass, walletAddrObj, "walletID", ownAddress.m_walletID.m_pData);
+
+        assert(size == WalletID::nBytes);
+    }
+
+    ownAddress.m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");
+    ownAddress.m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
+    ownAddress.m_createTime = getLongField(env, WalletAddressClass, walletAddrObj, "createTime");
+    ownAddress.m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
+    ownAddress.m_own = getBooleanField(env, WalletAddressClass, walletAddrObj, "own");
+
+
+    getWallet(env, thiz).async->createNewAddress(move(ownAddress));
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)

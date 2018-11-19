@@ -20,8 +20,12 @@ import com.mw.beam.beamwallet.core.entities.TxDescription;
 import com.mw.beam.beamwallet.core.entities.TxPeer;
 import com.mw.beam.beamwallet.core.entities.WalletAddress;
 
+import com.mw.beam.beamwallet.core.entities.Wallet;
+
 public class WalletListener
 {
+	public static Wallet wallet;
+
 	static void onStatus(WalletStatus status)
 	{
 		System.out.println(">>>>>>>>>>>>>> async status in Java, available=" + status.available/1000000 + " BEAM and " + status.available%1000000 + " GROTH, unconfirmed=" + status.unconfirmed);
@@ -122,7 +126,22 @@ public class WalletListener
 		}
 	}
 
-	static void onGeneratedNewWalletID(){} //const beam::WalletID& walletID) {}
+	static void onGeneratedNewWalletID(byte[] walletID)
+	{
+		System.out.println(">>>>>>>>>>> onGeneratedNewWalletID(" + walletID.toString() + ") called");
+
+		// great, create QR code here and save new address to the DB by calling Wallet.createNewAddress()
+
+		WalletAddress addr = new WalletAddress();
+		addr.walletID = walletID;
+		addr.own = true;
+		addr.label = "Vasya Pupkin";
+		addr.category = "";
+    	addr.createTime = 1542644941; // timestamp
+
+		wallet.createNewAddress(addr);
+	}
+
 	static void onChangeCurrentWalletIDs(){} //beam::WalletID senderID, beam::WalletID receiverID) {}
 
 	static void onTest()
