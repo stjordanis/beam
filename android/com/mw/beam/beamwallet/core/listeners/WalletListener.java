@@ -86,9 +86,9 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>>>>> async onSyncProgressUpdated in Java [ " + done + " / " + total + " ]");
 	}
 
-	static void onRecoverProgress(int done, int total, String message)
+	static void onRecoverProgressUpdated(int done, int total, String message)
 	{
-		System.out.println(">>>>>>>>>>>>>> async onRecoverProgress in Java [ " + done + " / " + total + " ], message: " + message);
+		System.out.println(">>>>>>>>>>>>>> async onRecoverProgressUpdated in Java [ " + done + " / " + total + " ], message: " + message);
 	}
 
 	static void onChangeCalculated(long amount)
