@@ -1180,11 +1180,8 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(createNewAddress)(JNIEnv *env,
 
     WalletAddress ownAddress{};
 
-    assert(false);
-
     {
         jsize size = getByteArrayField(env, WalletAddressClass, walletAddrObj, "walletID", ownAddress.m_walletID.m_pData);
-
         assert(size == WalletID::nBytes);
     }
 
